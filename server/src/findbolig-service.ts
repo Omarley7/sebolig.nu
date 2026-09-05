@@ -20,7 +20,6 @@ const TIMEOUT_REFRESH = 10_000;   // 10s – background session check
 const TIMEOUT_DATA = 20_000;      // 20s – heavier data fetches
 
 import { TimeoutError, UpstreamHttpError } from "~/lib/errors";
-export { TimeoutError, UpstreamHttpError };
 
 async function fetchWithTimeout(
   url: string,

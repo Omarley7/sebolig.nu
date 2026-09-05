@@ -7,7 +7,6 @@ import {
   type SealedSession,
 } from "./session";
 import { UpstreamHttpError } from "./errors";
-import type { FindboligService } from "~/app";
 
 export class AuthError extends Error {
   constructor(message: string = "Authentication required") {
@@ -16,20 +15,24 @@ export class AuthError extends Error {
   }
 }
 
-export type WithReauth = <T>(c: Context, fn: (cookies: string) => Promise<T>) => Promise<T>;
+/** The only thing silent re-authentication needs from findbolig.nu: a login that yields cookies, or nothing. */
+export interface Reauthenticator {
+  login(email: string, password: string): Promise<{ cookies: string[] } | null>;
+}
 
 /**
- * Builds the wrapper that gives every data route automatic session handling:
+ * Builds the wrapper that gives every data route automatic findbolig session handling:
  * 1. Unseals the session cookie
  * 2. Calls fn with findbolig cookies
  * 3. On upstream 401: silently re-authenticates with the stored credentials and retries
  * 4. Re-seals the (possibly updated) session cookie
  *
- * `login` is injected so the app can be exercised against a fake findbolig.nu.
+ * The findbolig service is injected (and read lazily, per call) so the app can be
+ * exercised against a fake findbolig.nu whose behaviour changes between requests.
  */
-export function createWithReauth(login: FindboligService["login"]): WithReauth {
+export function createWithReauth(findbolig: Reauthenticator) {
   async function reauth(session: SealedSession): Promise<SealedSession | null> {
-    const result = await login(session.fbEmail, session.fbPassword);
+    const result = await findbolig.login(session.fbEmail, session.fbPassword);
     if (!result?.cookies?.length) return null;
     return { ...session, fbCookies: parseCookies(result.cookies) };
   }

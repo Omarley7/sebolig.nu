@@ -40,9 +40,8 @@ function handleError(c: Context, error: unknown) {
  * point, so importing this module has no side effects and tests can call
  * `createApp(...).request(...)` directly.
  */
-export function createApp({ findbolig }: AppDeps) {
-  const findboligService = findbolig;
-  const withReauth = createWithReauth(findbolig.login);
+export function createApp({ findbolig: findboligService }: AppDeps) {
+  const withReauth = createWithReauth(findboligService);
 
   const app = new Hono();
 
