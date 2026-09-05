@@ -154,7 +154,7 @@ function confirmLogout() {
 
           <p class="mb-2 text-gray-600 dark:text-gray-300">{{ t("auth.logoutConfirm") }}</p>
           <router-link
-            to="/saadan-virker-det"
+            :to="{ name: 'explainer' }"
             @click="closeLogoutModal"
             class="inline-block mb-6 text-sm text-violet-600 dark:text-violet-400 hover:underline"
           >

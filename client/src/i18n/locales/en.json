@@ -9,7 +9,8 @@
     "week": "Week",
     "month": "Month",
     "today": "Today",
-    "tomorrow": "Tomorrow"
+    "tomorrow": "Tomorrow",
+    "sourceCode": "Source code on GitHub"
   },
   "appointments": {
     "emptyTitle": "No upcoming appointments",
@@ -196,17 +197,16 @@
     "time": "Time"
   },
   "footer": {
-    "notAffiliated": "SeBolig is not affiliated with findbolig.nu or DEAS.",
-    "source": "Source code on GitHub"
+    "notAffiliated": "SeBolig is not affiliated with findbolig.nu or DEAS."
   },
   "explainer": {
     "linkLabel": "How it works",
     "title": "How it works",
-    "intro": "SeBolig shows you your own data from findbolig.nu. To do that, SeBolig has to log in to findbolig.nu as you. Here is what that means in practice.",
+    "intro": "SeBolig shows you your own data from findbolig.nu. To do that, SeBolig has to use your findbolig.nu account on your behalf. Here is what that means in practice.",
     "password": {
       "title": "What happens to your password",
-      "p1": "When you connect your account, SeBolig sends your email and password to findbolig.nu to log in – exactly as when you log in there yourself.",
-      "p2": "Afterwards SeBolig keeps your password encrypted in a cookie in your own browser. It is used for one thing only: logging in to findbolig.nu again when your findbolig session expires, so you do not have to type it again.",
+      "p1": "When you connect your account, SeBolig sends your email and password to findbolig.nu – exactly as when you use findbolig.nu yourself.",
+      "p2": "Afterwards SeBolig keeps your password encrypted in your own browser. It is used for one thing only: renewing your findbolig session when it expires, so you do not have to type it again.",
       "p3": "The password is never sent to anyone but findbolig.nu."
     },
     "notStored": {
@@ -215,17 +215,17 @@
     },
     "why": {
       "title": "Why we need your password",
-      "p1": "findbolig.nu offers no “log in with” option, no MitID access for third parties and no official access for apps like SeBolig. We checked. The only way to fetch your data is to log in the way you do."
+      "p1": "findbolig.nu offers no way to give an app like SeBolig access without your password – not via MitID, not via a “continue with” button, and not via any official app access. We checked. The only way in is the same one you use yourself."
     },
     "revoke": {
       "title": "How to take access back",
-      "p1": "Disconnect in SeBolig. The cookie and everything SeBolig stored on this device are erased.",
-      "p2": "Change your password on findbolig.nu. SeBolig can then no longer log in, and the connection ends by itself.",
+      "p1": "Disconnect in SeBolig. Everything SeBolig stored on this device is erased – including the encrypted password.",
+      "p2": "Change your password on findbolig.nu. SeBolig can then no longer get into your account, and the connection ends by itself.",
       "p3": "Do nothing for 30 days. The connection expires automatically."
     },
     "device": {
       "title": "Your data on this device",
-      "p1": "Your appointments, offers and waiting lists are stored locally on the device you use, so they can be shown without a network too. They do not leave the device.",
+      "p1": "Your appointments, offers and waiting lists are fetched from findbolig.nu through our server, but are kept only on the device you use, so they can be shown without a network too.",
       "p2": "A connection is per device and browser. Disconnecting on your phone leaves your computer connected – and the other way round.",
       "p3": "When you disconnect, all of it is erased."
     },
@@ -233,7 +233,6 @@
       "title": "Who runs this",
       "p1": "SeBolig.nu is an independent project and is not affiliated with findbolig.nu or DEAS.",
       "p2": "The code is open. You can read it and ask questions on GitHub."
-    },
-    "backToHome": "Back to home"
+    }
   }
 }

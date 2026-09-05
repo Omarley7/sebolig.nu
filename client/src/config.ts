@@ -11,6 +11,6 @@ const config: Config = {
 };
 
 /** Public source repository, linked from the footer and the Explainer. */
-export const REPO_URL = "https://github.com/Omarley7/fetchBolig.js";
+export const REPO_URL = "https://github.com/Omarley7/sebolig.nu";
 
 export default config;

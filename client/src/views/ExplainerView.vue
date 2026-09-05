@@ -4,13 +4,14 @@ import { REPO_URL } from "~/config";
 
 const { t } = useI18n();
 
+/** The six approved sections, in order. `link` renders an external link after the paragraphs. */
 const sections = [
   { key: "password", paragraphs: ["p1", "p2", "p3"] },
   { key: "notStored", paragraphs: ["p1"] },
   { key: "why", paragraphs: ["p1"] },
   { key: "revoke", paragraphs: ["p1", "p2", "p3"] },
   { key: "device", paragraphs: ["p1", "p2", "p3"] },
-  { key: "who", paragraphs: ["p1", "p2"] },
+  { key: "who", paragraphs: ["p1", "p2"], link: { href: REPO_URL, labelKey: "common.sourceCode" } },
 ] as const;
 </script>
 
@@ -35,13 +36,13 @@ const sections = [
         {{ t(`explainer.${section.key}.${p}`) }}
       </p>
       <a
-        v-if="section.key === 'who'"
-        :href="REPO_URL"
+        v-if="'link' in section"
+        :href="section.link.href"
         target="_blank"
         rel="noopener noreferrer"
         class="inline-block text-violet-600 dark:text-violet-400 hover:underline font-medium"
       >
-        {{ t("footer.source") }} →
+        {{ t(section.link.labelKey) }} →
       </a>
     </section>
 
@@ -49,7 +50,7 @@ const sections = [
       to="/"
       class="inline-block text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline"
     >
-      {{ t("explainer.backToHome") }}
+      {{ t("common.backToHome") }}
     </router-link>
   </article>
 </template>

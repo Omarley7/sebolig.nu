@@ -9,7 +9,8 @@
     "week": "Uge",
     "month": "Måned",
     "today": "I dag",
-    "tomorrow": "I morgen"
+    "tomorrow": "I morgen",
+    "sourceCode": "Kildekode på GitHub"
   },
   "appointments": {
     "emptyTitle": "Ingen kommende aftaler",
@@ -196,17 +197,16 @@
     "time": "Kl"
   },
   "footer": {
-    "notAffiliated": "SeBolig er ikke tilknyttet findbolig.nu eller DEAS.",
-    "source": "Kildekode på GitHub"
+    "notAffiliated": "SeBolig er ikke tilknyttet findbolig.nu eller DEAS."
   },
   "explainer": {
     "linkLabel": "Sådan virker det",
     "title": "Sådan virker det",
-    "intro": "SeBolig viser dig dine egne data fra findbolig.nu. For at kunne det skal SeBolig logge ind på findbolig.nu som dig. Her er, hvad det betyder i praksis.",
+    "intro": "SeBolig viser dig dine egne data fra findbolig.nu. For at kunne det skal SeBolig bruge din findbolig.nu-konto på dine vegne. Her er, hvad det betyder i praksis.",
     "password": {
       "title": "Hvad sker der med din adgangskode",
-      "p1": "Når du forbinder din konto, sender SeBolig din e-mail og adgangskode til findbolig.nu for at logge ind – præcis som når du selv logger ind der.",
-      "p2": "Bagefter gemmer SeBolig din adgangskode krypteret i en cookie i din egen browser. Den bruges kun til én ting: at logge ind på findbolig.nu igen, når din findbolig-session udløber, så du ikke skal indtaste den igen.",
+      "p1": "Når du forbinder din konto, sender SeBolig din e-mail og adgangskode til findbolig.nu – præcis som når du selv bruger findbolig.nu.",
+      "p2": "Bagefter gemmer SeBolig din adgangskode krypteret i din egen browser. Den bruges kun til én ting: at forny din findbolig-session, når den udløber, så du ikke skal indtaste den igen.",
       "p3": "Adgangskoden sendes aldrig til andre end findbolig.nu."
     },
     "notStored": {
@@ -215,17 +215,17 @@
     },
     "why": {
       "title": "Hvorfor vi har brug for din adgangskode",
-      "p1": "findbolig.nu tilbyder ingen “log ind med”-løsning, ingen MitID-adgang for tredjeparter og ingen officiel adgang for apps som SeBolig. Vi har undersøgt det. Den eneste måde at hente dine data er at logge ind, som du selv gør."
+      "p1": "findbolig.nu tilbyder ingen måde at give en app som SeBolig adgang uden din adgangskode – hverken via MitID, en “fortsæt med”-knap eller en officiel app-adgang. Vi har undersøgt det. Den eneste vej ind er den samme, som du selv bruger."
     },
     "revoke": {
       "title": "Sådan trækker du adgangen tilbage",
-      "p1": "Afbryd forbindelsen i SeBolig. Så slettes cookien og alt, SeBolig har gemt på denne enhed.",
-      "p2": "Skift din adgangskode på findbolig.nu. Så kan SeBolig ikke længere logge ind, og forbindelsen ophører af sig selv.",
+      "p1": "Afbryd forbindelsen i SeBolig. Så slettes alt, SeBolig har gemt på denne enhed – også den krypterede adgangskode.",
+      "p2": "Skift din adgangskode på findbolig.nu. Så kan SeBolig ikke længere komme ind på din konto, og forbindelsen ophører af sig selv.",
       "p3": "Gør ingenting i 30 dage. Så udløber forbindelsen automatisk."
     },
     "device": {
       "title": "Dine data på denne enhed",
-      "p1": "Dine fremvisninger, tilbud og ventelister gemmes lokalt på den enhed, du bruger, så de også kan vises uden netværk. De forlader ikke enheden.",
+      "p1": "Dine fremvisninger, tilbud og ventelister hentes fra findbolig.nu via vores server, men opbevares kun på den enhed, du bruger, så de også kan vises uden netværk.",
       "p2": "Forbindelsen gælder pr. enhed og browser. Afbryder du på telefonen, er computeren stadig forbundet – og omvendt.",
       "p3": "Når du afbryder forbindelsen, slettes det hele."
     },
@@ -233,7 +233,6 @@
       "title": "Hvem står bag",
       "p1": "SeBolig.nu er et uafhængigt projekt og er ikke tilknyttet findbolig.nu eller DEAS.",
       "p2": "Koden er åben. Du kan læse den og stille spørgsmål på GitHub."
-    },
-    "backToHome": "Tilbage til forsiden"
+    }
   }
 }
