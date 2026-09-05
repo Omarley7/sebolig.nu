@@ -5,7 +5,7 @@ import type { FindboligService } from "./app";
 // session.ts throws at import time unless COOKIE_SECRET is set.
 process.env.COOKIE_SECRET ||= "x".repeat(32);
 const { createApp } = await import("./app");
-const { sealSession } = await import("./lib/session");
+const { sealSession, parseCookies } = await import("./lib/session");
 
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 
@@ -32,11 +32,11 @@ const FB_LOGIN_COOKIES = [
   ".AspNet.Cookies=ticket456; path=/; secure; httponly; samesite=lax",
 ];
 
-function connect(app: ReturnType<typeof createApp>, body: object = { email: TENANT.email, password: "pw" }) {
+function connect(app: ReturnType<typeof createApp>) {
   return app.request("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ email: TENANT.email, password: "pw" }),
   });
 }
 
@@ -85,7 +85,7 @@ test("connecting sets a Connection cookie that lives 30 days, HttpOnly, scoped t
 /** A request carrying a live Connection for TENANT. */
 async function connectedHeaders(): Promise<HeadersInit> {
   const sealed = await sealSession({
-    fbCookies: "__Secure-SID=sid123; .AspNet.Cookies=ticket456",
+    fbCookies: parseCookies(FB_LOGIN_COOKIES),
     fbEmail: TENANT.email,
     fbPassword: "pw",
     fullName: TENANT.fullName,
