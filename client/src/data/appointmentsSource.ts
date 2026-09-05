@@ -114,11 +114,7 @@ export async function syncAppointments(
   return { updatedAt: new Date(), appointments: data as Appointment[] };
 }
 
-export async function login(
-  email: string,
-  password: string,
-  remember: boolean = true,
-): Promise<UserData | null> {
+export async function login(email: string, password: string): Promise<UserData | null> {
   try {
     const result = await fetchWithTimeout(
       `${config.backendDomain}/api/auth/login`,
@@ -126,7 +122,7 @@ export async function login(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password, remember }),
+        body: JSON.stringify({ email, password }),
       },
       TIMEOUT_LOGIN,
     );

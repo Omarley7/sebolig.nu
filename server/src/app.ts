@@ -81,7 +81,7 @@ export function createApp({ findbolig: findboligService }: AppDeps) {
 
   auth.post("/login", async (c) => {
     try {
-      const { email, password, remember } = await c.req.json();
+      const { email, password } = await c.req.json();
       if (!email || !password) {
         return c.json({ error: "Email and password are required" }, 400);
       }
@@ -99,7 +99,7 @@ export function createApp({ findbolig: findboligService }: AppDeps) {
         email: result.email,
       };
 
-      await setSessionCookie(c, session, remember !== false);
+      await setSessionCookie(c, session);
       return c.json({ fullName: result.fullName, email: result.email });
     } catch (error) {
       return handleError(c, error);

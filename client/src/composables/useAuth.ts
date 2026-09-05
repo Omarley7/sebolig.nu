@@ -22,11 +22,11 @@ export const useAuth = defineStore(
     let keepAliveTimer: number | null = null;
     const toast = useToastStore();
 
-    async function login(userEmail: string, userPassword: string, remember: boolean = true) {
+    async function login(userEmail: string, userPassword: string) {
       isLoading.value = true;
 
       try {
-        const userData = await apiLogin(userEmail, userPassword, remember);
+        const userData = await apiLogin(userEmail, userPassword);
         if (!userData) {
           toast.error("Login failed. Please try again.");
           return setAuthenticated(false);
