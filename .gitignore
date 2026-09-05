@@ -75,3 +75,8 @@ __screenshots__/
 # AI
 .devcontainer/
 .claude/
+.scratch/
+CLAUDE.md
+docs/agents/
+CONTEXT.md
+docs/adr/
