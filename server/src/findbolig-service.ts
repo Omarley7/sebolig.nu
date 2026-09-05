@@ -19,21 +19,8 @@ const TIMEOUT_LOGIN = 10_000;     // 10s – user is waiting on a modal
 const TIMEOUT_REFRESH = 10_000;   // 10s – background session check
 const TIMEOUT_DATA = 20_000;      // 20s – heavier data fetches
 
-export class TimeoutError extends Error {
-  constructor(url: string, timeoutMs: number) {
-    super(`Request to ${url} timed out after ${timeoutMs / 1000}s`);
-    this.name = "TimeoutError";
-  }
-}
-
-export class UpstreamHttpError extends Error {
-  readonly status: number;
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "UpstreamHttpError";
-    this.status = status;
-  }
-}
+import { TimeoutError, UpstreamHttpError } from "~/lib/errors";
+export { TimeoutError, UpstreamHttpError };
 
 async function fetchWithTimeout(
   url: string,
