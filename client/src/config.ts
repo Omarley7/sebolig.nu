@@ -10,4 +10,7 @@ const config: Config = {
   imageBaseUrl: import.meta.env.VITE_IMAGE_BASE_URL ?? "https://findbolig.nu",
 };
 
+/** Public source repository, linked from the footer and the Explainer. */
+export const REPO_URL = "https://github.com/Omarley7/fetchBolig.js";
+
 export default config;

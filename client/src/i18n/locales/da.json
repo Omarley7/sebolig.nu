@@ -194,5 +194,46 @@
     "clickToExpand": "Klik for at se præcist tidspunkt",
     "date": "Dato",
     "time": "Kl"
+  },
+  "footer": {
+    "notAffiliated": "SeBolig er ikke tilknyttet findbolig.nu eller DEAS.",
+    "source": "Kildekode på GitHub"
+  },
+  "explainer": {
+    "linkLabel": "Sådan virker det",
+    "title": "Sådan virker det",
+    "intro": "SeBolig viser dig dine egne data fra findbolig.nu. For at kunne det skal SeBolig logge ind på findbolig.nu som dig. Her er, hvad det betyder i praksis.",
+    "password": {
+      "title": "Hvad sker der med din adgangskode",
+      "p1": "Når du forbinder din konto, sender SeBolig din e-mail og adgangskode til findbolig.nu for at logge ind – præcis som når du selv logger ind der.",
+      "p2": "Bagefter gemmer SeBolig din adgangskode krypteret i en cookie i din egen browser. Den bruges kun til én ting: at logge ind på findbolig.nu igen, når din findbolig-session udløber, så du ikke skal indtaste den igen.",
+      "p3": "Adgangskoden sendes aldrig til andre end findbolig.nu."
+    },
+    "notStored": {
+      "title": "Hvad vi ikke gemmer",
+      "p1": "Intet på vores servere. SeBolig har ingen database med brugere, adgangskoder eller boligdata. Serveren videresender dine forespørgsler til findbolig.nu og glemmer dem igen."
+    },
+    "why": {
+      "title": "Hvorfor vi har brug for din adgangskode",
+      "p1": "findbolig.nu tilbyder ingen “log ind med”-løsning, ingen MitID-adgang for tredjeparter og ingen officiel adgang for apps som SeBolig. Vi har undersøgt det. Den eneste måde at hente dine data er at logge ind, som du selv gør."
+    },
+    "revoke": {
+      "title": "Sådan trækker du adgangen tilbage",
+      "p1": "Afbryd forbindelsen i SeBolig. Så slettes cookien og alt, SeBolig har gemt på denne enhed.",
+      "p2": "Skift din adgangskode på findbolig.nu. Så kan SeBolig ikke længere logge ind, og forbindelsen ophører af sig selv.",
+      "p3": "Gør ingenting i 30 dage. Så udløber forbindelsen automatisk."
+    },
+    "device": {
+      "title": "Dine data på denne enhed",
+      "p1": "Dine fremvisninger, tilbud og ventelister gemmes lokalt på den enhed, du bruger, så de også kan vises uden netværk. De forlader ikke enheden.",
+      "p2": "Forbindelsen gælder pr. enhed og browser. Afbryder du på telefonen, er computeren stadig forbundet – og omvendt.",
+      "p3": "Når du afbryder forbindelsen, slettes det hele."
+    },
+    "who": {
+      "title": "Hvem står bag",
+      "p1": "SeBolig.nu er et uafhængigt projekt og er ikke tilknyttet findbolig.nu eller DEAS.",
+      "p2": "Koden er åben. Du kan læse den og stille spørgsmål på GitHub."
+    },
+    "backToHome": "Tilbage til forsiden"
   }
 }
