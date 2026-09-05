@@ -10,6 +10,14 @@ export class TimeoutError extends Error {
   }
 }
 
+/** findbolig.nu could not be reached at all (DNS, connection refused, TLS, ...). */
+export class UnreachableError extends Error {
+  constructor(url: string, cause: unknown) {
+    super(`Request to ${url} failed: ${cause instanceof Error ? cause.message : String(cause)}`, { cause });
+    this.name = "UnreachableError";
+  }
+}
+
 export class UpstreamHttpError extends Error {
   readonly status: number;
   constructor(message: string, status: number) {
@@ -17,4 +25,8 @@ export class UpstreamHttpError extends Error {
     this.name = "UpstreamHttpError";
     this.status = status;
   }
+}
+
+export function isUpstreamStatus(error: unknown, status: number): boolean {
+  return error instanceof UpstreamHttpError && error.status === status;
 }

@@ -19,7 +19,7 @@ const TIMEOUT_LOGIN = 10_000;     // 10s – user is waiting on a modal
 const TIMEOUT_REFRESH = 10_000;   // 10s – background session check
 const TIMEOUT_DATA = 20_000;      // 20s – heavier data fetches
 
-import { TimeoutError, UpstreamHttpError } from "~/lib/errors";
+import { TimeoutError, UnreachableError, UpstreamHttpError } from "~/lib/errors";
 
 async function fetchWithTimeout(
   url: string,
@@ -35,47 +35,48 @@ async function fetchWithTimeout(
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new TimeoutError(url, timeoutMs);
     }
-    throw error;
+    throw new UnreachableError(url, error);
   } finally {
     clearTimeout(timer);
   }
 }
 
 /**
- * Performs initial GET and login to establish authenticated session
- * Returns the Set-Cookie headers if successful
+ * Performs initial GET and login to establish a findbolig session.
+ * Returns the user data with the Set-Cookie headers of both requests.
+ *
+ * Failures are thrown, not swallowed, so callers can tell them apart:
+ * - UpstreamHttpError with status 403: findbolig.nu rejected the email or
+ *   password (observed body: "Invalid username or password", errorCode 105)
+ * - UpstreamHttpError with another status: findbolig.nu answered but not with a session
+ * - TimeoutError / UnreachableError: findbolig.nu is not responding
  */
 export async function login(
   email: string,
   password: string,
-): Promise<(UserData & { cookies: string[] }) | null> {
-  try {
-    // Initial GET to receive __Secure-SID cookie
-    const initialRes = await fetchWithTimeout(BASE_URL, { redirect: "follow" }, TIMEOUT_LOGIN);
-    const initialCookies = initialRes.headers.getSetCookie();
+): Promise<UserData & { cookies: string[] }> {
+  // Initial GET to receive __Secure-SID cookie
+  const initialRes = await fetchWithTimeout(BASE_URL, { redirect: "follow" }, TIMEOUT_LOGIN);
+  const initialCookies = initialRes.headers.getSetCookie();
 
-    // Perform login with initial cookies
-    const cookieHeader = initialCookies.join("; ");
-    const res = await fetchWithTimeout(`${BASE_URL}/api/authentication/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...(cookieHeader && { Cookie: cookieHeader }),
-      },
-      body: JSON.stringify({ email, password }),
-    }, TIMEOUT_LOGIN);
+  // Perform login with initial cookies
+  const cookieHeader = initialCookies.join("; ");
+  const res = await fetchWithTimeout(`${BASE_URL}/api/authentication/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(cookieHeader && { Cookie: cookieHeader }),
+    },
+    body: JSON.stringify({ email, password }),
+  }, TIMEOUT_LOGIN);
 
-    if (!res.ok) {
-      return null;
-    }
-    // Combine cookies from both requests
-    return apiUserDataToDomain(await res.json() as ApiUserData, [...initialCookies, ...res.headers.getSetCookie()]);
-
-  } catch (error) {
-    console.error("Login failed:", error);
-    return null;
+  if (!res.ok) {
+    const detail = (await res.text().catch(() => "")).slice(0, 200);
+    throw new UpstreamHttpError(`Login failed: ${res.status} ${detail}`.trim(), res.status);
   }
+  // Combine cookies from both requests
+  return apiUserDataToDomain(await res.json() as ApiUserData, [...initialCookies, ...res.headers.getSetCookie()]);
 }
 
 /**

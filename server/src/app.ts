@@ -4,8 +4,8 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import type { SyncAppointmentsRequest } from "@/types";
-import { AuthError, createWithReauth } from "~/lib/auth-helpers";
-import { TimeoutError } from "~/lib/errors";
+import { AuthError, createReauthenticate, createWithReauth } from "~/lib/auth-helpers";
+import { TimeoutError, UnreachableError, isUpstreamStatus } from "~/lib/errors";
 import {
   setSessionCookie,
   clearSessionCookie,
@@ -23,10 +23,13 @@ export interface AppDeps {
 
 function handleError(c: Context, error: unknown) {
   if (error instanceof AuthError) {
-    return c.json({ error: error.message }, 401);
+    return c.json(
+      error.reason ? { error: error.message, reason: error.reason } : { error: error.message },
+      401
+    );
   }
   console.error(error);
-  if (error instanceof TimeoutError) {
+  if (error instanceof TimeoutError || error instanceof UnreachableError) {
     return c.json(
       { error: "timeout", message: "findbolig.nu is not responding" },
       504
@@ -42,6 +45,7 @@ function handleError(c: Context, error: unknown) {
  */
 export function createApp({ findbolig: findboligService }: AppDeps) {
   const withReauth = createWithReauth(findboligService);
+  const reauthenticate = createReauthenticate(findboligService);
 
   const app = new Hono();
 
@@ -86,8 +90,12 @@ export function createApp({ findbolig: findboligService }: AppDeps) {
         return c.json({ error: "Email and password are required" }, 400);
       }
 
-      const result = await findboligService.login(email, password);
-      if (!result?.cookies?.length) {
+      const result = await findboligService.login(email, password).catch((error) => {
+        // findbolig.nu answers a wrong email or password with 403
+        if (isUpstreamStatus(error, 403)) return null;
+        throw error;
+      });
+      if (!result?.cookies.length) {
         return c.json({ error: "Invalid email or password" }, 401);
       }
 
@@ -128,21 +136,9 @@ export function createApp({ findbolig: findboligService }: AppDeps) {
         return c.json({ fullName: result.fullName, email: result.email });
       }
 
-      // findbolig session expired — try re-auth with stored credentials
-      const fresh = await findboligService.login(
-        session.fbEmail,
-        session.fbPassword
-      );
-      if (!fresh?.cookies?.length) {
-        await clearSessionCookie(c);
-        return c.json({ error: "Session expired" }, 401);
-      }
-
-      session.fbCookies = parseCookies(fresh.cookies);
-      session.fullName = fresh.fullName;
-      session.email = fresh.email;
-      await setSessionCookie(c, session);
-      return c.json({ fullName: fresh.fullName, email: fresh.email });
+      // findbolig session expired: silent re-authentication with the stored credentials
+      const renewed = await reauthenticate(c, session);
+      return c.json({ fullName: renewed.fullName, email: renewed.email });
     } catch (error) {
       return handleError(c, error);
     }
