@@ -11,8 +11,6 @@ import router from "~/router";
 import { useToastStore } from "~/stores/toast";
 
 const TIMEOUT_REFRESH = 15_000;
-/** localStorage key the persistedstate plugin writes this store's identity under (the store id). */
-const PERSISTED_IDENTITY_KEY = "auth";
 
 export const useAuth = defineStore(
   "auth",
@@ -113,15 +111,20 @@ export const useAuth = defineStore(
     }
 
     /**
-     * The one definition of what Local data is. Removes everything SeBolig stored on this
-     * device about the tenant; persisted preferences (locale, theme) are not Local data.
+     * The one definition of what Local data is: the data caches plus the persisted identity.
+     * Persisted preferences (locale, theme) are not Local data and survive.
+     *
+     * The identity is this store's own persisted state, so blanking it here is what ends up
+     * on the device; removing the storage key would be undone by the next state write.
      */
     function eraseLocalData() {
       clearAppointmentsCache();
       clearOffersCache();
       clearWaitingListsCache();
       clearSnapshots();
-      localStorage.removeItem(PERSISTED_IDENTITY_KEY);
+      email.value = "";
+      name.value = "";
+      isAuthenticated.value = false;
     }
 
     async function logout() {
@@ -135,8 +138,6 @@ export const useAuth = defineStore(
       }
       eraseLocalData();
       setAuthenticated(false);
-      name.value = "";
-      email.value = "";
       await router.push({ name: "home" });
     }
 

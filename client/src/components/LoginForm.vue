@@ -170,8 +170,7 @@ function confirmLogout() {
             </button>
             <button
               @click="confirmLogout"
-              :disabled="auth.isLoading"
-              class="disabled:opacity-50 px-4 py-2 rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors font-medium"
+              class="px-4 py-2 rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors font-medium"
             >
               {{ t("auth.disconnect") }}
             </button>

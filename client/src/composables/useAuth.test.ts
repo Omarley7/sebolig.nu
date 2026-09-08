@@ -79,10 +79,7 @@ it("disconnecting erases every piece of Local data and the persisted identity, k
   for (const key of LOCAL_DATA_KEYS) expect(localStorage.getItem(key), key).toBeNull();
   for (const [key, value] of Object.entries(PREFERENCE_KEYS)) expect(localStorage.getItem(key), key).toBe(value);
 
-  const persistedIdentity = localStorage.getItem("auth");
-  if (persistedIdentity !== null) {
-    expect(JSON.parse(persistedIdentity)).toEqual({ email: "", name: "", isAuthenticated: false });
-  }
+  expect(JSON.parse(localStorage.getItem("auth")!)).toEqual({ email: "", name: "", isAuthenticated: false });
   expect(auth.email).toBe("");
   expect(auth.name).toBe("");
   expect(auth.isAuthenticated).toBe(false);
