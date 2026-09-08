@@ -142,7 +142,7 @@ function confirmLogout() {
           class="bg-violet-50 dark:bg-violet-950 text-gray-900 dark:text-gray-100 border border-violet-200 dark:border-violet-800/50 rounded-lg shadow-xl p-6 max-w-sm w-full mx-20"
         >
           <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold">{{ t("common.logout") }}</h2>
+            <h2 class="text-xl font-semibold">{{ t("auth.disconnect") }}</h2>
             <button
               @click="closeLogoutModal"
               class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
@@ -152,7 +152,7 @@ function confirmLogout() {
             </button>
           </div>
 
-          <p class="mb-2 text-gray-600 dark:text-gray-300">{{ t("auth.logoutConfirm") }}</p>
+          <p class="mb-2 text-gray-600 dark:text-gray-300">{{ t("auth.disconnectConfirm") }}</p>
           <router-link
             :to="{ name: 'explainer' }"
             @click="closeLogoutModal"
@@ -173,7 +173,7 @@ function confirmLogout() {
               :disabled="auth.isLoading"
               class="disabled:opacity-50 px-4 py-2 rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors font-medium"
             >
-              {{ auth.isLoading ? t("auth.loggingOut") : t("common.logout") }}
+              {{ t("auth.disconnect") }}
             </button>
           </div>
         </div>

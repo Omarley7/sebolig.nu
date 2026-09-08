@@ -5,10 +5,14 @@ import config from "~/config";
 import { clearAppointmentsCache } from "~/data/appointments";
 import { login as apiLogin, handleApiError, HttpError } from "~/data/appointmentsSource";
 import { clearOffersCache } from "~/data/offers";
+import { clearSnapshots, clearWaitingListsCache } from "~/data/waitingLists";
 import { useI18n } from "~/i18n";
+import router from "~/router";
 import { useToastStore } from "~/stores/toast";
 
 const TIMEOUT_REFRESH = 15_000;
+/** localStorage key the persistedstate plugin writes this store's identity under (the store id). */
+const PERSISTED_IDENTITY_KEY = "auth";
 
 export const useAuth = defineStore(
   "auth",
@@ -108,6 +112,18 @@ export const useAuth = defineStore(
       }
     }
 
+    /**
+     * The one definition of what Local data is. Removes everything SeBolig stored on this
+     * device about the tenant; persisted preferences (locale, theme) are not Local data.
+     */
+    function eraseLocalData() {
+      clearAppointmentsCache();
+      clearOffersCache();
+      clearWaitingListsCache();
+      clearSnapshots();
+      localStorage.removeItem(PERSISTED_IDENTITY_KEY);
+    }
+
     async function logout() {
       try {
         await fetch(`${config.backendDomain}/api/auth/logout`, {
@@ -117,11 +133,11 @@ export const useAuth = defineStore(
       } catch {
         // Best-effort — clear client state regardless
       }
-      clearAppointmentsCache();
-      clearOffersCache();
+      eraseLocalData();
       setAuthenticated(false);
       name.value = "";
       email.value = "";
+      await router.push({ name: "home" });
     }
 
     async function validateSession(): Promise<boolean> {

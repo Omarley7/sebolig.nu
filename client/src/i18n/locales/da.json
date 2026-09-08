@@ -124,8 +124,8 @@
   },
   "auth": {
     "loggingIn": "Logger ind...",
-    "loggingOut": "Logger ud...",
-    "logoutConfirm": "Er du sikker på, at du vil logge ud?",
+    "disconnect": "Afbryd forbindelsen",
+    "disconnectConfirm": "Afbryd forbindelsen til findbolig.nu? Alt, SeBolig har gemt på denne enhed, slettes.",
     "cancel": "Annuller",
     "securityNote": "Din forbindelse til findbolig.nu er krypteret og sikker.",
     "findboligCredentials": "Forbind din findbolig.nu-konto",

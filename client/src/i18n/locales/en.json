@@ -124,8 +124,8 @@
   },
   "auth": {
     "loggingIn": "Logging in...",
-    "loggingOut": "Logging out...",
-    "logoutConfirm": "Are you sure you want to log out?",
+    "disconnect": "Disconnect",
+    "disconnectConfirm": "Disconnect from findbolig.nu? Everything SeBolig stored on this device will be erased.",
     "cancel": "Cancel",
     "securityNote": "Your connection to findbolig.nu is encrypted and secure.",
     "findboligCredentials": "Connect your findbolig.nu account",

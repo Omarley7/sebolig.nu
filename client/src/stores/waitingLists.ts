@@ -6,7 +6,6 @@ import config from "~/config";
 import { handleApiError, HttpError } from "~/data/appointmentsSource";
 import {
   buildSnapshots,
-  clearSnapshots,
   detectPassivated,
   getSnapshots,
   getWaitingLists,
@@ -311,7 +310,6 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
       needsRefresh.value = false;
       sessionExpired.value = false;
       recentlyPassivated.value = [];
-      clearSnapshots();
     }
   });
 
