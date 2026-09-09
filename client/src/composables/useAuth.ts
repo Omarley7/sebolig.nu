@@ -30,7 +30,7 @@ export const useAuth = defineStore(
       try {
         const userData = await apiLogin(userEmail, userPassword);
         if (!userData) {
-          toast.error("Login failed. Please try again.");
+          toast.error(useI18n().t("errors.connectFailed"));
           return setAuthenticated(false);
         }
 
@@ -38,7 +38,7 @@ export const useAuth = defineStore(
         const ok = setAuthenticated(true, userData.fullName);
         if (ok) {
           startKeepAlive();
-          toast.success(useI18n().t("auth.loginSuccess"));
+          toast.success(useI18n().t("auth.connected"));
           identify({ email: userEmail, name: userData.fullName });
         }
         return ok;
@@ -46,7 +46,7 @@ export const useAuth = defineStore(
         if (err instanceof HttpError && err.status === 401) {
           toast.error(useI18n().t("errors.invalidCredentials"), 6000);
         } else {
-          handleApiError(err, toast, useI18n().t, "Login failed unexpectedly...", "errors.timeoutLogin");
+          handleApiError(err, toast, useI18n().t, useI18n().t("errors.connectFailed"), "errors.timeoutConnect");
         }
         return setAuthenticated(false);
       } finally {

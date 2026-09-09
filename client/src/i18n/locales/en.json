@@ -1,8 +1,6 @@
 {
   "common": {
     "appTitle": "SeBolig.nu",
-    "login": "Login",
-    "logout": "Logout",
     "pageNotFound": "Page not found",
     "backToHome": "Back to home",
     "day": "Day",
@@ -10,12 +8,13 @@
     "month": "Month",
     "today": "Today",
     "tomorrow": "Tomorrow",
-    "sourceCode": "Source code on GitHub"
+    "sourceCode": "Source code on GitHub",
+    "connect": "Connect"
   },
   "appointments": {
     "emptyTitle": "No upcoming appointments",
-    "emptyDescription": "It looks like you don't have any upcoming viewings yet. Search for housing on FindBolig.nu and wait for invitations.",
-    "searchOnFindbolig": "Search housing on FindBolig.nu",
+    "emptyDescription": "It looks like you don't have any upcoming viewings yet. Search for housing on findbolig.nu and wait for invitations.",
+    "searchOnFindbolig": "Search housing on findbolig.nu",
     "pageTitle": "Upcoming viewings",
     "count": "{count} viewing | {count} viewings",
     "openHouse": "Open House",
@@ -54,7 +53,7 @@
     "declineSuccess": "Offer declined",
     "actionFailed": "Action failed. Please try again.",
     "emptyTitle": "No new offers",
-    "emptyDescription": "You don't have any active housing offers right now. Offers will appear here when you receive them on FindBolig.nu.",
+    "emptyDescription": "You don't have any active housing offers right now. Offers will appear here when you receive them on findbolig.nu.",
     "openOnFindbolig": "Open on findbolig.nu",
     "queuePosition": "Position",
     "mapOfLocations": "Map of {count} locations",
@@ -66,7 +65,7 @@
     "count": "{count} waiting list | {count} waiting lists",
     "refresh": "Refresh",
     "emptyTitle": "You are not on any waiting lists",
-    "emptyDescription": "Find properties on FindBolig.nu and sign up to a waiting list to receive offers.",
+    "emptyDescription": "Find properties on findbolig.nu and sign up to a waiting list to receive offers.",
     "groups": {
       "passive": "Passive",
       "active": "Active"
@@ -123,18 +122,21 @@
     "shortMonth": "mo"
   },
   "auth": {
-    "loggingIn": "Logging in...",
     "disconnect": "Disconnect",
     "disconnectConfirm": "Disconnect from findbolig.nu? Everything SeBolig stored on this device will be erased.",
     "cancel": "Cancel",
-    "securityNote": "Your connection to findbolig.nu is encrypted and secure.",
-    "findboligCredentials": "Connect your findbolig.nu account",
-    "loginSuccess": "You are now logged in!",
     "demoLogin": "Try as demo",
     "demoNamePlaceholder": "Your name (for demo)",
     "demoNameHint": "Enter your name to try the demo.",
     "demoLoginSuccess": "You are now in demo mode.",
-    "orSeparator": "or"
+    "orSeparator": "or",
+    "connectHeading": "Connect your findbolig.nu account to get started",
+    "connectButton": "Connect with findbolig.nu",
+    "connecting": "Connecting...",
+    "connected": "Connected to findbolig.nu",
+    "emailPlaceholder": "findbolig.nu email",
+    "passwordPlaceholder": "findbolig.nu password",
+    "custodyNote": "SeBolig keeps your password encrypted in your browser so you stay connected for up to 30 days. Nothing is stored on our servers. You can disconnect at any time."
   },
   "gallery": {
     "photos": "Photos",
@@ -147,7 +149,7 @@
     "welcome": "Your data, your control",
     "viewAppointments": "View your {0} appointments",
     "fetchAppointments": "Fetch your appointments",
-    "readyToFetch": "Your appointments from FindBolig.nu are ready to be fetched.",
+    "readyToFetch": "Your appointments from findbolig.nu are ready to be fetched.",
     "noAppointmentsHint": "Don't have any appointments yet? Use findbolig.nu to search for housing and wait for invitations.",
     "lastUpdated": "Last updated {0} ago",
     "viewOffers": "View your {0} offers",
@@ -162,27 +164,24 @@
     "waitingLists": "Waiting lists"
   },
   "landing": {
-    "tagline": "A better dashboard for your FindBolig.nu account",
+    "tagline": "A better dashboard for your findbolig.nu account",
     "description": "We fetch your appointments, housing offers and more directly from findbolig.nu - with offline access and local storage.",
     "featureAppointments": "Chronological appointment overview",
     "featureOffline": "Offline access with local storage",
-    "featureAI": "AI-powered open house date extraction",
-    "getStarted": "Log in with your findbolig.nu account to get started.",
-    "loginButton": "Log in with FindBolig.nu",
-    "emailPlaceholder": "FindBolig.nu email",
-    "passwordPlaceholder": "FindBolig.nu password"
+    "featureAI": "AI-powered open house date extraction"
   },
   "stale": {
     "dataAge": "Your data is {0} old.",
     "refreshNow": "Refresh now",
     "dismiss": "Dismiss",
-    "sessionExpired": "Your session has expired. Please log in again to fetch updates.",
-    "loginAgain": "Log in"
+    "connectionEnded": "The connection to findbolig.nu has ended. Connect again to fetch updates.",
+    "connectAgain": "Connect again"
   },
   "errors": {
     "timeout": "findbolig.nu is not responding right now. Please try again later.",
-    "timeoutLogin": "Could not reach findbolig.nu to log in. Please try again later.",
-    "invalidCredentials": "Invalid email or password. Please try again."
+    "invalidCredentials": "Invalid email or password. Please try again.",
+    "timeoutConnect": "Could not reach findbolig.nu to connect. Please try again later.",
+    "connectFailed": "Connecting failed. Please try again."
   },
   "sync": {
     "updatedAgo": "Synced {0}",

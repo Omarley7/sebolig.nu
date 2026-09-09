@@ -1,21 +1,12 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import DemoLoginButton from "~/components/DemoLoginButton.vue";
+import ConnectForm from "~/components/ConnectForm.vue";
 import { useAuth } from "~/composables/useAuth";
 
 const auth = useAuth();
 const { t } = useI18n();
-const password = ref("");
-const showPassword = ref(false);
 const isLogoutModalOpen = ref(false);
-
-async function handleLogin() {
-  if (await auth.login(auth.email, password.value)) {
-    password.value = "";
-    auth.showLoginModal = false;
-  }
-}
 
 function openModal() {
   auth.showLoginModal = true;
@@ -41,19 +32,19 @@ function confirmLogout() {
 
 <template>
   <div>
-    <!-- Login/Logout Button -->
+    <!-- Connect / disconnect trigger -->
     <div
       class="disabled:opacity-50 cursor-pointer p-2 bg-black/5 dark:bg-white/10 rounded-full hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
     >
-      <div v-if="!auth.isAuthenticated" @click="openModal" :aria-label="t('common.login')">
-        <img src="/icons/user-round-key.svg" :alt="t('common.login')" class="size-6 dark:invert" />
+      <div v-if="!auth.isAuthenticated" @click="openModal" :aria-label="t('common.connect')">
+        <img src="/icons/user-round-key.svg" :alt="t('common.connect')" class="size-6 dark:invert" />
       </div>
-      <div v-else @click="openLogoutModal" :disabled="auth.isLoading" :aria-label="t('common.logout')">
-        <img src="/icons/log-out.svg" :alt="t('common.logout')" class="size-6 dark:invert" />
+      <div v-else @click="openLogoutModal" :disabled="auth.isLoading" :aria-label="t('auth.disconnect')">
+        <img src="/icons/log-out.svg" :alt="t('auth.disconnect')" class="size-6 dark:invert" />
       </div>
     </div>
 
-    <!-- Login Modal -->
+    <!-- Connect modal -->
     <Teleport to="body">
       <div
         v-if="auth.showLoginModal"
@@ -63,8 +54,8 @@ function confirmLogout() {
         <div
           class="bg-violet-50 dark:bg-violet-950 text-gray-900 dark:text-gray-100 border border-violet-200 dark:border-violet-800/50 rounded-lg shadow-xl p-6 max-w-md w-full mx-20"
         >
-          <div class="flex justify-between items-center mb-1">
-            <h2 class="text-xl font-semibold">{{ t("common.login") }}</h2>
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="text-xl font-semibold">{{ t("common.connect") }}</h2>
             <button
               @click="closeModal"
               class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
@@ -73,65 +64,12 @@ function confirmLogout() {
               <img src="/icons/x.svg" alt="Close" class="size-6 dark:invert" />
             </button>
           </div>
-          <p class="text-sm text-violet-600 dark:text-violet-400 mb-4">
-            {{ t("auth.findboligCredentials") }}
-          </p>
-
-          <form @submit.prevent="handleLogin" class="flex flex-col gap-4">
-            <div class="flex flex-col gap-2">
-              <input
-                id="email"
-                v-model="auth.email"
-                type="email"
-                :placeholder="t('landing.emailPlaceholder')"
-                :disabled="auth.isLoading"
-                class="disabled:opacity-50 px-3 py-2 border border-violet-200 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white dark:bg-transparent"
-              />
-            </div>
-
-            <div class="relative flex flex-col gap-2">
-              <input
-                id="password"
-                v-model="password"
-                :type="showPassword ? 'text' : 'password'"
-                :placeholder="t('landing.passwordPlaceholder')"
-                :disabled="auth.isLoading"
-                class="disabled:opacity-50 px-3 py-2 pr-10 border border-violet-200 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white dark:bg-transparent"
-              />
-              <button
-                type="button"
-                @click="showPassword = !showPassword"
-                class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                tabindex="-1"
-              >
-                <img v-if="showPassword" src="/icons/eye-off.svg" alt="Hide password" class="size-5 dark:invert opacity-60" />
-                <img v-else src="/icons/eye.svg" alt="Show password" class="size-5 dark:invert opacity-60" />
-              </button>
-            </div>
-
-            <button
-              type="submit"
-              :disabled="auth.isLoading || !auth.email || !password"
-              class="disabled:opacity-50 bg-violet-600 text-white px-4 py-2 rounded-md hover:bg-violet-700 transition-colors font-medium"
-            >
-              {{ auth.isLoading ? t("auth.loggingIn") : t("common.login") }}
-            </button>
-
-            <div class="relative flex items-center">
-              <div class="grow border-t border-violet-200 dark:border-violet-800"></div>
-              <span class="mx-3 text-xs text-violet-400 dark:text-violet-500">{{
-                t("auth.orSeparator")
-              }}</span>
-              <div class="grow border-t border-violet-200 dark:border-violet-800"></div>
-            </div>
-
-            <DemoLoginButton :disabled="auth.isLoading" />
-          </form>
+          <ConnectForm @connected="closeModal" />
         </div>
       </div>
     </Teleport>
 
-    <!-- Logout Confirmation Modal -->
+    <!-- Disconnect confirmation -->
     <Teleport to="body">
       <div
         v-if="isLogoutModalOpen"

@@ -31,12 +31,12 @@ const visible = computed(() => store.needsRefresh || store.sessionExpired);
   >
     <!-- Session expired -->
     <template v-if="store.sessionExpired">
-      <span>{{ t("stale.sessionExpired") }}</span>
+      <span>{{ t("stale.connectionEnded") }}</span>
       <button
         @click="emit('openLogin')"
         class="shrink-0 px-3 py-1 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors text-xs font-medium"
       >
-        {{ t("stale.loginAgain") }}
+        {{ t("stale.connectAgain") }}
       </button>
     </template>
 
