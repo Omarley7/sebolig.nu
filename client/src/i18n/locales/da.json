@@ -132,6 +132,7 @@
     "demoLoginSuccess": "Du er nu i demo-tilstand.",
     "orSeparator": "eller",
     "connectHeading": "Forbind din findbolig.nu-konto for at komme i gang",
+    "passwordChangedHeading": "Din findbolig.nu-adgangskode ser ud til at være ændret, så forbindelsen er afbrudt og dine data på denne enhed er slettet. Forbind igen for at fortsætte.",
     "connectButton": "Forbind med findbolig.nu",
     "showPassword": "Vis adgangskode",
     "hidePassword": "Skjul adgangskode",

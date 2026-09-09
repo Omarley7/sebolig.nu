@@ -1,9 +1,10 @@
+import type { ConnectionEndedReason } from "@/types";
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { identify } from "~/composables/usePostHog";
 import config from "~/config";
 import { clearAppointmentsCache } from "~/data/appointments";
-import { login as apiLogin, handleApiError, HttpError } from "~/data/appointmentsSource";
+import { login as apiLogin, handleApiError, HttpError, readEndedReason } from "~/data/appointmentsSource";
 import { clearOffersCache } from "~/data/offers";
 import { clearSnapshots, clearWaitingListsCache } from "~/data/waitingLists";
 import { useI18n } from "~/i18n";
@@ -11,6 +12,15 @@ import router from "~/router";
 import { useToastStore } from "~/stores/toast";
 
 const TIMEOUT_REFRESH = 15_000;
+const KEEP_ALIVE_INTERVAL = 3 * 60 * 1000;
+
+/**
+ * What a Connection check found out.
+ * - live: the server still has a usable Connection
+ * - ended: the server said the Connection is over; Local data has been erased and the user sent home
+ * - unreachable: findbolig.nu did not answer (timeout, network, 504); the Connection is kept
+ */
+export type ConnectionCheck = "live" | "ended" | "unreachable";
 
 export const useAuth = defineStore(
   "auth",
@@ -21,6 +31,11 @@ export const useAuth = defineStore(
     const isDemo = ref(false);
     const name = ref("");
     const showLoginModal = ref(false);
+    /**
+     * Set when the server ended the Connection because findbolig.nu rejected the stored
+     * password. Deliberately not persisted: a page load clears it, as does the next connect.
+     */
+    const endedByPasswordChange = ref(false);
     let keepAliveTimer: number | null = null;
     const toast = useToastStore();
 
@@ -38,6 +53,7 @@ export const useAuth = defineStore(
         email.value = userEmail;
         const ok = setAuthenticated(true, userData.fullName);
         if (ok) {
+          endedByPasswordChange.value = false;
           startKeepAlive();
           toast.success(t("auth.connected"));
           identify({ email: userEmail, name: userData.fullName });
@@ -77,31 +93,7 @@ export const useAuth = defineStore(
 
     function startKeepAlive() {
       stopKeepAlive();
-      keepAliveTimer = window.setInterval(
-        async () => {
-          try {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), TIMEOUT_REFRESH);
-            const res = await fetch(`${config.backendDomain}/api/auth/refresh`, {
-              method: "GET",
-              credentials: "include",
-              signal: controller.signal,
-            });
-            clearTimeout(timer);
-
-            if (!res.ok) {
-              if (res.status === 401) setAuthenticated(false);
-              return;
-            }
-
-            const data = await res.json();
-            if (data?.fullName) name.value = data.fullName;
-          } catch (e) {
-            console.error("Keep-alive failed:", e);
-          }
-        },
-        3 * 60 * 1000,
-      );
+      keepAliveTimer = window.setInterval(() => void checkConnection(), KEEP_ALIVE_INTERVAL);
     }
 
     function stopKeepAlive() {
@@ -128,6 +120,18 @@ export const useAuth = defineStore(
       isAuthenticated.value = false;
     }
 
+    /**
+     * The one place a Connection ends on this device, whether the user disconnected or
+     * the server said it was over: erase Local data, reset auth state, remember why, go home.
+     * Only `credentials_rejected` is worth explaining to the user; any other ending is silent.
+     */
+    async function endConnection(reason?: ConnectionEndedReason) {
+      eraseLocalData();
+      setAuthenticated(false);
+      endedByPasswordChange.value = reason === "credentials_rejected";
+      await router.push({ name: "home" });
+    }
+
     async function logout() {
       try {
         await fetch(`${config.backendDomain}/api/auth/logout`, {
@@ -137,42 +141,61 @@ export const useAuth = defineStore(
       } catch {
         // Best-effort — clear client state regardless
       }
-      eraseLocalData();
-      setAuthenticated(false);
-      await router.push({ name: "home" });
+      await endConnection();
     }
 
-    async function validateSession(): Promise<boolean> {
-      if (isDemo.value) return true;
+    /**
+     * Asks the server whether the Connection is still live and reacts to the answer.
+     * The keep-alive poll, the visibility check and the data stores all come through here,
+     * so the outcome does not depend on which request happened to notice.
+     */
+    async function checkConnection(): Promise<ConnectionCheck> {
+      if (isDemo.value) return "live";
+      let res: Response;
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), TIMEOUT_REFRESH);
-        const res = await fetch(`${config.backendDomain}/api/auth/refresh`, {
+        res = await fetch(`${config.backendDomain}/api/auth/refresh`, {
           method: "GET",
           credentials: "include",
           signal: controller.signal,
         });
         clearTimeout(timer);
-
-        if (!res.ok) {
-          if (res.status === 401) setAuthenticated(false);
-          return false;
-        }
-
-        const data = await res.json();
-        if (data?.fullName) name.value = data.fullName;
-        isAuthenticated.value = true;
-        return true;
       } catch {
-        return false;
+        return "unreachable";
       }
+
+      if (res.status === 401) {
+        await endConnection(await readEndedReason(res));
+        return "ended";
+      }
+      if (!res.ok) return "unreachable";
+
+      const data = await res.json().catch(() => null);
+      if (data?.fullName) name.value = data.fullName;
+      isAuthenticated.value = true;
+      return "live";
     }
 
-    async function ensureSession(): Promise<boolean> {
-      // Server handles auto-reauth — just validate the cookie
-      const valid = await validateSession();
-      if (!valid) setAuthenticated(false);
-      return valid;
+    /** Whether a failed data request was refused because the server could not use the Connection. */
+    function isUnauthenticated(error: unknown): boolean {
+      return error instanceof HttpError && error.status === 401;
+    }
+
+    /**
+     * Data stores hand a failed request here instead of reading status codes themselves.
+     * A refused request that says why is the server's final word (it has already cleared the
+     * cookie, so a second look could only answer a reasonless 401): the Connection ends with that
+     * reason. A refused request without a reason gets the Connection re-checked. Any other
+     * failure is not the Connection's business.
+     */
+    async function recoverFrom(error: unknown): Promise<ConnectionCheck | "unrelated"> {
+      if (!(error instanceof HttpError && error.status === 401)) return "unrelated";
+      if (error.reason) {
+        await endConnection(error.reason);
+        return "ended";
+      }
+      return checkConnection();
     }
 
     // Resume keep-alive if already authenticated on startup (skip in demo mode)
@@ -190,7 +213,7 @@ export const useAuth = defineStore(
       if (now - lastVisibilityCheck < VISIBILITY_COOLDOWN) return;
       lastVisibilityCheck = now;
 
-      await ensureSession();
+      await checkConnection();
     });
 
     return {
@@ -200,13 +223,15 @@ export const useAuth = defineStore(
       isDemo,
       name,
       showLoginModal,
+      endedByPasswordChange,
       login,
       loginAsDemo,
       logout,
       startKeepAlive,
       stopKeepAlive,
-      validateSession,
-      ensureSession,
+      checkConnection,
+      isUnauthenticated,
+      recoverFrom,
     };
   },
   {

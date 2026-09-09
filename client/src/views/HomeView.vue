@@ -17,6 +17,10 @@ const waitingListsStore = useWaitingListsStore();
 const { t } = useI18n();
 
 const hasCache = computed(() => getCacheAge() !== null);
+// Re-read the cache when the Connection flips: an ending erases it, and the user should then
+// see the connect form (with its explanation) even if they were already on this page. Relies on
+// eraseLocalData() clearing the caches before it flips isAuthenticated.
+const showLanding = computed(() => !auth.isAuthenticated && getCacheAge() === null);
 const hasOffersCache = computed(() => getOffersCacheAge() !== null);
 const hasWaitingListsCache = computed(() => getWaitingListsCacheAge() !== null);
 
@@ -43,7 +47,7 @@ const lastUpdatedText = computed(() => {
 
 <template>
   <!-- Unauthenticated with no cache: landing page -->
-  <LandingSection v-if="!auth.isAuthenticated && !hasCache" />
+  <LandingSection v-if="showLanding" />
 
   <!-- First-time user: no cached appointments -->
   <div

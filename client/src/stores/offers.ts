@@ -3,7 +3,7 @@ import { defineStore, storeToRefs } from "pinia";
 import { ref, watch } from "vue";
 import { useAuth } from "~/composables/useAuth";
 import config from "~/config";
-import { handleApiError, HttpError } from "~/data/appointmentsSource";
+import { handleApiError } from "~/data/appointmentsSource";
 import MOCK_OFFERS_JSON from "~/data/MOCK_OFFERS.json";
 import { getOffers, isOffersCacheStale, persistOffersCache } from "~/data/offers";
 import { acceptOffer as apiAcceptOffer, declineOffer as apiDeclineOffer } from "~/data/offersSource";
@@ -47,13 +47,9 @@ export const useOffersStore = defineStore("offers", () => {
         return;
       }
 
-      if (isOffersCacheStale()) {
-        const sessionValid = await auth.ensureSession();
-        if (sessionValid) {
-          needsRefresh.value = true;
-        } else {
-          sessionExpired.value = true;
-        }
+      // Stale either way; only an ended Connection (handled by the auth store) means there is nothing to refresh.
+      if (isOffersCacheStale() && (await auth.checkConnection()) !== "ended") {
+        needsRefresh.value = true;
       }
     } catch {
       if (!auth.isAuthenticated) return;
@@ -87,22 +83,18 @@ export const useOffersStore = defineStore("offers", () => {
       offers.value = payload.offers;
       updatedAt.value = payload.updatedAt;
     } catch (error) {
-      const is401 = error instanceof HttpError && error.status === 401;
-      if (is401) {
-        const recovered = await auth.ensureSession();
-        if (recovered) {
-          try {
-            const payload = await getOffers(true);
-            offers.value = payload.offers;
-            updatedAt.value = payload.updatedAt;
-            return;
-          } catch {
-            // retry also failed
-          }
-        } else {
-          sessionExpired.value = true;
+      const check = await auth.recoverFrom(error);
+      if (check === "live") {
+        try {
+          const payload = await getOffers(true);
+          offers.value = payload.offers;
+          updatedAt.value = payload.updatedAt;
           return;
+        } catch {
+          // retry also failed
         }
+      } else if (check === "ended") {
+        return; // the auth store erased Local data and sent the user home
       }
       handleApiError(error, useToastStore(), useI18n().t, "Failed to refresh offers");
     } finally {
@@ -173,12 +165,8 @@ export const useOffersStore = defineStore("offers", () => {
       auth.showLoginModal = true;
       return;
     }
-    const sessionValid = await auth.ensureSession();
-    if (!sessionValid) {
-      sessionExpired.value = true;
-      needsRefresh.value = false;
-      return;
-    }
+    // No pre-check: the server answers the data request itself with 401 (ended) or 504
+    // (unreachable), and refresh() reacts to either through auth.recoverFrom.
     await refresh();
   }
 

@@ -40,13 +40,9 @@ export const useAppointmentsStore = defineStore("appointments", () => {
         return;
       }
 
-      if (isCacheStale()) {
-        const sessionValid = await auth.ensureSession();
-        if (sessionValid) {
-          needsRefresh.value = true;
-        } else {
-          sessionExpired.value = true;
-        }
+      // Stale either way; only an ended Connection (handled by the auth store) means there is nothing to refresh.
+      if (isCacheStale() && (await auth.checkConnection()) !== "ended") {
+        needsRefresh.value = true;
       }
     } catch {
       if (!auth.isAuthenticated) return;
@@ -80,22 +76,18 @@ export const useAppointmentsStore = defineStore("appointments", () => {
       appointments.value = payload.appointments;
       updatedAt.value = payload.updatedAt;
     } catch (error) {
-      const is401 = error instanceof Error && error.message.includes("401");
-      if (is401) {
-        const recovered = await auth.ensureSession();
-        if (recovered) {
-          try {
-            const payload = await getAppointments(true, showAllOffers.value);
-            appointments.value = payload.appointments;
-            updatedAt.value = payload.updatedAt;
-            return;
-          } catch {
-            // retry also failed
-          }
-        } else {
-          sessionExpired.value = true;
+      const check = await auth.recoverFrom(error);
+      if (check === "live") {
+        try {
+          const payload = await getAppointments(true, showAllOffers.value);
+          appointments.value = payload.appointments;
+          updatedAt.value = payload.updatedAt;
           return;
+        } catch {
+          // retry also failed
         }
+      } else if (check === "ended") {
+        return; // the auth store erased Local data and sent the user home
       }
       handleApiError(error, useToastStore(), useI18n().t, "Failed to refresh appointments");
     } finally {
@@ -116,12 +108,8 @@ export const useAppointmentsStore = defineStore("appointments", () => {
       auth.showLoginModal = true;
       return;
     }
-    const sessionValid = await auth.ensureSession();
-    if (!sessionValid) {
-      sessionExpired.value = true;
-      needsRefresh.value = false;
-      return;
-    }
+    // No pre-check: the server answers the data request itself with 401 (ended) or 504
+    // (unreachable), and refresh() reacts to either through auth.recoverFrom.
     await refresh();
   }
 

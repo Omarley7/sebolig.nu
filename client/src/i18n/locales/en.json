@@ -132,6 +132,7 @@
     "demoLoginSuccess": "You are now in demo mode.",
     "orSeparator": "or",
     "connectHeading": "Connect your findbolig.nu account to get started",
+    "passwordChangedHeading": "Your findbolig.nu password seems to have changed, so the connection was ended and your data on this device was erased. Connect again to continue.",
     "connectButton": "Connect with findbolig.nu",
     "showPassword": "Show password",
     "hidePassword": "Hide password",

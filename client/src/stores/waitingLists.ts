@@ -3,7 +3,7 @@ import { defineStore, storeToRefs } from "pinia";
 import { ref, watch } from "vue";
 import { useAuth } from "~/composables/useAuth";
 import config from "~/config";
-import { handleApiError, HttpError } from "~/data/appointmentsSource";
+import { handleApiError } from "~/data/appointmentsSource";
 import {
   buildSnapshots,
   detectPassivated,
@@ -59,13 +59,9 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
         return;
       }
 
-      if (!auth.isDemo && isWaitingListsCacheStale()) {
-        const sessionValid = await auth.ensureSession();
-        if (sessionValid) {
-          needsRefresh.value = true;
-        } else {
-          sessionExpired.value = true;
-        }
+      // Stale either way; only an ended Connection (handled by the auth store) means there is nothing to refresh.
+      if (!auth.isDemo && isWaitingListsCacheStale() && (await auth.checkConnection()) !== "ended") {
+        needsRefresh.value = true;
       }
     } catch {
       if (!auth.isDemo && !auth.isAuthenticated) return;
@@ -102,23 +98,19 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
       lists.value = payload.lists;
       updatedAt.value = payload.updatedAt;
     } catch (error) {
-      const is401 = error instanceof HttpError && error.status === 401;
-      if (is401) {
-        const recovered = await auth.ensureSession();
-        if (recovered) {
-          try {
-            const payload = await getWaitingLists(true);
-            runDiff(payload.lists);
-            lists.value = payload.lists;
-            updatedAt.value = payload.updatedAt;
-            return;
-          } catch {
-            // fall through
-          }
-        } else {
-          sessionExpired.value = true;
+      const check = await auth.recoverFrom(error);
+      if (check === "live") {
+        try {
+          const payload = await getWaitingLists(true);
+          runDiff(payload.lists);
+          lists.value = payload.lists;
+          updatedAt.value = payload.updatedAt;
           return;
+        } catch {
+          // retry also failed
         }
+      } else if (check === "ended") {
+        return; // the auth store erased Local data and sent the user home
       }
       handleApiError(error, useToastStore(), useI18n().t, "Failed to refresh waiting lists");
     } finally {
@@ -179,12 +171,12 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
 
     let cursor = 0;
     const failed: WaitingList[] = [];
-    let sessionExpiredDuringBulk = false;
+    let connectionRefusedDuringBulk = false;
 
     async function worker() {
       while (true) {
-        // Short-circuit if session died — don't keep firing failing requests.
-        if (sessionExpiredDuringBulk) return;
+        // Short-circuit once the Connection was refused — don't keep firing failing requests.
+        if (connectionRefusedDuringBulk) return;
         const i = cursor++;
         if (i >= passive.length) return;
         const list = passive[i];
@@ -195,8 +187,8 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
           persistWaitingListsCache(lists.value, updatedAt.value);
           recentlyPassivated.value = recentlyPassivated.value.filter((id) => id !== list.propertyId);
         } catch (error) {
-          if (error instanceof HttpError && error.status === 401) {
-            sessionExpiredDuringBulk = true;
+          if (auth.isUnauthenticated(error)) {
+            connectionRefusedDuringBulk = true;
             failed.push(list);
             return;
           }
@@ -219,13 +211,10 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
     bulkInProgress.value = false;
     isMutating.value = false;
 
-    if (sessionExpiredDuringBulk) {
-      const recovered = await auth.ensureSession();
-      if (!recovered) {
-        sessionExpired.value = true;
-        return;
-      }
-      // Session restored — let the user retry; we don't auto-retry to avoid surprise side effects.
+    if (connectionRefusedDuringBulk) {
+      // Ended: the auth store erased Local data and sent the user home. Live or unreachable:
+      // let the user retry from the summary below; we don't auto-retry to avoid surprise side effects.
+      if ((await auth.checkConnection()) === "ended") return;
     }
 
     const succeeded = passive.length - failed.length;
@@ -287,12 +276,8 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
       auth.showLoginModal = true;
       return;
     }
-    const sessionValid = await auth.ensureSession();
-    if (!sessionValid) {
-      sessionExpired.value = true;
-      needsRefresh.value = false;
-      return;
-    }
+    // No pre-check: the server answers the data request itself with 401 (ended) or 504
+    // (unreachable), and refresh() reacts to either through auth.recoverFrom.
     await refresh();
   }
 

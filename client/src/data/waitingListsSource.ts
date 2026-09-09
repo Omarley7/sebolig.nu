@@ -29,7 +29,7 @@ export async function fetchWaitingLists(): Promise<{ updatedAt: Date; lists: Wai
   );
 
   if (!res.ok) {
-    throw new HttpError(`Failed to fetch waiting lists: ${res.status}`, res.status);
+    throw await HttpError.fromResponse(res, "Failed to fetch waiting lists");
   }
 
   const data = await res.json();
@@ -47,7 +47,7 @@ export async function setWaitingListActive(propertyId: string): Promise<void> {
     TIMEOUT_ACTION,
   );
   if (!res.ok) {
-    throw new HttpError(`Failed to set waiting list active: ${res.status}`, res.status);
+    throw await HttpError.fromResponse(res, "Failed to set waiting list active");
   }
 }
 
@@ -62,6 +62,6 @@ export async function unsubscribeFromWaitingList(propertyId: string): Promise<vo
     TIMEOUT_ACTION,
   );
   if (!res.ok) {
-    throw new HttpError(`Failed to unsubscribe from waiting list: ${res.status}`, res.status);
+    throw await HttpError.fromResponse(res, "Failed to unsubscribe from waiting list");
   }
 }

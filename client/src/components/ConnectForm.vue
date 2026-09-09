@@ -27,8 +27,12 @@ async function handleConnect() {
 
 <template>
   <div>
-    <p class="text-sm font-medium text-violet-700 dark:text-violet-300 mb-4">
-      {{ t("auth.connectHeading") }}
+    <!-- The heading is where an ended Connection gets explained: a sentence that stays, not a toast -->
+    <p
+      class="text-sm font-medium mb-4"
+      :class="auth.endedByPasswordChange ? 'text-red-700 dark:text-red-300' : 'text-violet-700 dark:text-violet-300'"
+    >
+      {{ auth.endedByPasswordChange ? t("auth.passwordChangedHeading") : t("auth.connectHeading") }}
     </p>
 
     <form @submit.prevent="handleConnect" class="flex flex-col gap-4">
