@@ -9,7 +9,8 @@
     "today": "Today",
     "tomorrow": "Tomorrow",
     "sourceCode": "Source code on GitHub",
-    "connect": "Connect"
+    "connect": "Connect",
+    "close": "Close"
   },
   "appointments": {
     "emptyTitle": "No upcoming appointments",
@@ -132,6 +133,8 @@
     "orSeparator": "or",
     "connectHeading": "Connect your findbolig.nu account to get started",
     "connectButton": "Connect with findbolig.nu",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "connecting": "Connecting...",
     "connected": "Connected to findbolig.nu",
     "emailPlaceholder": "findbolig.nu email",

@@ -59,9 +59,9 @@ function confirmLogout() {
             <button
               @click="closeModal"
               class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              aria-label="Close modal"
+              :aria-label="t('common.close')"
             >
-              <img src="/icons/x.svg" alt="Close" class="size-6 dark:invert" />
+              <img src="/icons/x.svg" alt="" class="size-6 dark:invert" />
             </button>
           </div>
           <ConnectForm @connected="closeModal" />
@@ -84,9 +84,9 @@ function confirmLogout() {
             <button
               @click="closeLogoutModal"
               class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              aria-label="Close modal"
+              :aria-label="t('common.close')"
             >
-              <img src="/icons/x.svg" alt="Close" class="size-6 dark:invert" />
+              <img src="/icons/x.svg" alt="" class="size-6 dark:invert" />
             </button>
           </div>
 

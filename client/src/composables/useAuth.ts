@@ -27,10 +27,11 @@ export const useAuth = defineStore(
     async function login(userEmail: string, userPassword: string) {
       isLoading.value = true;
 
+      const { t } = useI18n();
       try {
         const userData = await apiLogin(userEmail, userPassword);
         if (!userData) {
-          toast.error(useI18n().t("errors.connectFailed"));
+          toast.error(t("errors.connectFailed"));
           return setAuthenticated(false);
         }
 
@@ -38,15 +39,15 @@ export const useAuth = defineStore(
         const ok = setAuthenticated(true, userData.fullName);
         if (ok) {
           startKeepAlive();
-          toast.success(useI18n().t("auth.connected"));
+          toast.success(t("auth.connected"));
           identify({ email: userEmail, name: userData.fullName });
         }
         return ok;
       } catch (err) {
         if (err instanceof HttpError && err.status === 401) {
-          toast.error(useI18n().t("errors.invalidCredentials"), 6000);
+          toast.error(t("errors.invalidCredentials"), 6000);
         } else {
-          handleApiError(err, toast, useI18n().t, useI18n().t("errors.connectFailed"), "errors.timeoutConnect");
+          handleApiError(err, toast, t, t("errors.connectFailed"), "errors.timeoutConnect");
         }
         return setAuthenticated(false);
       } finally {

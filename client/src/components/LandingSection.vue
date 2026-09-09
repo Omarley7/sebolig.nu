@@ -18,7 +18,7 @@ const { t } = useI18n();
       </p>
     </div>
 
-    <!-- GIF + Login side by side on md+ -->
+    <!-- Video + connect form side by side on md+ -->
     <div class="w-full flex flex-col md:flex-row md:items-stretch gap-6">
       <!-- Preview video -->
       <div

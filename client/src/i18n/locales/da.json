@@ -9,7 +9,8 @@
     "today": "I dag",
     "tomorrow": "I morgen",
     "sourceCode": "Kildekode på GitHub",
-    "connect": "Forbind"
+    "connect": "Forbind",
+    "close": "Luk"
   },
   "appointments": {
     "emptyTitle": "Ingen kommende aftaler",
@@ -132,9 +133,11 @@
     "orSeparator": "eller",
     "connectHeading": "Forbind din findbolig.nu-konto for at komme i gang",
     "connectButton": "Forbind med findbolig.nu",
+    "showPassword": "Vis adgangskode",
+    "hidePassword": "Skjul adgangskode",
     "connecting": "Forbinder...",
     "connected": "Forbundet til findbolig.nu",
-    "emailPlaceholder": "findbolig.nu e-mail",
+    "emailPlaceholder": "findbolig.nu email",
     "passwordPlaceholder": "findbolig.nu adgangskode",
     "custodyNote": "SeBolig gemmer din adgangskode krypteret i din browser, så du forbliver forbundet i op til 30 dage. Intet gemmes på vores servere. Du kan afbryde når som helst."
   },

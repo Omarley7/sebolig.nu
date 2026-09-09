@@ -2,7 +2,7 @@
 import { useDarkMode } from "~/composables/useDarkMode";
 import { useI18n } from "../i18n";
 import LanguageSwitcher from "./LanguageSwitcher.vue";
-import LoginForm from "./LoginForm.vue";
+import ConnectionControl from "./ConnectionControl.vue";
 
 const { t } = useI18n();
 const { isDark, toggle: toggleDarkMode } = useDarkMode();
@@ -34,7 +34,7 @@ const { isDark, toggle: toggleDarkMode } = useDarkMode();
         <img v-if="isDark" src="/icons/sun.svg" alt="Light mode" class="size-5 invert" />
         <img v-else src="/icons/moon.svg" alt="Dark mode" class="size-5" />
       </button>
-      <LoginForm class="transition-transform hover:scale-125" />
+      <ConnectionControl class="transition-transform hover:scale-125" />
     </div>
   </nav>
 </template>

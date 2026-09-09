@@ -6,7 +6,7 @@ import { useAuth } from "~/composables/useAuth";
 import { REPO_URL } from "~/config";
 
 /**
- * The one place a tenant connects their findbolig.nu account. Used on the
+ * The one place a user connects their findbolig.nu account. Used on the
  * landing page and inside the header modal, so both carry the same wording,
  * autofill hints and trust cues.
  */
@@ -60,8 +60,8 @@ async function handleConnect() {
           class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
           tabindex="-1"
         >
-          <img v-if="showPassword" src="/icons/eye-off.svg" alt="Hide password" class="size-5 dark:invert opacity-60" />
-          <img v-else src="/icons/eye.svg" alt="Show password" class="size-5 dark:invert opacity-60" />
+          <img v-if="showPassword" src="/icons/eye-off.svg" :alt="t('auth.hidePassword')" class="size-5 dark:invert opacity-60" />
+          <img v-else src="/icons/eye.svg" :alt="t('auth.showPassword')" class="size-5 dark:invert opacity-60" />
         </button>
       </div>
 
@@ -83,17 +83,16 @@ async function handleConnect() {
     </form>
 
     <!-- Custody note: the true thing, always visible -->
-    <p class="mt-4 text-xs text-gray-500 dark:text-gray-400 text-center">
+    <p data-testid="custody-note" class="mt-4 text-xs text-gray-500 dark:text-gray-400 text-center">
       {{ t("auth.custodyNote") }}
       <router-link :to="{ name: 'explainer' }" class="font-medium text-violet-600 dark:text-violet-400 hover:underline">
         {{ t("explainer.linkLabel") }} →
       </router-link>
     </p>
-    <p class="mt-2 text-[0.7rem] text-gray-400 dark:text-gray-500 text-center">
+    <p data-testid="non-affiliation" class="mt-2 text-[0.7rem] text-gray-400 dark:text-gray-500 text-center">
       {{ t("footer.notAffiliated") }}
       <a :href="REPO_URL" target="_blank" rel="noopener noreferrer" class="underline hover:text-gray-600 dark:hover:text-gray-300">
-        {{ t("common.sourceCode") }}
-      </a>
+        {{ t("common.sourceCode") }}</a>.
     </p>
   </div>
 </template>
