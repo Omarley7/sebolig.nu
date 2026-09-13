@@ -10,7 +10,6 @@ import {
   type GroupBy,
 } from "~/composables/useGroupAppointments";
 import { useAppointmentsStore } from "~/stores/appointments";
-import FetchOption from './FetchOption.vue';
 const store = useAppointmentsStore();
 const { appointments, isLoading } = storeToRefs(store);
 const groupBy = ref<GroupBy>("day");
@@ -23,7 +22,6 @@ const includeDate = computed(() => groupBy.value !== "day");
 <template>
   <div>
     <div class="flex flex-col gap-3 justify-between items-center mb-2">
-      <FetchOption class="w-full" />
       <GroupBySelector class="w-full" v-model="groupBy" />
     </div>
 

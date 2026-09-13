@@ -18,8 +18,6 @@ export const useAppointmentsStore = defineStore("appointments", () => {
   const latestUpdated = ref<string | null>(null);
   const isLoading = ref(false);
   const showAllOffers = ref(false);
-  const needsRefresh = ref(false);
-  const sessionExpired = ref(false);
 
   async function init() {
     const auth = useAuth();
@@ -40,23 +38,21 @@ export const useAppointmentsStore = defineStore("appointments", () => {
       updatedAt.value = cached.updatedAt;
       latestUpdated.value = cached.latestUpdated;
 
-      if (!auth.isAuthenticated) {
-        sessionExpired.value = true;
-        return;
-      }
+      if (!auth.isAuthenticated) return;
 
       if (latestUpdated.value) {
         // We have a cursor from a previous fetch — ask "did anything actually change"
         // instead of blindly refetching on a fixed clock.
         await checkForUpdates();
-      } else {
-        needsRefresh.value = true;
+      } else if (await auth.ensureSession()) {
+        // No cursor yet — a cache from before the delta cursor existed. Self-heal with one
+        // full refresh (which seeds latestUpdated) instead of leaving the user stuck until
+        // they notice and click a manual refresh. If the session isn't valid, just leave the
+        // cached data as-is — the header refresh button prompts login when they want fresh data.
+        await refresh();
       }
     } catch {
-      if (!auth.isAuthenticated) {
-        sessionExpired.value = true;
-        return;
-      }
+      if (!auth.isAuthenticated) return;
       try {
         const payload = await getAppointments(true, showAllOffers.value);
         appointments.value = payload.appointments;
@@ -104,7 +100,6 @@ export const useAppointmentsStore = defineStore("appointments", () => {
 
   async function refresh() {
     isLoading.value = true;
-    needsRefresh.value = false;
     const auth = useAuth();
 
     if (auth.isDemo) {
@@ -135,7 +130,9 @@ export const useAppointmentsStore = defineStore("appointments", () => {
             // retry also failed
           }
         } else {
-          sessionExpired.value = true;
+          // Session is confirmed dead — prompt login directly instead of a separate
+          // "session expired" state the user would otherwise have no way to see.
+          auth.showLoginModal = true;
           return;
         }
       }
@@ -145,9 +142,7 @@ export const useAppointmentsStore = defineStore("appointments", () => {
     }
   }
 
-  const { dismissRefresh, handleRefresh } = useRefreshGate({
-    needsRefresh,
-    sessionExpired,
+  const { handleRefresh } = useRefreshGate({
     refresh,
     onLoggedOut: () => {
       appointments.value = [];
@@ -169,11 +164,8 @@ export const useAppointmentsStore = defineStore("appointments", () => {
     updatedAt,
     isLoading,
     showAllOffers,
-    needsRefresh,
-    sessionExpired,
     init,
     refresh,
-    dismissRefresh,
     handleRefresh,
     toggleShowAllOffers,
     getImageUrl,

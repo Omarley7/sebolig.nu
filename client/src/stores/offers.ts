@@ -29,8 +29,6 @@ export const useOffersStore = defineStore("offers", () => {
   // see fetchOfferDelta / getOfferUpdates for why that distinction matters.
   const latestUpdated = ref<string | null>(null);
   const isLoading = ref(false);
-  const needsRefresh = ref(false);
-  const sessionExpired = ref(false);
   const isActioning = ref(false);
 
   async function init() {
@@ -52,23 +50,21 @@ export const useOffersStore = defineStore("offers", () => {
       updatedAt.value = cached.updatedAt;
       latestUpdated.value = cached.latestUpdated;
 
-      if (!auth.isAuthenticated) {
-        sessionExpired.value = true;
-        return;
-      }
+      if (!auth.isAuthenticated) return;
 
       if (latestUpdated.value) {
         // We have a cursor from a previous fetch — ask "did anything actually change"
         // instead of blindly refetching on a fixed clock.
         await checkForUpdates();
-      } else {
-        needsRefresh.value = true;
+      } else if (await auth.ensureSession()) {
+        // No cursor yet — a cache from before the delta cursor existed. Self-heal with one
+        // full refresh (which seeds latestUpdated) instead of leaving the user stuck until
+        // they notice and click a manual refresh. If the session isn't valid, just leave the
+        // cached data as-is — the header refresh button prompts login when they want fresh data.
+        await refresh();
       }
     } catch {
-      if (!auth.isAuthenticated) {
-        sessionExpired.value = true;
-        return;
-      }
+      if (!auth.isAuthenticated) return;
       try {
         const payload = await getOffers(true);
         offers.value = payload.offers;
@@ -115,7 +111,6 @@ export const useOffersStore = defineStore("offers", () => {
 
   async function refresh() {
     isLoading.value = true;
-    needsRefresh.value = false;
     const auth = useAuth();
 
     if (auth.isDemo) {
@@ -146,7 +141,9 @@ export const useOffersStore = defineStore("offers", () => {
             // retry also failed
           }
         } else {
-          sessionExpired.value = true;
+          // Session is confirmed dead — prompt login directly instead of a separate
+          // "session expired" state the user would otherwise have no way to see.
+          auth.showLoginModal = true;
           return;
         }
       }
@@ -210,9 +207,7 @@ export const useOffersStore = defineStore("offers", () => {
     }
   }
 
-  const { dismissRefresh, handleRefresh } = useRefreshGate({
-    needsRefresh,
-    sessionExpired,
+  const { handleRefresh } = useRefreshGate({
     refresh,
     onLoggedOut: () => {
       offers.value = [];
@@ -229,13 +224,10 @@ export const useOffersStore = defineStore("offers", () => {
     offers,
     updatedAt,
     isLoading,
-    needsRefresh,
-    sessionExpired,
     isActioning,
     init,
     refresh,
     handleRefresh,
-    dismissRefresh,
     acceptOffer,
     declineOffer,
     getImageUrl,

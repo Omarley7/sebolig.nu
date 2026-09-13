@@ -24,7 +24,8 @@
     "openOnFindbolig": "Åbn på findbolig.nu",
     "addToCalendar": "Tilføj til kalender",
     "queuePosition": "Køposition",
-    "cancelled": "Aflyst"
+    "cancelled": "Aflyst",
+    "refresh": "Opdatér"
   },
   "offers": {
     "pageTitle": "Boligtilbud",
@@ -176,28 +177,9 @@
     "emailPlaceholder": "FindBolig.nu email",
     "passwordPlaceholder": "FindBolig.nu adgangskode"
   },
-  "stale": {
-    "dataAge": "Dine data er {0} gamle.",
-    "refreshNow": "Opdater nu",
-    "dismiss": "Afvis",
-    "sessionExpired": "Din session er udløbet. Log venligst ind igen for at hente opdateringer.",
-    "loginAgain": "Log ind"
-  },
   "errors": {
     "timeout": "findbolig.nu svarer ikke lige nu. Prøv igen senere.",
     "timeoutLogin": "Kunne ikke nå findbolig.nu for at logge ind. Prøv igen senere.",
     "invalidCredentials": "Forkert email eller adgangskode. Prøv igen."
-  },
-  "sync": {
-    "updatedAgo": "Opdateret {0}",
-    "justNow": "lige nu",
-    "minutesAgo": "for {0} min. siden",
-    "hoursAgo": "for {0}t siden",
-    "daysAgo": "for {0}d siden",
-    "fetchData": "Hent data",
-    "syncing": "Henter...",
-    "clickToExpand": "Klik for at se præcist tidspunkt",
-    "date": "Dato",
-    "time": "Kl"
   }
 }

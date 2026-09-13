@@ -24,7 +24,8 @@
     "openOnFindbolig": "Open on findbolig.nu",
     "addToCalendar": "Add to calendar",
     "queuePosition": "Queue",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "refresh": "Refresh"
   },
   "offers": {
     "pageTitle": "Housing Offers",
@@ -176,28 +177,9 @@
     "emailPlaceholder": "FindBolig.nu email",
     "passwordPlaceholder": "FindBolig.nu password"
   },
-  "stale": {
-    "dataAge": "Your data is {0} old.",
-    "refreshNow": "Refresh now",
-    "dismiss": "Dismiss",
-    "sessionExpired": "Your session has expired. Please log in again to fetch updates.",
-    "loginAgain": "Log in"
-  },
   "errors": {
     "timeout": "findbolig.nu is not responding right now. Please try again later.",
     "timeoutLogin": "Could not reach findbolig.nu to log in. Please try again later.",
     "invalidCredentials": "Invalid email or password. Please try again."
-  },
-  "sync": {
-    "updatedAgo": "Synced {0}",
-    "justNow": "just now",
-    "minutesAgo": "{0} min ago",
-    "hoursAgo": "{0}h ago",
-    "daysAgo": "{0}d ago",
-    "fetchData": "Sync data",
-    "syncing": "Syncing...",
-    "clickToExpand": "Click to see exact timestamp",
-    "date": "Date",
-    "time": "Time"
   }
 }
