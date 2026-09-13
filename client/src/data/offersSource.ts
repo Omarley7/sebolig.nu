@@ -50,10 +50,14 @@ export async function fetchActiveOffers(): Promise<{
 /**
  * Lightweight check for offers changed since `since` (a `latestUpdated` cursor
  * previously returned by this same API — never a client-generated timestamp).
+ * `sinceIds` is the matching `latestUpdatedIds` from that same previous response — it lets
+ * the server tell apart offers already reported at exactly `since` from ones that land on
+ * that same timestamp afterwards, so equal-timestamp offers are never skipped or reprocessed.
  */
-export async function fetchOfferDelta(since: string): Promise<OfferDelta> {
+export async function fetchOfferDelta(since: string, sinceIds: string[] = []): Promise<OfferDelta> {
+  const sinceIdsParam = sinceIds.length > 0 ? `&sinceIds=${encodeURIComponent(sinceIds.join(","))}` : "";
   const res = await fetchWithTimeout(
-    `${config.backendDomain}/api/offers/delta?since=${encodeURIComponent(since)}`,
+    `${config.backendDomain}/api/offers/delta?since=${encodeURIComponent(since)}${sinceIdsParam}`,
     { method: "GET", credentials: "include" },
     TIMEOUT_DELTA,
   );

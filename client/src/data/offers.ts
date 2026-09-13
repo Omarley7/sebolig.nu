@@ -16,8 +16,13 @@ export function getOffersCacheAge(): number | null {
   }
 }
 
-export function persistOffersCache(offers: Offer[], updatedAt: Date | null, latestUpdated: string | null) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ updatedAt, offers, latestUpdated }));
+export function persistOffersCache(
+  offers: Offer[],
+  updatedAt: Date | null,
+  latestUpdated: string | null,
+  latestUpdatedIds: string[] = [],
+) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ updatedAt, offers, latestUpdated, latestUpdatedIds }));
 }
 
 export async function getOffers(forceRefresh: boolean = false) {
@@ -31,6 +36,7 @@ export async function getOffers(forceRefresh: boolean = false) {
           offers: parsed.offers as Offer[],
           // Older caches predate the delta cursor — treat as absent rather than crash.
           latestUpdated: (parsed.latestUpdated as string | null | undefined) ?? null,
+          latestUpdatedIds: (parsed.latestUpdatedIds as string[] | undefined) ?? [],
         };
       } catch {
         const toast = useToastStore();
@@ -40,8 +46,11 @@ export async function getOffers(forceRefresh: boolean = false) {
   }
 
   const payload = await fetchActiveOffers();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  return payload;
+  // A full fetch has no per-item id cursor (that's a `/delta`-only concept) — the next
+  // delta call falls back to timestamp-only comparison until a delta response supplies one.
+  const result = { ...payload, latestUpdatedIds: [] as string[] };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(result));
+  return result;
 }
 
 export function clearOffersCache() {

@@ -118,11 +118,19 @@ export async function syncAppointments(
 /**
  * Lightweight check for appointments changed since `since` (a `latestUpdated` cursor
  * previously returned by this same API — never a client-generated timestamp).
+ * `sinceIds` is the matching `latestUpdatedIds` from that same previous response — it lets
+ * the server tell apart appointments already reported at exactly `since` from ones that land
+ * on that same timestamp afterwards, so equal-timestamp updates are never skipped or reprocessed.
  */
-export async function fetchAppointmentDelta(since: string, includeAll: boolean = false): Promise<AppointmentDelta> {
+export async function fetchAppointmentDelta(
+  since: string,
+  includeAll: boolean = false,
+  sinceIds: string[] = [],
+): Promise<AppointmentDelta> {
   const queryParam = includeAll ? "&includeAll=true" : "";
+  const sinceIdsParam = sinceIds.length > 0 ? `&sinceIds=${encodeURIComponent(sinceIds.join(","))}` : "";
   const res = await fetchWithTimeout(
-    `${config.backendDomain}/api/appointments/delta?since=${encodeURIComponent(since)}${queryParam}`,
+    `${config.backendDomain}/api/appointments/delta?since=${encodeURIComponent(since)}${queryParam}${sinceIdsParam}`,
     { method: "GET", credentials: "include" },
     TIMEOUT_DELTA,
   );
