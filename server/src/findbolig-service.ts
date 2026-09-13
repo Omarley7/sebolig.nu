@@ -398,11 +398,12 @@ export async function getOfferUpdates(cookies: string, since: string) {
   const removedIds = changed.filter((offer) => offer.state !== "Published").map((offer) => offer.id);
 
   const enriched = await Promise.all(stillPublished.map((offer) => enrichOffer(offer, cookies)));
+  const successful = enriched.every((offer) => offer !== null);
 
   return {
     items: enriched.filter((o): o is NonNullable<typeof o> => o !== null),
     removedIds,
-    latestUpdated,
+    latestUpdated: successful ? latestUpdated : null,
   };
 }
 
