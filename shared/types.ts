@@ -66,6 +66,10 @@ export type Delta<T> = {
   items: T[]; // new/updated items that still belong in the active view
   removedIds: string[]; // previously-cached items that changed out of the active view
   latestUpdated: string | null; // new cursor to persist for the next delta check
+  // Every item id already reported at exactly `latestUpdated`. Pass both back as `since`/
+  // `sinceIds` on the next delta call so items sharing that same timestamp are told apart
+  // by id rather than by fetch order — see `getOffersUpdatedSince` for why that matters.
+  latestUpdatedIds: string[];
 };
 
 export type OfferDelta = Delta<Offer>;

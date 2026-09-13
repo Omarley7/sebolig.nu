@@ -218,12 +218,30 @@ function isDateInPast(dateStr: string | null): boolean {
  * `since` must be an `updated` value this server previously returned (i.e. findbolig.nu's
  * own clock) — never a client-generated timestamp. Comparing against a browser's local
  * clock risks clock skew between the two systems silently hiding or duplicating changes.
+ *
+ * Equal-timestamp batches (several offers touched in the same instant, e.g. a bulk
+ * upstream operation) can span more than one delta call once the batch is bigger than
+ * `DELTA_PAGE_SIZE`, or straddle the boundary between "already reported" and "new" when
+ * two separate offers happen to land on the exact same `updated` value. A plain `since`
+ * timestamp alone can't tell those apart. `sinceIds` — every offer id this server already
+ * reported at exactly `since` — resolves the tie: an offer at `since` is only skipped if
+ * its id is in that set, so a same-timestamp offer that arrives *after* the previous call
+ * (and is therefore not in `sinceIds`) is never dropped. We don't rely on the upstream
+ * API's tie-break order being stable across requests — membership, not position, decides.
+ * The complementary `latestUpdatedIds` in the return value is that same set for the
+ * *next* call, scoped to whatever `updated` value is now the walk's newest.
  */
-async function getOffersUpdatedSince(cookies: string, since: string): Promise<{ changed: ApiOffer[]; latestUpdated: string | null }> {
+export async function getOffersUpdatedSince(
+  cookies: string,
+  since: string,
+  sinceIds: string[] = [],
+): Promise<{ changed: ApiOffer[]; latestUpdated: string | null; latestUpdatedIds: string[] }> {
   const sinceMs = new Date(since).getTime();
+  const sinceIdSet = new Set(sinceIds);
   const changed: ApiOffer[] = [];
   const seenOfferIds = new Set<string>();
   let latestUpdated: string | null = null;
+  const latestUpdatedIds: string[] = [];
   let page = 0;
 
   while (true) {
@@ -239,11 +257,18 @@ async function getOffersUpdatedSince(cookies: string, since: string): Promise<{ 
     }
 
     for (const offer of results) {
-      if (new Date(offer.updated).getTime() < sinceMs) {
+      const offerMs = new Date(offer.updated).getTime();
+      if (offerMs < sinceMs) {
         // Sorted desc — once we hit one this old, everything after it is too.
-        return { changed, latestUpdated };
+        return { changed, latestUpdated, latestUpdatedIds };
       }
-      if (!seenOfferIds.has(offer.id)) {
+
+      if (offer.updated === latestUpdated) {
+        latestUpdatedIds.push(offer.id);
+      }
+
+      const alreadyReported = offerMs === sinceMs && sinceIdSet.has(offer.id);
+      if (!alreadyReported && !seenOfferIds.has(offer.id)) {
         seenOfferIds.add(offer.id);
         changed.push(offer);
       }
@@ -251,7 +276,7 @@ async function getOffersUpdatedSince(cookies: string, since: string): Promise<{ 
 
     page += 1;
     if (results.length === 0 || page * DELTA_PAGE_SIZE >= totalResults) {
-      return { changed, latestUpdated };
+      return { changed, latestUpdated, latestUpdatedIds };
     }
   }
 }
@@ -343,8 +368,13 @@ export async function getUpcomingAppointments(cookies: string, includeAll: boole
  * navigation. `includeAll` mirrors `getUpcomingAppointments`'s own toggle — when true nothing
  * is ever "removed" from the view, since every offer state is already included.
  */
-export async function getAppointmentUpdates(cookies: string, since: string, includeAll: boolean = false) {
-  const { changed, latestUpdated } = await getOffersUpdatedSince(cookies, since);
+export async function getAppointmentUpdates(
+  cookies: string,
+  since: string,
+  includeAll: boolean = false,
+  sinceIds: string[] = [],
+) {
+  const { changed, latestUpdated, latestUpdatedIds } = await getOffersUpdatedSince(cookies, since, sinceIds);
 
   const relevant = includeAll ? changed : changed.filter(isUpcomingAppointmentState);
   const removedIds = includeAll ? [] : changed.filter((offer) => !isUpcomingAppointmentState(offer)).map((offer) => offer.id);
@@ -358,6 +388,7 @@ export async function getAppointmentUpdates(cookies: string, since: string, incl
     items: enriched.flatMap(({ appointment }) => appointment ? [appointment] : []),
     removedIds: [...removedIds, ...missingIds],
     latestUpdated,
+    latestUpdatedIds,
   };
 }
 
@@ -397,8 +428,8 @@ export async function getActiveOffers(cookies: string) {
  * pays the residence/position enrichment cost (2 upstream calls per offer) for those offers,
  * instead of re-enriching every active offer on every navigation.
  */
-export async function getOfferUpdates(cookies: string, since: string) {
-  const { changed, latestUpdated } = await getOffersUpdatedSince(cookies, since);
+export async function getOfferUpdates(cookies: string, since: string, sinceIds: string[] = []) {
+  const { changed, latestUpdated, latestUpdatedIds } = await getOffersUpdatedSince(cookies, since, sinceIds);
 
   const stillPublished = changed.filter((offer) => offer.state === "Published");
   const removedIds = changed.filter((offer) => offer.state !== "Published").map((offer) => offer.id);
@@ -410,6 +441,7 @@ export async function getOfferUpdates(cookies: string, since: string) {
     items: enriched.filter((o): o is NonNullable<typeof o> => o !== null),
     removedIds,
     latestUpdated: successful ? latestUpdated : null,
+    latestUpdatedIds: successful ? latestUpdatedIds : [],
   };
 }
 

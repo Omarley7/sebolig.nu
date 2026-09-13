@@ -1,9 +1,23 @@
-import type { CachedAppointmentEntry } from "@/types";
+import type { Appointment, CachedAppointmentEntry } from "@/types";
 import { deserializeAppointmentsPayload } from "~/lib/serialization";
 import { useToastStore } from "~/stores/toast";
 import { fetchAppointments, syncAppointments } from "./appointmentsSource";
 
 const STORAGE_KEY = "appointments_cache";
+
+/**
+ * Persists a merged appointments snapshot (full fetch or delta merge) into the cache, so a
+ * reload picks up the merge result and cursor instead of re-running the same delta and, in
+ * the meantime, showing stale data — see the appointments store's `applyDelta`.
+ */
+export function persistAppointmentsCache(
+  appointments: Appointment[],
+  updatedAt: Date | null,
+  latestUpdated: string | null,
+  latestUpdatedIds: string[] = [],
+) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ updatedAt, appointments, latestUpdated, latestUpdatedIds }));
+}
 
 export function getCacheAge(): number | null {
   const cached = localStorage.getItem(STORAGE_KEY);
@@ -52,8 +66,11 @@ export async function getAppointments(forceRefresh: boolean = false, includeAll:
   const payload = cacheEntries.length > 0
     ? await syncAppointments(cacheEntries, includeAll)
     : await fetchAppointments(includeAll);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  return payload;
+  // A full fetch/sync has no per-item id cursor (that's a `/delta`-only concept) — the next
+  // delta call falls back to timestamp-only comparison until a delta response supplies one.
+  const result = { ...payload, latestUpdatedIds: [] as string[] };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(result));
+  return result;
 }
 
 export function clearAppointmentsCache() {

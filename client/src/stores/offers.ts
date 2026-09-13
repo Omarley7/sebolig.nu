@@ -28,6 +28,9 @@ export const useOffersStore = defineStore("offers", () => {
   // any of this user's offers. Always sourced from the server, never a client clock —
   // see fetchOfferDelta / getOfferUpdates for why that distinction matters.
   const latestUpdated = ref<string | null>(null);
+  // Ids already reported at exactly `latestUpdated` — paired with it on the next delta call
+  // so equal-timestamp offers are told apart by id instead of by fetch order.
+  const latestUpdatedIds = ref<string[]>([]);
   const isLoading = ref(false);
   const isActioning = ref(false);
 
@@ -49,6 +52,7 @@ export const useOffersStore = defineStore("offers", () => {
       offers.value = cached.offers;
       updatedAt.value = cached.updatedAt;
       latestUpdated.value = cached.latestUpdated;
+      latestUpdatedIds.value = cached.latestUpdatedIds;
 
       if (!auth.isAuthenticated) return;
 
@@ -70,6 +74,7 @@ export const useOffersStore = defineStore("offers", () => {
         offers.value = payload.offers;
         updatedAt.value = payload.updatedAt;
         latestUpdated.value = payload.latestUpdated;
+        latestUpdatedIds.value = payload.latestUpdatedIds;
       } catch (error) {
         handleApiError(error, useToastStore(), useI18n().t, "Failed to load offers");
       }
@@ -80,9 +85,13 @@ export const useOffersStore = defineStore("offers", () => {
 
   /** Merges a delta response into the local list: upserts changed offers, drops ones that left "Published". */
   function applyDelta(delta: OfferDelta) {
-    if (delta.latestUpdated) latestUpdated.value = delta.latestUpdated;
+    if (delta.latestUpdated) {
+      latestUpdated.value = delta.latestUpdated;
+      latestUpdatedIds.value = delta.latestUpdatedIds;
+    }
 
     if (delta.items.length === 0 && delta.removedIds.length === 0) {
+      persistOffersCache(offers.value, updatedAt.value, latestUpdated.value, latestUpdatedIds.value);
       return;
     }
 
@@ -94,7 +103,7 @@ export const useOffersStore = defineStore("offers", () => {
 
     offers.value = Array.from(byId.values());
     updatedAt.value = new Date();
-    persistOffersCache(offers.value, updatedAt.value, latestUpdated.value);
+    persistOffersCache(offers.value, updatedAt.value, latestUpdated.value, latestUpdatedIds.value);
   }
 
   /** Lightweight check, meant to run on every navigation to the offers view: asks the
@@ -103,7 +112,7 @@ export const useOffersStore = defineStore("offers", () => {
     const cursor = latestUpdated.value;
     if (!cursor) return;
     try {
-      applyDelta(await fetchOfferDelta(cursor));
+      applyDelta(await fetchOfferDelta(cursor, latestUpdatedIds.value));
     } catch {
       // Best-effort — keep showing cached data if the check itself fails.
     }
@@ -126,6 +135,7 @@ export const useOffersStore = defineStore("offers", () => {
       offers.value = payload.offers;
       updatedAt.value = payload.updatedAt;
       latestUpdated.value = payload.latestUpdated;
+      latestUpdatedIds.value = payload.latestUpdatedIds;
     } catch (error) {
       const is401 = error instanceof HttpError && error.status === 401;
       if (is401) {
@@ -136,6 +146,7 @@ export const useOffersStore = defineStore("offers", () => {
             offers.value = payload.offers;
             updatedAt.value = payload.updatedAt;
             latestUpdated.value = payload.latestUpdated;
+            latestUpdatedIds.value = payload.latestUpdatedIds;
             return;
           } catch {
             // retry also failed
@@ -203,7 +214,7 @@ export const useOffersStore = defineStore("offers", () => {
     const offer = offers.value.find((o) => o.id === offerId);
     if (offer) {
       offer.recipientState = newState;
-      persistOffersCache(offers.value, updatedAt.value, latestUpdated.value);
+      persistOffersCache(offers.value, updatedAt.value, latestUpdated.value, latestUpdatedIds.value);
     }
   }
 
@@ -213,6 +224,7 @@ export const useOffersStore = defineStore("offers", () => {
       offers.value = [];
       updatedAt.value = null;
       latestUpdated.value = null;
+      latestUpdatedIds.value = [];
     },
   });
 

@@ -26,6 +26,13 @@ function parseSinceParam(c: Context): string | null {
   return since;
 }
 
+/** Reads the `sinceIds` query param shared by every delta endpoint — see `Delta.latestUpdatedIds`. */
+function parseSinceIdsParam(c: Context): string[] {
+  const sinceIds = c.req.query("sinceIds");
+  if (!sinceIds) return [];
+  return sinceIds.split(",").filter(Boolean);
+}
+
 function handleError(c: Context, error: unknown) {
   if (error instanceof AuthError) {
     return c.json({ error: error.message }, 401);
@@ -182,8 +189,9 @@ appointments.get("/delta", async (c) => {
   }
   try {
     const includeAll = c.req.query("includeAll") === "true";
+    const sinceIds = parseSinceIdsParam(c);
     const result = await withReauth(c, (cookies) =>
-      findboligService.getAppointmentUpdates(cookies, since, includeAll)
+      findboligService.getAppointmentUpdates(cookies, since, includeAll, sinceIds)
     );
     return c.json(result);
   } catch (error) {
@@ -219,8 +227,9 @@ offers.get("/delta", async (c) => {
     return c.json({ error: "Query param 'since' (ISO timestamp) is required" }, 400);
   }
   try {
+    const sinceIds = parseSinceIdsParam(c);
     const result = await withReauth(c, (cookies) =>
-      findboligService.getOfferUpdates(cookies, since)
+      findboligService.getOfferUpdates(cookies, since, sinceIds)
     );
     return c.json(result);
   } catch (error) {
