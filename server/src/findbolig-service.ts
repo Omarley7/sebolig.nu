@@ -222,6 +222,7 @@ function isDateInPast(dateStr: string | null): boolean {
 async function getOffersUpdatedSince(cookies: string, since: string): Promise<{ changed: ApiOffer[]; latestUpdated: string | null }> {
   const sinceMs = new Date(since).getTime();
   const changed: ApiOffer[] = [];
+  const seenOfferIds = new Set<string>();
   let latestUpdated: string | null = null;
   let page = 0;
 
@@ -238,11 +239,14 @@ async function getOffersUpdatedSince(cookies: string, since: string): Promise<{ 
     }
 
     for (const offer of results) {
-      if (new Date(offer.updated).getTime() <= sinceMs) {
+      if (new Date(offer.updated).getTime() < sinceMs) {
         // Sorted desc — once we hit one this old, everything after it is too.
         return { changed, latestUpdated };
       }
-      changed.push(offer);
+      if (!seenOfferIds.has(offer.id)) {
+        seenOfferIds.add(offer.id);
+        changed.push(offer);
+      }
     }
 
     page += 1;
