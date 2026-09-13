@@ -1,4 +1,6 @@
 import "dotenv/config";
+import { stdin as input, stdout as output } from "node:process";
+import { createInterface } from "node:readline/promises";
 
 // session.ts throws at import time unless COOKIE_SECRET is set.
 process.env.COOKIE_SECRET ||= "x".repeat(32);
@@ -39,6 +41,15 @@ function summarizeOffer(offer: ApiOffer): string {
   return `[#${offer.number}] state: ${offer.state.padEnd(10)} | created: ${offer.created ?? "null"} | updated: ${offer.updated ?? "null"} | deadline: ${offer.deadline ?? "null"}`;
 }
 
+async function readFromStdin(prompt: string): Promise<string> {
+  const rl = createInterface({ input, output });
+  try {
+    return (await rl.question(prompt)).trim();
+  } finally {
+    rl.close();
+  }
+}
+
 async function testSortOption(cookies: string, orderBy: string, orderDirection: "asc" | "desc") {
   process.stdout.write(`Testing: orderBy="${orderBy}" orderDirection="${orderDirection}" ... `);
   try {
@@ -75,9 +86,22 @@ async function testSortOption(cookies: string, orderBy: string, orderDirection: 
 async function main() {
   const cliArgs = parseCliArgs();
 
+  if (cliArgs.password || cliArgs.cookies) {
+    console.error("Do not pass secrets via CLI args. Use env vars or stdin prompts instead.");
+    process.exit(1);
+  }
+
   const email = cliArgs.email || process.env.FINDBOLIG_EMAIL;
-  const password = cliArgs.password || process.env.FINDBOLIG_PASSWORD;
-  let cookies = cliArgs.cookies || process.env.FINDBOLIG_COOKIES;
+  let password = process.env.FINDBOLIG_PASSWORD;
+  let cookies = process.env.FINDBOLIG_COOKIES;
+
+  if (!cookies && !password && email) {
+    password = await readFromStdin("FINDBOLIG_PASSWORD: ");
+  }
+
+  if (!cookies && !email && !password) {
+    cookies = await readFromStdin("FINDBOLIG_COOKIES (optional): ");
+  }
 
   if (!cookies) {
     if (!email || !password) {
@@ -89,14 +113,14 @@ async function main() {
       console.error("    FINDBOLIG_PASSWORD=yourpassword");
       console.error("    npm run test:sort --workspace=server");
       console.error("");
-      console.error("  Option 2 (via CLI args):");
-      console.error("    npx tsx src/test-sort.ts --email=your@email.com --password=secret");
+      console.error("  Option 2 (prompt for password via stdin):");
+      console.error("    FINDBOLIG_EMAIL=your@email.com npx tsx src/test-sort.ts");
       console.error("");
-      console.error("  Option 3 (using pre-existing session cookies):");
-      console.error('    npx tsx src/test-sort.ts --cookies="__Secure-SID=...; .AspNet.Cookies=..."');
+      console.error("  Option 3 (prompt for cookies via stdin):");
+      console.error("    npx tsx src/test-sort.ts");
       console.error("");
       console.error("  Option 4 (test a specific custom field):");
-      console.error("    npx tsx src/test-sort.ts --email=... --password=... --orderBy=deadline --orderDirection=asc");
+      console.error("    FINDBOLIG_EMAIL=... npx tsx src/test-sort.ts --orderBy=deadline --orderDirection=asc");
       process.exit(1);
     }
 
