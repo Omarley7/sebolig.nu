@@ -16,14 +16,8 @@ export function getOffersCacheAge(): number | null {
   }
 }
 
-export function persistOffersCache(offers: Offer[], updatedAt: Date | null) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ updatedAt, offers }));
-}
-
-export function isOffersCacheStale(thresholdMs = 24 * 60 * 60 * 1000): boolean {
-  const age = getOffersCacheAge();
-  if (age === null) return false;
-  return age > thresholdMs;
+export function persistOffersCache(offers: Offer[], updatedAt: Date | null, latestUpdated: string | null) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ updatedAt, offers, latestUpdated }));
 }
 
 export async function getOffers(forceRefresh: boolean = false) {
@@ -35,6 +29,8 @@ export async function getOffers(forceRefresh: boolean = false) {
         return {
           updatedAt: new Date(parsed.updatedAt),
           offers: parsed.offers as Offer[],
+          // Older caches predate the delta cursor — treat as absent rather than crash.
+          latestUpdated: (parsed.latestUpdated as string | null | undefined) ?? null,
         };
       } catch {
         const toast = useToastStore();

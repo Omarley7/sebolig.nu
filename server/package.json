@@ -4,8 +4,9 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
+    "dev": "tsx watch --tsconfig tsconfig.json src/index.ts",
+    "start": "tsx --tsconfig tsconfig.json src/index.ts",
+    "test:sort": "tsx --tsconfig tsconfig.json src/test-sort.ts",
     "clean": "rm -rf ./node_modules/"
   },
   "keywords": [],

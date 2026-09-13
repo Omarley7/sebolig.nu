@@ -15,6 +15,17 @@ const { t } = useI18n();
 
 const appointmentCount = computed(() => store.appointments.length);
 
+const cacheAgeText = computed(() => {
+    const age = getCacheAge();
+    if (age === null) return "";
+    const hours = Math.floor(age / (1000 * 60 * 60));
+    if (hours >= 24) {
+        const days = Math.floor(hours / 24);
+        return `${days}d ${hours % 24}h`;
+    }
+    return `${hours}h`;
+});
+
 onMounted(() => {
     const hasCache = getCacheAge() !== null;
 
@@ -40,7 +51,15 @@ function handleOpenLogin() {
                 {{ t("appointments.count", { count: appointmentCount }) }}
             </span>
         </p>
-        <StaleDataBanner @open-login="handleOpenLogin" />
+        <StaleDataBanner
+            :needs-refresh="store.needsRefresh"
+            :session-expired="store.sessionExpired"
+            :is-loading="store.isLoading"
+            :cache-age-text="cacheAgeText"
+            @refresh="store.handleRefresh()"
+            @dismiss="store.dismissRefresh()"
+            @open-login="handleOpenLogin"
+        />
         <AppointmentsList />
     </div>
 </template>

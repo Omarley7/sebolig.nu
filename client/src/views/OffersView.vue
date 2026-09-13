@@ -3,6 +3,7 @@ import { computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import OffersList from "~/components/offer/OffersList.vue";
+import StaleDataBanner from "~/components/StaleDataBanner.vue";
 import { useAuth } from "~/composables/useAuth";
 import { getOffersCacheAge } from "~/data/offers";
 import { useOffersStore } from "~/stores/offers";
@@ -14,6 +15,17 @@ const { t } = useI18n();
 
 const offerCount = computed(() => store.offers.length);
 
+const cacheAgeText = computed(() => {
+  const age = getOffersCacheAge();
+  if (age === null) return "";
+  const hours = Math.floor(age / (1000 * 60 * 60));
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24);
+    return `${days}d ${hours % 24}h`;
+  }
+  return `${hours}h`;
+});
+
 onMounted(() => {
   const hasCache = getOffersCacheAge() !== null;
   if (!auth.isAuthenticated && !hasCache) {
@@ -22,6 +34,10 @@ onMounted(() => {
   }
   store.init();
 });
+
+function handleOpenLogin() {
+  auth.showLoginModal = true;
+}
 </script>
 
 <template>
@@ -50,6 +66,15 @@ onMounted(() => {
         {{ t("offers.refresh") }}
       </button>
     </div>
+    <StaleDataBanner
+      :needs-refresh="store.needsRefresh"
+      :session-expired="store.sessionExpired"
+      :is-loading="store.isLoading"
+      :cache-age-text="cacheAgeText"
+      @refresh="store.handleRefresh()"
+      @dismiss="store.dismissRefresh()"
+      @open-login="handleOpenLogin"
+    />
     <OffersList />
   </div>
 </template>
