@@ -69,7 +69,10 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
         }
       }
     } catch {
-      if (!auth.isDemo && !auth.isAuthenticated) return;
+      if (!auth.isDemo && !auth.isAuthenticated) {
+        sessionExpired.value = true;
+        return;
+      }
       try {
         const payload = await getWaitingLists(true);
         lists.value = payload.lists;
@@ -208,9 +211,8 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
       }
     }
 
-    const workers = Array.from(
-      { length: Math.min(CONCURRENCY_REACTIVATE_ALL, passive.length) },
-      () => worker(),
+    const workers = Array.from({ length: Math.min(CONCURRENCY_REACTIVATE_ALL, passive.length) }, () =>
+      worker(),
     );
     await Promise.all(workers);
 

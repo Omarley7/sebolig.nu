@@ -1,12 +1,16 @@
-import type { Offer, RecipientState } from "@/types";
+import type { Offer, OfferDelta, RecipientState } from "@/types";
 import { defineStore, storeToRefs } from "pinia";
 import { ref, watch } from "vue";
 import { useAuth } from "~/composables/useAuth";
 import config from "~/config";
 import { handleApiError, HttpError } from "~/data/appointmentsSource";
 import MOCK_OFFERS_JSON from "~/data/MOCK_OFFERS.json";
-import { getOffers, isOffersCacheStale, persistOffersCache } from "~/data/offers";
-import { acceptOffer as apiAcceptOffer, declineOffer as apiDeclineOffer } from "~/data/offersSource";
+import { getOffers, persistOffersCache } from "~/data/offers";
+import {
+  acceptOffer as apiAcceptOffer,
+  declineOffer as apiDeclineOffer,
+  fetchOfferDelta,
+} from "~/data/offersSource";
 import { useI18n } from "~/i18n";
 import { inDays } from "~/lib/dateHelper";
 import { useToastStore } from "~/stores/toast";
@@ -19,6 +23,10 @@ function applyMockDeadlines(offers: Offer[]): Offer[] {
 export const useOffersStore = defineStore("offers", () => {
   const offers = ref<Offer[]>([]);
   const updatedAt = ref<Date | null>(null);
+  // Cursor for the delta check: the newest `updated` value findbolig.nu has reported for
+  // any of this user's offers. Always sourced from the server, never a client clock —
+  // see fetchOfferDelta / getOfferUpdates for why that distinction matters.
+  const latestUpdated = ref<string | null>(null);
   const isLoading = ref(false);
   const needsRefresh = ref(false);
   const sessionExpired = ref(false);
@@ -41,31 +49,66 @@ export const useOffersStore = defineStore("offers", () => {
       const cached = await getOffers(false);
       offers.value = cached.offers;
       updatedAt.value = cached.updatedAt;
+      latestUpdated.value = cached.latestUpdated;
 
       if (!auth.isAuthenticated) {
         sessionExpired.value = true;
         return;
       }
 
-      if (isOffersCacheStale()) {
-        const sessionValid = await auth.ensureSession();
-        if (sessionValid) {
-          needsRefresh.value = true;
-        } else {
-          sessionExpired.value = true;
-        }
+      if (latestUpdated.value) {
+        // We have a cursor from a previous fetch — ask "did anything actually change"
+        // instead of blindly refetching on a fixed clock.
+        await checkForUpdates();
+      } else {
+        needsRefresh.value = true;
       }
     } catch {
-      if (!auth.isAuthenticated) return;
+      if (!auth.isAuthenticated) {
+        sessionExpired.value = true;
+        return;
+      }
       try {
         const payload = await getOffers(true);
         offers.value = payload.offers;
         updatedAt.value = payload.updatedAt;
+        latestUpdated.value = payload.latestUpdated;
       } catch (error) {
         handleApiError(error, useToastStore(), useI18n().t, "Failed to load offers");
       }
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  /** Merges a delta response into the local list: upserts changed offers, drops ones that left "Published". */
+  function applyDelta(delta: OfferDelta) {
+    if (delta.latestUpdated) latestUpdated.value = delta.latestUpdated;
+
+    if (delta.offers.length === 0 && delta.removedIds.length === 0) {
+      return;
+    }
+
+    const removed = new Set(delta.removedIds);
+    const byId = new Map(offers.value.filter((o) => !removed.has(o.id)).map((o) => [o.id, o]));
+    for (const offer of delta.offers) {
+      byId.set(offer.id, offer);
+    }
+
+    offers.value = Array.from(byId.values());
+    updatedAt.value = new Date();
+    persistOffersCache(offers.value, updatedAt.value, latestUpdated.value);
+  }
+
+  /** Lightweight check, meant to run on every navigation to the offers view: asks the
+   * server whether anything changed since our cursor, and only enriches what did. */
+  async function checkForUpdates() {
+    const cursor = latestUpdated.value;
+    if (!cursor) return;
+    try {
+      applyDelta(await fetchOfferDelta(cursor));
+    } catch {
+      // Best-effort — keep showing cached data if the check itself fails.
     }
   }
 
@@ -86,6 +129,7 @@ export const useOffersStore = defineStore("offers", () => {
       const payload = await getOffers(true);
       offers.value = payload.offers;
       updatedAt.value = payload.updatedAt;
+      latestUpdated.value = payload.latestUpdated;
     } catch (error) {
       const is401 = error instanceof HttpError && error.status === 401;
       if (is401) {
@@ -95,6 +139,7 @@ export const useOffersStore = defineStore("offers", () => {
             const payload = await getOffers(true);
             offers.value = payload.offers;
             updatedAt.value = payload.updatedAt;
+            latestUpdated.value = payload.latestUpdated;
             return;
           } catch {
             // retry also failed
@@ -156,11 +201,15 @@ export const useOffersStore = defineStore("offers", () => {
     }
   }
 
+  function dismissRefresh() {
+    needsRefresh.value = false;
+  }
+
   function updateLocalOfferState(offerId: string, newState: RecipientState) {
     const offer = offers.value.find((o) => o.id === offerId);
     if (offer) {
       offer.recipientState = newState;
-      persistOffersCache(offers.value, updatedAt.value);
+      persistOffersCache(offers.value, updatedAt.value, latestUpdated.value);
     }
   }
 
@@ -193,6 +242,7 @@ export const useOffersStore = defineStore("offers", () => {
     } else {
       offers.value = [];
       updatedAt.value = null;
+      latestUpdated.value = null;
       needsRefresh.value = false;
       sessionExpired.value = false;
     }
@@ -212,6 +262,7 @@ export const useOffersStore = defineStore("offers", () => {
     init,
     refresh,
     handleRefresh,
+    dismissRefresh,
     acceptOffer,
     declineOffer,
     getImageUrl,

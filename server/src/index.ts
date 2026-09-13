@@ -190,6 +190,21 @@ offers.get("/active", async (c) => {
   }
 });
 
+offers.get("/delta", async (c) => {
+  const since = c.req.query("since");
+  if (!since || Number.isNaN(new Date(since).getTime())) {
+    return c.json({ error: "Query param 'since' (ISO timestamp) is required" }, 400);
+  }
+  try {
+    const result = await withReauth(c, (cookies) =>
+      findboligService.getOfferUpdates(cookies, since)
+    );
+    return c.json(result);
+  } catch (error) {
+    return handleError(c, error);
+  }
+});
+
 offers.post("/:offerId/accept", async (c) => {
   try {
     const offerId = c.req.param("offerId");

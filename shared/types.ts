@@ -58,6 +58,13 @@ export type Offer = {
   position: number | null;
 };
 
+// Result of a lightweight "what changed since `latestUpdated`" check.
+export type OfferDelta = {
+  offers: Offer[]; // new/updated offers that are (still) Published
+  removedIds: string[]; // previously-cached offers that changed out of Published
+  latestUpdated: string | null; // new cursor to persist for the next delta check
+};
+
 export type CachedAppointmentEntry = {
   offerId: string;
   messageCount: number;

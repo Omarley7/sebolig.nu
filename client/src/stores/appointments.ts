@@ -49,7 +49,10 @@ export const useAppointmentsStore = defineStore("appointments", () => {
         }
       }
     } catch {
-      if (!auth.isAuthenticated) return;
+      if (!auth.isAuthenticated) {
+        sessionExpired.value = true;
+        return;
+      }
       try {
         const payload = await getAppointments(true, showAllOffers.value);
         appointments.value = payload.appointments;

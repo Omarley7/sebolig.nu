@@ -1,4 +1,4 @@
-import type { Offer, RecipientState } from "@/types";
+import type { Offer, OfferDelta, RecipientState } from "@/types";
 import config from "~/config";
 import MOCK_OFFERS from "~/data/MOCK_OFFERS.json";
 import { inDays } from "~/lib/dateHelper";
@@ -6,6 +6,7 @@ import { HttpError } from "./appointmentsSource";
 
 const TIMEOUT_FETCH = 90_000;
 const TIMEOUT_ACTION = 25_000;
+const TIMEOUT_DELTA = 30_000;
 
 async function fetchWithTimeout(
   url: string,
@@ -20,6 +21,7 @@ async function fetchWithTimeout(
 export async function fetchActiveOffers(): Promise<{
   updatedAt: Date;
   offers: Offer[];
+  latestUpdated: string | null;
 }> {
   if (config.useMockData) {
     await new Promise((resolve) => setTimeout(resolve, 800));
@@ -28,7 +30,7 @@ export async function fetchActiveOffers(): Promise<{
       ...offer,
       deadline: deadlines[i % deadlines.length],
     }));
-    return { updatedAt: new Date(), offers };
+    return { updatedAt: new Date(), offers, latestUpdated: new Date().toISOString() };
   }
 
   const res = await fetchWithTimeout(
@@ -41,8 +43,26 @@ export async function fetchActiveOffers(): Promise<{
     throw new HttpError(`Failed to fetch offers: ${res.status}`, res.status);
   }
 
-  const data = await res.json();
-  return { updatedAt: new Date(), offers: data as Offer[] };
+  const data = (await res.json()) as { offers: Offer[]; latestUpdated: string | null };
+  return { updatedAt: new Date(), offers: data.offers, latestUpdated: data.latestUpdated };
+}
+
+/**
+ * Lightweight check for offers changed since `since` (a `latestUpdated` cursor
+ * previously returned by this same API — never a client-generated timestamp).
+ */
+export async function fetchOfferDelta(since: string): Promise<OfferDelta> {
+  const res = await fetchWithTimeout(
+    `${config.backendDomain}/api/offers/delta?since=${encodeURIComponent(since)}`,
+    { method: "GET", credentials: "include" },
+    TIMEOUT_DELTA,
+  );
+
+  if (!res.ok) {
+    throw new HttpError(`Failed to fetch offer delta: ${res.status}`, res.status);
+  }
+
+  return (await res.json()) as OfferDelta;
 }
 
 export async function acceptOffer(offerId: string): Promise<RecipientState> {
