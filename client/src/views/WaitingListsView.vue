@@ -3,11 +3,9 @@ import { computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import PassivatedBanner from "~/components/waitingList/PassivatedBanner.vue";
-import StaleDataBanner from "~/components/StaleDataBanner.vue";
 import WaitingListsList from "~/components/waitingList/WaitingListsList.vue";
 import { useAuth } from "~/composables/useAuth";
 import { getWaitingListsCacheAge } from "~/data/waitingLists";
-import { formatCacheAge } from "~/lib/cacheAge";
 import { useWaitingListsStore } from "~/stores/waitingLists";
 
 const store = useWaitingListsStore();
@@ -16,7 +14,6 @@ const router = useRouter();
 const { t } = useI18n();
 
 const count = computed(() => store.lists.length);
-const cacheAgeText = computed(() => formatCacheAge(getWaitingListsCacheAge()));
 
 onMounted(() => {
   const hasCache = getWaitingListsCacheAge() !== null;
@@ -26,10 +23,6 @@ onMounted(() => {
   }
   store.init();
 });
-
-function handleOpenLogin() {
-  auth.showLoginModal = true;
-}
 </script>
 
 <template>
@@ -59,15 +52,6 @@ function handleOpenLogin() {
       </button>
     </div>
 
-    <StaleDataBanner
-      :needs-refresh="store.needsRefresh"
-      :session-expired="store.sessionExpired"
-      :is-loading="store.isLoading"
-      :cache-age-text="cacheAgeText"
-      @refresh="store.handleRefresh()"
-      @dismiss="store.dismissRefresh()"
-      @open-login="handleOpenLogin"
-    />
     <PassivatedBanner />
     <WaitingListsList />
   </div>
