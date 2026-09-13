@@ -11,10 +11,12 @@ import { useI18n } from "vue-i18n";
 import { useDarkMode } from "~/composables/useDarkMode";
 import { useScrollLock } from "~/composables/useScrollLock";
 import { formatCurrency, formatTimeSlot } from "~/lib/formatters";
-import { galleryImage } from "~/lib/imageTransform";
+import { blueprintImage, galleryImage } from "~/lib/imageTransform";
+import { prefetchImages } from "~/lib/prefetch";
 import { useAppointmentsStore } from "~/stores/appointments";
 import ImageGalleryModal from "../gallery/ImageGalleryModal.vue";
 import FinancialsModal from "../card/FinancialsModal.vue";
+import BaseImage from "~/components/Base/BaseImage.vue";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -26,6 +28,12 @@ const { getImageUrl } = useAppointmentsStore();
 const props = defineProps<{
   appointment: Appointment;
   includeDate?: boolean;
+  /**
+   * The thumb URL the opening card already rendered. Reused as a blurred
+   * placeholder for the first slide — same source image, already in cache, so
+   * it costs no request. Omitted when the card never loaded one.
+   */
+  cachedThumb?: string;
 }>();
 
 const emit = defineEmits<{
@@ -203,6 +211,10 @@ onMounted(() => {
   requestAnimationFrame(() => {
     visible.value = true;
   });
+  // Warm the lightbox's blueprints tab at idle — photos already load via the swiper
+  prefetchImages(
+    (props.appointment.blueprints ?? []).map((p) => blueprintImage(getImageUrl(p))),
+  );
 });
 
 onUnmounted(() => {
@@ -267,15 +279,17 @@ onUnmounted(() => {
               :space-between="0"
               :pagination="{ clickable: true, dynamicBullets: true }"
               :navigation="allImages.length > 1"
+              :lazy-preload-prev-next="1"
               class="detail-swiper"
               @slide-change="(s: any) => galleryActiveIndex = s.activeIndex"
             >
               <SwiperSlide v-for="(img, i) in allImages" :key="img">
-                <img
+                <BaseImage
                   :src="galleryImage(getImageUrl(img))"
                   :alt="`Photo ${i + 1}`"
-                  class="w-full aspect-[16/10] object-cover"
-                  :loading="i > 0 ? 'lazy' : 'eager'"
+                  :placeholder="i === 0 ? props.cachedThumb : undefined"
+                  :eager="i === 0"
+                  class="w-full aspect-[16/10]"
                 />
               </SwiperSlide>
             </Swiper>

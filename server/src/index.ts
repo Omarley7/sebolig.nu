@@ -11,6 +11,7 @@ import * as findboligService from "~/findbolig-service";
 import type { SyncAppointmentsRequest } from "@/types";
 import { TimeoutError } from "~/findbolig-service";
 import { AuthError, withReauth } from "~/lib/auth-helpers";
+import { warmImages } from "~/lib/image-warmer";
 import {
   setSessionCookie,
   clearSessionCookie,
@@ -148,6 +149,7 @@ appointments.get("/upcoming", async (c) => {
     const result = await withReauth(c, (cookies) =>
       findboligService.getUpcomingAppointments(cookies, includeAll)
     );
+    warmImages(result);
     return c.json(result);
   } catch (error) {
     return handleError(c, error);
@@ -162,6 +164,7 @@ appointments.post("/sync", async (c) => {
     const result = await withReauth(c, (cookies) =>
       findboligService.getUpcomingAppointments(cookies, includeAll, cached)
     );
+    warmImages(result);
     return c.json(result);
   } catch (error) {
     return handleError(c, error);
@@ -184,6 +187,7 @@ offers.get("/active", async (c) => {
     const result = await withReauth(c, (cookies) =>
       findboligService.getActiveOffers(cookies)
     );
+    warmImages(result);
     return c.json(result);
   } catch (error) {
     return handleError(c, error);
@@ -270,6 +274,7 @@ waitingLists.get("/", async (c) => {
     const result = await withReauth(c, (cookies) =>
       findboligService.getWaitingLists(cookies)
     );
+    warmImages(result);
     return c.json(result);
   } catch (error) {
     return handleError(c, error);

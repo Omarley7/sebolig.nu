@@ -9,7 +9,8 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useScrollLock } from "~/composables/useScrollLock";
 import { formatCurrency } from "~/lib/formatters";
-import { galleryImage } from "~/lib/imageTransform";
+import { blueprintImage, galleryImage } from "~/lib/imageTransform";
+import { prefetchImages } from "~/lib/prefetch";
 import { useWaitingListsStore } from "~/stores/waitingLists";
 import ImageGalleryModal from "~/components/appointment/gallery/ImageGalleryModal.vue";
 import ConfirmUnsubscribeDialog from "./ConfirmUnsubscribeDialog.vue";
@@ -181,6 +182,8 @@ onMounted(() => {
   window.addEventListener("popstate", onPopState);
   history.pushState({ sheet: true }, "");
   requestAnimationFrame(() => { visible.value = true; });
+  // Warm the lightbox's blueprints tab at idle — photos already load via the swiper
+  prefetchImages((props.list.blueprints ?? []).map((p) => blueprintImage(getImageUrl(p))));
 });
 
 onUnmounted(() => {

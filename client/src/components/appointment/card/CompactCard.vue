@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { Appointment } from "@/types";
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, ref, watchEffect } from "vue";
 import { useI18n } from "vue-i18n";
 import { useAppointmentsStore } from "~/stores/appointments";
-import { compactThumb } from "~/lib/imageTransform";
+import { compactThumb, galleryImage } from "~/lib/imageTransform";
+import { prefetchImages } from "~/lib/prefetch";
 import { formatCurrency, formatTimeSlot } from "~/lib/formatters";
 import AppointmentDetailSheet from "../detail/AppointmentDetailSheet.vue";
 
@@ -42,6 +43,13 @@ async function onDetailAfterLeave() {
 const thumbUrl = computed(() => {
   if (props.loadImage === false) return undefined;
   return compactThumb(getImageUrl(props.appointment.imageUrl));
+});
+
+// Once the thumb is shown, warm the detail sheet's hero at idle
+watchEffect(() => {
+  if (thumbUrl.value) {
+    prefetchImages([galleryImage(getImageUrl(props.appointment.imageUrl))]);
+  }
 });
 
 const timeLabel = computed(() => formatTimeSlot(props.appointment, props.includeDate));
@@ -117,6 +125,7 @@ const timeLabel = computed(() => formatTimeSlot(props.appointment, props.include
       v-if="detailMounted"
       :appointment="appointment"
       :include-date="includeDate"
+      :cached-thumb="thumbUrl"
       @close="onDetailClose"
       @after-leave="onDetailAfterLeave"
     />

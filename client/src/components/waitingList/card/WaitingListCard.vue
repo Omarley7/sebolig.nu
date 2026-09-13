@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { WaitingList } from "@/types";
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, ref, watchEffect } from "vue";
 import { useI18n } from "vue-i18n";
-import { compactThumb } from "~/lib/imageTransform";
+import { compactThumb, galleryImage } from "~/lib/imageTransform";
+import { prefetchImages } from "~/lib/prefetch";
 import { formatCurrency } from "~/lib/formatters";
 import { useWaitingListsStore } from "~/stores/waitingLists";
 import WaitingListDetailSheet from "../detail/WaitingListDetailSheet.vue";
@@ -43,6 +44,14 @@ const thumbUrl = computed(() => {
   const first = props.list.images[0];
   if (!first) return undefined;
   return compactThumb(getImageUrl(first));
+});
+
+// Once the thumb is shown, warm the detail sheet's hero at idle
+watchEffect(() => {
+  const first = props.list.images[0];
+  if (thumbUrl.value && first) {
+    prefetchImages([galleryImage(getImageUrl(first))]);
+  }
 });
 
 async function handleReactivate(e: MouseEvent) {

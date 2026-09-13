@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { Offer } from "@/types";
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, ref, watchEffect } from "vue";
 import { useI18n } from "vue-i18n";
 import { useOffersStore } from "~/stores/offers";
-import { compactThumb } from "~/lib/imageTransform";
+import { compactThumb, galleryImage } from "~/lib/imageTransform";
+import { prefetchImages } from "~/lib/prefetch";
 import { formatCurrency } from "~/lib/formatters";
 import { getDeadlineUrgency, urgencyColors } from "~/lib/deadlineUrgency";
 import OfferDetailSheet from "../detail/OfferDetailSheet.vue";
@@ -41,6 +42,13 @@ async function onDetailAfterLeave() {
 const thumbUrl = computed(() => {
   if (props.loadImage === false) return undefined;
   return compactThumb(getImageUrl(props.offer.imageUrl));
+});
+
+// Once the thumb is shown, warm the detail sheet's hero at idle
+watchEffect(() => {
+  if (thumbUrl.value) {
+    prefetchImages([galleryImage(getImageUrl(props.offer.imageUrl))]);
+  }
 });
 
 const urgency = computed(() => getDeadlineUrgency(props.offer.deadline, t));

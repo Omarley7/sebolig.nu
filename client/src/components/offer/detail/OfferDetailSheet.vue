@@ -10,7 +10,8 @@ import { useI18n } from "vue-i18n";
 import { useScrollLock } from "~/composables/useScrollLock";
 import { formatCurrency } from "~/lib/formatters";
 import { getDeadlineUrgency, urgencyColors } from "~/lib/deadlineUrgency";
-import { galleryImage } from "~/lib/imageTransform";
+import { blueprintImage, galleryImage } from "~/lib/imageTransform";
+import { prefetchImages } from "~/lib/prefetch";
 import { useOffersStore } from "~/stores/offers";
 import ImageGalleryModal from "~/components/appointment/gallery/ImageGalleryModal.vue";
 import FinancialsModal from "~/components/appointment/card/FinancialsModal.vue";
@@ -217,6 +218,8 @@ onMounted(() => {
   window.addEventListener("popstate", onPopState);
   history.pushState({ sheet: true }, "");
   requestAnimationFrame(() => { visible.value = true; });
+  // Warm the lightbox's blueprints tab at idle — photos already load via the swiper
+  prefetchImages((props.offer.blueprints ?? []).map((p) => blueprintImage(getImageUrl(p))));
 });
 
 onUnmounted(() => {
