@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import type { CachedAppointmentEntry } from "@/types";
+import type { Appointment, CachedAppointmentEntry } from "@/types";
 import { UserData } from "@/types";
 import {
   apiResidenceToDomain,
@@ -209,127 +209,11 @@ function isDateInPast(dateStr: string | null): boolean {
 }
 
 /**
- * Fetches upcoming appointments with optional incremental sync.
- * When `cached` is provided, the server skips expensive work for past and unchanged appointments.
- * @param includeAll - If true, fetches all offers; if false, only fetches active offers (Finished/Published)
- * @param cached - Optional cached appointment entries from the client for incremental sync
- */
-export async function getUpcomingAppointments(cookies: string, includeAll: boolean = false, cached?: CachedAppointmentEntry[]) {
-  try {
-    let offers = (await fetchOffers(cookies)).results;
-
-    if (!includeAll) {
-      offers = offers.filter((offer) => offer.state === "Finished" || offer.state === "Published");
-    }
-
-    const cacheMap = new Map((cached ?? []).map((entry) => [entry.offerId, entry]));
-
-    const currentYear = new Date().getFullYear().toString();
-
-    const results = await Promise.all(
-      offers.map(async (offer) => {
-        if (!offer.residenceId || !offer.id) {
-          return null;
-        }
-
-        const cachedEntry = cacheMap.get(offer.id);
-
-        // Path 1: Past appointment with cached data — echo back as-is
-        if (cachedEntry && isDateInPast(cachedEntry.date)) {
-          return cachedEntry.appointment;
-        }
-
-        // Fetch thread (needed for Path 2 comparison and Path 3 extraction)
-        const [residence, thread, position] = await Promise.all([
-          getResidence(offer.residenceId, cookies),
-          getThreadForOffer(offer.id, cookies),
-          getPositionOnOffer(offer.id, cookies).catch(() => null),
-        ]);
-
-        if (!thread) {
-          return null;
-        }
-
-        // Path 2: Unchanged thread — skip LLM, reuse cached details
-        if (cachedEntry && thread.messages.length === cachedEntry.messageCount) {
-          const details = {
-            date: cachedEntry.appointment.date ?? "",
-            startTime: cachedEntry.appointment.start ?? "",
-            endTime: cachedEntry.appointment.end ?? "",
-            cancelled: cachedEntry.appointment.cancelled,
-          };
-          return mapAppointmentToDomain({
-            offer,
-            residence,
-            details,
-            position,
-            messageCount: thread.messages.length,
-          });
-        }
-
-        // Path 3: New or changed — full LLM extraction
-        let details = await extractAppointmentDetailsWithLLM(thread, currentYear);
-
-        if (!details.date && offer.showingText) {
-          const showingDetails = await extractAppointmentDetailsFromShowingText(offer.showingText, currentYear);
-          if (showingDetails.date && (showingDetails.startTime || showingDetails.endTime)) {
-            details = showingDetails;
-          }
-        }
-
-        return mapAppointmentToDomain({
-          offer,
-          residence,
-          details,
-          position,
-          messageCount: thread.messages.length,
-        });
-      }),
-    );
-
-    return results.filter((a): a is NonNullable<typeof a> => a !== null);
-  } catch (error) {
-    console.error("Failed to fetch upcoming appointments:", error);
-    throw error;
-  }
-}
-
-/** Fetches residence + waiting-list position for an offer and maps it to the domain `Offer` shape, or null if either lookup fails. */
-async function enrichOffer(offer: ApiOffer, cookies: string) {
-  if (!offer.residenceId || !offer.id) return null;
-  try {
-    const [residence, position] = await Promise.all([
-      getResidence(offer.residenceId, cookies),
-      getPositionOnOffer(offer.id, cookies).catch(() => null),
-    ]);
-    return mapOfferToDomain({ offer, residence, position });
-  } catch (error) {
-    console.error(`Failed to load residence for offer ${offer.id}:`, error);
-    return null;
-  }
-}
-
-/** Fetches active (Published) offers with residence data eagerly loaded, alongside the current `updated` high-water mark. */
-export async function getActiveOffers(cookies: string) {
-  // Sorted by updated desc so results[0].updated is cheaply the latest touch on any of this
-  // user's offers — the same cursor semantics `getOfferUpdates` below compares against.
-  const offersPage = await fetchOffers(cookies, { orderBy: "updated", orderDirection: "desc" });
-  const latestUpdated = offersPage.results[0]?.updated ?? null;
-
-  const publishedOffers = offersPage.results.filter((offer) => offer.state === "Published");
-  const enriched = await Promise.all(publishedOffers.map((offer) => enrichOffer(offer, cookies)));
-
-  return {
-    offers: enriched.filter((o): o is NonNullable<typeof o> => o !== null),
-    latestUpdated,
-  };
-}
-
-/**
  * Walks the updated-desc offer listing, collecting every offer touched after `since`.
  * Paginates using `totalResults` rather than trusting a single page, so accounts with
  * more changes than fit on one page (a busy user, or one who hasn't checked in a while)
- * don't silently lose updates.
+ * don't silently lose updates. Shared by every resource derived from this listing
+ * (offers, appointments) — see `getOfferUpdates` / `getAppointmentUpdates`.
  *
  * `since` must be an `updated` value this server previously returned (i.e. findbolig.nu's
  * own clock) — never a client-generated timestamp. Comparing against a browser's local
@@ -369,6 +253,140 @@ async function getOffersUpdatedSince(cookies: string, since: string): Promise<{ 
 }
 
 /**
+ * Turns an offer into an Appointment, reusing a cached entry when possible:
+ *  - Path 1: past appointment with cached data — echo back as-is (no upstream calls at all).
+ *  - Path 2: thread unchanged since last time (same message count) — skip the LLM, reuse cached details.
+ *  - Path 3: new or changed — full LLM extraction (falling back to showing-text extraction).
+ * Returns null if the offer has no residence/thread to build an appointment from.
+ */
+async function enrichAppointment(
+  offer: ApiOffer,
+  cookies: string,
+  currentYear: string,
+  cachedEntry?: CachedAppointmentEntry,
+): Promise<Appointment | null> {
+  if (!offer.residenceId || !offer.id) return null;
+
+  if (cachedEntry && isDateInPast(cachedEntry.date)) {
+    return cachedEntry.appointment;
+  }
+
+  const [residence, thread, position] = await Promise.all([
+    getResidence(offer.residenceId, cookies),
+    getThreadForOffer(offer.id, cookies),
+    getPositionOnOffer(offer.id, cookies).catch(() => null),
+  ]);
+
+  if (!thread) return null;
+
+  if (cachedEntry && thread.messages.length === cachedEntry.messageCount) {
+    const details = {
+      date: cachedEntry.appointment.date ?? "",
+      startTime: cachedEntry.appointment.start ?? "",
+      endTime: cachedEntry.appointment.end ?? "",
+      cancelled: cachedEntry.appointment.cancelled,
+    };
+    return mapAppointmentToDomain({ offer, residence, details, position, messageCount: thread.messages.length });
+  }
+
+  let details = await extractAppointmentDetailsWithLLM(thread, currentYear);
+  if (!details.date && offer.showingText) {
+    const showingDetails = await extractAppointmentDetailsFromShowingText(offer.showingText, currentYear);
+    if (showingDetails.date && (showingDetails.startTime || showingDetails.endTime)) {
+      details = showingDetails;
+    }
+  }
+
+  return mapAppointmentToDomain({ offer, residence, details, position, messageCount: thread.messages.length });
+}
+
+const isUpcomingAppointmentState = (offer: ApiOffer) => offer.state === "Finished" || offer.state === "Published";
+
+/**
+ * Fetches upcoming appointments with optional incremental sync, alongside the current
+ * `updated` high-water mark (see `getActiveOffers` / `getAppointmentUpdates` for why this
+ * cursor matters).
+ * When `cached` is provided, the server skips expensive work for past and unchanged appointments.
+ * @param includeAll - If true, fetches all offers; if false, only fetches active offers (Finished/Published)
+ * @param cached - Optional cached appointment entries from the client for incremental sync
+ */
+export async function getUpcomingAppointments(cookies: string, includeAll: boolean = false, cached?: CachedAppointmentEntry[]) {
+  try {
+    const offersPage = await fetchOffers(cookies, { orderBy: "updated", orderDirection: "desc" });
+    const latestUpdated = offersPage.results[0]?.updated ?? null;
+
+    const offers = includeAll ? offersPage.results : offersPage.results.filter(isUpcomingAppointmentState);
+    const cacheMap = new Map((cached ?? []).map((entry) => [entry.offerId, entry]));
+    const currentYear = new Date().getFullYear().toString();
+
+    const results = await Promise.all(
+      offers.map((offer) => enrichAppointment(offer, cookies, currentYear, cacheMap.get(offer.id))),
+    );
+
+    return {
+      appointments: results.filter((a): a is NonNullable<typeof a> => a !== null),
+      latestUpdated,
+    };
+  } catch (error) {
+    console.error("Failed to fetch upcoming appointments:", error);
+    throw error;
+  }
+}
+
+/**
+ * Lightweight delta check for appointments: finds offers touched since `since` and only pays
+ * the residence/thread/LLM cost for those, instead of re-deriving every appointment on every
+ * navigation. `includeAll` mirrors `getUpcomingAppointments`'s own toggle — when true nothing
+ * is ever "removed" from the view, since every offer state is already included.
+ */
+export async function getAppointmentUpdates(cookies: string, since: string, includeAll: boolean = false) {
+  const { changed, latestUpdated } = await getOffersUpdatedSince(cookies, since);
+
+  const relevant = includeAll ? changed : changed.filter(isUpcomingAppointmentState);
+  const removedIds = includeAll ? [] : changed.filter((offer) => !isUpcomingAppointmentState(offer)).map((offer) => offer.id);
+
+  const currentYear = new Date().getFullYear().toString();
+  const enriched = await Promise.all(relevant.map((offer) => enrichAppointment(offer, cookies, currentYear)));
+
+  return {
+    items: enriched.filter((a): a is NonNullable<typeof a> => a !== null),
+    removedIds,
+    latestUpdated,
+  };
+}
+
+/** Fetches residence + waiting-list position for an offer and maps it to the domain `Offer` shape, or null if either lookup fails. */
+async function enrichOffer(offer: ApiOffer, cookies: string) {
+  if (!offer.residenceId || !offer.id) return null;
+  try {
+    const [residence, position] = await Promise.all([
+      getResidence(offer.residenceId, cookies),
+      getPositionOnOffer(offer.id, cookies).catch(() => null),
+    ]);
+    return mapOfferToDomain({ offer, residence, position });
+  } catch (error) {
+    console.error(`Failed to load residence for offer ${offer.id}:`, error);
+    return null;
+  }
+}
+
+/** Fetches active (Published) offers with residence data eagerly loaded, alongside the current `updated` high-water mark. */
+export async function getActiveOffers(cookies: string) {
+  // Sorted by updated desc so results[0].updated is cheaply the latest touch on any of this
+  // user's offers — the same cursor semantics `getOfferUpdates` below compares against.
+  const offersPage = await fetchOffers(cookies, { orderBy: "updated", orderDirection: "desc" });
+  const latestUpdated = offersPage.results[0]?.updated ?? null;
+
+  const publishedOffers = offersPage.results.filter((offer) => offer.state === "Published");
+  const enriched = await Promise.all(publishedOffers.map((offer) => enrichOffer(offer, cookies)));
+
+  return {
+    offers: enriched.filter((o): o is NonNullable<typeof o> => o !== null),
+    latestUpdated,
+  };
+}
+
+/**
  * Lightweight delta check for the offers list: finds what changed since `since` and only
  * pays the residence/position enrichment cost (2 upstream calls per offer) for those offers,
  * instead of re-enriching every active offer on every navigation.
@@ -382,7 +400,7 @@ export async function getOfferUpdates(cookies: string, since: string) {
   const enriched = await Promise.all(stillPublished.map((offer) => enrichOffer(offer, cookies)));
 
   return {
-    offers: enriched.filter((o): o is NonNullable<typeof o> => o !== null),
+    items: enriched.filter((o): o is NonNullable<typeof o> => o !== null),
     removedIds,
     latestUpdated,
   };

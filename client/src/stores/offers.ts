@@ -1,7 +1,8 @@
 import type { Offer, OfferDelta, RecipientState } from "@/types";
-import { defineStore, storeToRefs } from "pinia";
-import { ref, watch } from "vue";
+import { defineStore } from "pinia";
+import { ref } from "vue";
 import { useAuth } from "~/composables/useAuth";
+import { useRefreshGate } from "~/composables/useRefreshGate";
 import config from "~/config";
 import { handleApiError, HttpError } from "~/data/appointmentsSource";
 import MOCK_OFFERS_JSON from "~/data/MOCK_OFFERS.json";
@@ -85,13 +86,13 @@ export const useOffersStore = defineStore("offers", () => {
   function applyDelta(delta: OfferDelta) {
     if (delta.latestUpdated) latestUpdated.value = delta.latestUpdated;
 
-    if (delta.offers.length === 0 && delta.removedIds.length === 0) {
+    if (delta.items.length === 0 && delta.removedIds.length === 0) {
       return;
     }
 
     const removed = new Set(delta.removedIds);
     const byId = new Map(offers.value.filter((o) => !removed.has(o.id)).map((o) => [o.id, o]));
-    for (const offer of delta.offers) {
+    for (const offer of delta.items) {
       byId.set(offer.id, offer);
     }
 
@@ -201,10 +202,6 @@ export const useOffersStore = defineStore("offers", () => {
     }
   }
 
-  function dismissRefresh() {
-    needsRefresh.value = false;
-  }
-
   function updateLocalOfferState(offerId: string, newState: RecipientState) {
     const offer = offers.value.find((o) => o.id === offerId);
     if (offer) {
@@ -213,39 +210,15 @@ export const useOffersStore = defineStore("offers", () => {
     }
   }
 
-  let pendingRefresh = false;
-
-  async function handleRefresh() {
-    const auth = useAuth();
-    if (!auth.isAuthenticated) {
-      pendingRefresh = true;
-      auth.showLoginModal = true;
-      return;
-    }
-    const sessionValid = await auth.ensureSession();
-    if (!sessionValid) {
-      sessionExpired.value = true;
-      needsRefresh.value = false;
-      return;
-    }
-    await refresh();
-  }
-
-  const { isAuthenticated } = storeToRefs(useAuth());
-  watch(isAuthenticated, (loggedIn) => {
-    if (loggedIn) {
-      sessionExpired.value = false;
-      if (pendingRefresh) {
-        pendingRefresh = false;
-        refresh();
-      }
-    } else {
+  const { dismissRefresh, handleRefresh } = useRefreshGate({
+    needsRefresh,
+    sessionExpired,
+    refresh,
+    onLoggedOut: () => {
       offers.value = [];
       updatedAt.value = null;
       latestUpdated.value = null;
-      needsRefresh.value = false;
-      sessionExpired.value = false;
-    }
+    },
   });
 
   function getImageUrl(imagePath: string): string {

@@ -1,7 +1,8 @@
 import type { WaitingList } from "@/types";
-import { defineStore, storeToRefs } from "pinia";
-import { ref, watch } from "vue";
+import { defineStore } from "pinia";
+import { ref } from "vue";
 import { useAuth } from "~/composables/useAuth";
+import { useRefreshGate } from "~/composables/useRefreshGate";
 import config from "~/config";
 import { handleApiError, HttpError } from "~/data/appointmentsSource";
 import {
@@ -281,40 +282,16 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
     return `${config.imageBaseUrl}${imagePath}`;
   }
 
-  let pendingRefresh = false;
-
-  async function handleRefresh() {
-    const auth = useAuth();
-    if (!auth.isAuthenticated) {
-      pendingRefresh = true;
-      auth.showLoginModal = true;
-      return;
-    }
-    const sessionValid = await auth.ensureSession();
-    if (!sessionValid) {
-      sessionExpired.value = true;
-      needsRefresh.value = false;
-      return;
-    }
-    await refresh();
-  }
-
-  const { isAuthenticated } = storeToRefs(useAuth());
-  watch(isAuthenticated, (loggedIn) => {
-    if (loggedIn) {
-      sessionExpired.value = false;
-      if (pendingRefresh) {
-        pendingRefresh = false;
-        refresh();
-      }
-    } else {
+  const { dismissRefresh, handleRefresh } = useRefreshGate({
+    needsRefresh,
+    sessionExpired,
+    refresh,
+    onLoggedOut: () => {
       lists.value = [];
       updatedAt.value = null;
-      needsRefresh.value = false;
-      sessionExpired.value = false;
       recentlyPassivated.value = [];
       clearSnapshots();
-    }
+    },
   });
 
   return {
@@ -331,6 +308,7 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
     init,
     refresh,
     handleRefresh,
+    dismissRefresh,
     setActive,
     reactivateAll,
     unsubscribe,
