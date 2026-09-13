@@ -346,11 +346,13 @@ export async function getAppointmentUpdates(cookies: string, since: string, incl
   const removedIds = includeAll ? [] : changed.filter((offer) => !isUpcomingAppointmentState(offer)).map((offer) => offer.id);
 
   const currentYear = new Date().getFullYear().toString();
-  const enriched = await Promise.all(relevant.map((offer) => enrichAppointment(offer, cookies, currentYear)));
-
+  const enriched = await Promise.all(
+    relevant.map(async (offer) => ({ offerId: offer.id, appointment: await enrichAppointment(offer, cookies, currentYear) })),
+  );
+  const missingIds = enriched.filter(({ appointment }) => !appointment).map(({ offerId }) => offerId);
   return {
-    items: enriched.filter((a): a is NonNullable<typeof a> => a !== null),
-    removedIds,
+    items: enriched.flatMap(({ appointment }) => appointment ? [appointment] : []),
+    removedIds: [...removedIds, ...missingIds],
     latestUpdated,
   };
 }
