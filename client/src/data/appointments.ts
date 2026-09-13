@@ -17,12 +17,6 @@ export function getCacheAge(): number | null {
   }
 }
 
-export function isCacheStale(thresholdMs = 24 * 60 * 60 * 1000): boolean {
-  const age = getCacheAge();
-  if (age === null) return false;
-  return age > thresholdMs;
-}
-
 function buildCacheEntries(): CachedAppointmentEntry[] {
   const cached = localStorage.getItem(STORAGE_KEY);
   if (!cached) return [];

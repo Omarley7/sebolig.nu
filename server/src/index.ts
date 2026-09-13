@@ -19,6 +19,13 @@ import {
   type SealedSession,
 } from "~/lib/session";
 
+/** Reads and validates the `since` query param shared by every delta endpoint. */
+function parseSinceParam(c: Context): string | null {
+  const since = c.req.query("since");
+  if (!since || Number.isNaN(new Date(since).getTime())) return null;
+  return since;
+}
+
 function handleError(c: Context, error: unknown) {
   if (error instanceof AuthError) {
     return c.json({ error: error.message }, 401);
@@ -168,6 +175,22 @@ appointments.post("/sync", async (c) => {
   }
 });
 
+appointments.get("/delta", async (c) => {
+  const since = parseSinceParam(c);
+  if (!since) {
+    return c.json({ error: "Query param 'since' (ISO timestamp) is required" }, 400);
+  }
+  try {
+    const includeAll = c.req.query("includeAll") === "true";
+    const result = await withReauth(c, (cookies) =>
+      findboligService.getAppointmentUpdates(cookies, since, includeAll)
+    );
+    return c.json(result);
+  } catch (error) {
+    return handleError(c, error);
+  }
+});
+
 offers.get("/", async (c) => {
   try {
     const result = await withReauth(c, (cookies) =>
@@ -191,8 +214,8 @@ offers.get("/active", async (c) => {
 });
 
 offers.get("/delta", async (c) => {
-  const since = c.req.query("since");
-  if (!since || Number.isNaN(new Date(since).getTime())) {
+  const since = parseSinceParam(c);
+  if (!since) {
     return c.json({ error: "Query param 'since' (ISO timestamp) is required" }, 400);
   }
   try {

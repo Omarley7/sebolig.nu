@@ -6,6 +6,7 @@ import OffersList from "~/components/offer/OffersList.vue";
 import StaleDataBanner from "~/components/StaleDataBanner.vue";
 import { useAuth } from "~/composables/useAuth";
 import { getOffersCacheAge } from "~/data/offers";
+import { formatCacheAge } from "~/lib/cacheAge";
 import { useOffersStore } from "~/stores/offers";
 
 const store = useOffersStore();
@@ -14,17 +15,7 @@ const router = useRouter();
 const { t } = useI18n();
 
 const offerCount = computed(() => store.offers.length);
-
-const cacheAgeText = computed(() => {
-  const age = getOffersCacheAge();
-  if (age === null) return "";
-  const hours = Math.floor(age / (1000 * 60 * 60));
-  if (hours >= 24) {
-    const days = Math.floor(hours / 24);
-    return `${days}d ${hours % 24}h`;
-  }
-  return `${hours}h`;
-});
+const cacheAgeText = computed(() => formatCacheAge(getOffersCacheAge()));
 
 onMounted(() => {
   const hasCache = getOffersCacheAge() !== null;
@@ -50,12 +41,9 @@ function handleOpenLogin() {
         </span>
       </p>
       <button
-        @click="store.refresh()"
+        @click="store.handleRefresh()"
         :disabled="store.isLoading"
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
-               text-neutral-500 dark:text-neutral-400
-               hover:bg-neutral-100 dark:hover:bg-white/5
-               disabled:opacity-40 transition-colors"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 disabled:opacity-40 transition-colors"
       >
         <img
           src="/icons/refresh-ccw.svg"

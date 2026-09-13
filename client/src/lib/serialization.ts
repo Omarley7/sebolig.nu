@@ -16,9 +16,11 @@ export function deserializeAppointments(data: any[]): Appointment[] {
 
 export function deserializeAppointmentsPayload(
   payload: any // TODO: T-RPC could help here
-): { updatedAt: Date; appointments: Appointment[] } {
+): { updatedAt: Date; appointments: Appointment[]; latestUpdated: string | null } {
   return {
     updatedAt: new Date(payload.updatedAt),
     appointments: deserializeAppointments(payload.appointments ?? []),
+    // Older caches predate the delta cursor — treat as absent rather than crash.
+    latestUpdated: payload.latestUpdated ?? null,
   };
 }

@@ -1,4 +1,4 @@
-import type { Appointment, CachedAppointmentEntry, SyncAppointmentsRequest, UserData } from "@/types";
+import type { Appointment, AppointmentDelta, CachedAppointmentEntry, SyncAppointmentsRequest, UserData } from "@/types";
 import mockAppointmentsJson from "~/data/MOCK_APPOINTMENTS.json";
 
 import config from "~/config";
@@ -6,6 +6,7 @@ import { dateInDays } from "~/lib/dateHelper";
 
 const TIMEOUT_LOGIN = 25_000;
 const TIMEOUT_APPOINTMENTS = 90_000;
+const TIMEOUT_DELTA = 30_000;
 
 async function fetchWithTimeout(
   url: string,
@@ -55,16 +56,19 @@ export function applyMockAppointmentDates(appointments: Appointment[]): Appointm
   }));
 }
 
-export async function fetchAppointments(includeAll: boolean = false): Promise<{
+type AppointmentsPayload = {
   updatedAt: Date;
   appointments: Appointment[];
-}> {
+  latestUpdated: string | null;
+};
+
+export async function fetchAppointments(includeAll: boolean = false): Promise<AppointmentsPayload> {
   if (config.useMockData) {
-    console.log("Using mock server data");
     await new Promise((resolve) => setTimeout(resolve, 800));
     return {
       updatedAt: new Date(),
       appointments: applyMockAppointmentDates(mockAppointmentsJson as Appointment[]),
+      latestUpdated: new Date().toISOString(),
     };
   }
 
@@ -81,8 +85,8 @@ export async function fetchAppointments(includeAll: boolean = false): Promise<{
     if (!result.ok) {
       throw new HttpError(`Failed to fetch appointments: ${result.status}`, result.status);
     }
-    const data = await result.json();
-    return { updatedAt: new Date(), appointments: data as Appointment[] };
+    const data = (await result.json()) as { appointments: Appointment[]; latestUpdated: string | null };
+    return { updatedAt: new Date(), appointments: data.appointments, latestUpdated: data.latestUpdated };
   } catch (error) {
     console.error("Failed to fetch appointments:", error);
     throw error;
@@ -92,10 +96,7 @@ export async function fetchAppointments(includeAll: boolean = false): Promise<{
 export async function syncAppointments(
   cached: CachedAppointmentEntry[],
   includeAll: boolean = false,
-): Promise<{
-  updatedAt: Date;
-  appointments: Appointment[];
-}> {
+): Promise<AppointmentsPayload> {
   const body: SyncAppointmentsRequest = { cached, includeAll };
   const result = await fetchWithTimeout(
     `${config.backendDomain}/api/appointments/sync`,
@@ -110,8 +111,27 @@ export async function syncAppointments(
   if (!result.ok) {
     throw new HttpError(`Failed to sync appointments: ${result.status}`, result.status);
   }
-  const data = await result.json();
-  return { updatedAt: new Date(), appointments: data as Appointment[] };
+  const data = (await result.json()) as { appointments: Appointment[]; latestUpdated: string | null };
+  return { updatedAt: new Date(), appointments: data.appointments, latestUpdated: data.latestUpdated };
+}
+
+/**
+ * Lightweight check for appointments changed since `since` (a `latestUpdated` cursor
+ * previously returned by this same API — never a client-generated timestamp).
+ */
+export async function fetchAppointmentDelta(since: string, includeAll: boolean = false): Promise<AppointmentDelta> {
+  const queryParam = includeAll ? "&includeAll=true" : "";
+  const res = await fetchWithTimeout(
+    `${config.backendDomain}/api/appointments/delta?since=${encodeURIComponent(since)}${queryParam}`,
+    { method: "GET", credentials: "include" },
+    TIMEOUT_DELTA,
+  );
+
+  if (!res.ok) {
+    throw new HttpError(`Failed to fetch appointment delta: ${res.status}`, res.status);
+  }
+
+  return (await res.json()) as AppointmentDelta;
 }
 
 export async function login(

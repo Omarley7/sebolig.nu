@@ -6,6 +6,7 @@ import AppointmentsList from "~/components/appointment/AppointmentsList.vue";
 import StaleDataBanner from "~/components/StaleDataBanner.vue";
 import { useAuth } from "~/composables/useAuth";
 import { getCacheAge } from "~/data/appointments";
+import { formatCacheAge } from "~/lib/cacheAge";
 import { useAppointmentsStore } from "~/stores/appointments";
 
 const store = useAppointmentsStore();
@@ -14,17 +15,7 @@ const router = useRouter();
 const { t } = useI18n();
 
 const appointmentCount = computed(() => store.appointments.length);
-
-const cacheAgeText = computed(() => {
-    const age = getCacheAge();
-    if (age === null) return "";
-    const hours = Math.floor(age / (1000 * 60 * 60));
-    if (hours >= 24) {
-        const days = Math.floor(hours / 24);
-        return `${days}d ${hours % 24}h`;
-    }
-    return `${hours}h`;
-});
+const cacheAgeText = computed(() => formatCacheAge(getCacheAge()));
 
 onMounted(() => {
     const hasCache = getCacheAge() !== null;
