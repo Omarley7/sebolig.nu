@@ -31,7 +31,7 @@ onMounted(() => {
       <p class="text-xl font-semibold tracking-tight dark:text-white flex items-baseline gap-2">
         {{ t("waitingLists.pageTitle") }}
         <span v-if="count > 0" class="text-xs font-normal text-neutral-400 dark:text-neutral-500">
-          {{ t("waitingLists.count", { count }, count) }}
+          {{ t("waitingLists.count", { count }) }}
         </span>
       </p>
       <button

@@ -10,7 +10,8 @@
     "tomorrow": "I morgen",
     "sourceCode": "Kildekode på GitHub",
     "connect": "Forbind",
-    "close": "Luk"
+    "close": "Luk",
+    "map": "Kort"
   },
   "appointments": {
     "emptyTitle": "Ingen kommende aftaler",
@@ -59,7 +60,9 @@
     "queuePosition": "Placering",
     "mapOfLocations": "Kort over {count} lokationer",
     "respondBefore": "Ønsker du at komme i betragtning?",
-    "refresh": "Opdatér"
+    "refresh": "Opdatér",
+    "rooms": "{count} værelse | {count} værelser",
+    "area": "{value} m²"
   },
   "waitingLists": {
     "pageTitle": "Ventelister",
@@ -144,21 +147,23 @@
   },
   "gallery": {
     "photos": "Fotos",
-    "blueprints": "Plantegninger"
+    "blueprints": "Plantegninger",
+    "blueprintCount": "{count} plantegning | {count} plantegninger",
+    "photoCount": "{count} foto | {count} fotos"
   },
   "home": {
     "welcomeUser": "Velkommen, {0}!",
     "welcomeBack": "Velkommen tilbage, {0}!",
     "welcomeBackAnonymous": "Velkommen tilbage!",
     "welcome": "Din data, din kontrol",
-    "viewAppointments": "Se dine {0} aftaler",
+    "viewAppointments": "Se din {count} aftale | Se dine {count} aftaler",
     "fetchAppointments": "Hent dine aftaler",
     "readyToFetch": "Dine aftaler fra findbolig.nu er klar til at blive hentet.",
     "noAppointmentsHint": "Har du ingen aftaler endnu? Brug findbolig.nu til at søge efter boliger og vent på invitationer.",
     "lastUpdated": "Sidst opdateret for {0} siden",
-    "viewOffers": "Se dine {0} tilbud",
+    "viewOffers": "Se dit {count} tilbud | Se dine {count} tilbud",
     "checkOffers": "Tjek for boligtilbud",
-    "viewWaitingLists": "Se dine {0} ventelister",
+    "viewWaitingLists": "Se din {count} venteliste | Se dine {count} ventelister",
     "checkWaitingLists": "Tjek dine ventelister"
   },
   "nav": {

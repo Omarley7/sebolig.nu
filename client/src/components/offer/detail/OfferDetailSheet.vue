@@ -35,6 +35,7 @@ const showGallery = ref(false);
 const showFinancials = ref(false);
 const confirmAction = ref<"accept" | "decline" | null>(null);
 const galleryActiveIndex = ref(0);
+const galleryTab = ref<"images" | "blueprints">("images");
 const sheetEl = ref<HTMLElement | null>(null);
 
 // Drag-to-dismiss
@@ -88,6 +89,15 @@ const allImages = computed(() => {
   return props.offer.imageUrl ? [props.offer.imageUrl] : [];
 });
 
+const blueprints = computed(() => props.offer.blueprints ?? []);
+
+const facts = computed(() => {
+  const parts: string[] = [];
+  if (props.offer.rooms != null) parts.push(t("offers.rooms", { count: props.offer.rooms }));
+  if (props.offer.area != null) parts.push(t("offers.area", { value: props.offer.area }));
+  return parts.join(" · ");
+});
+
 const urgency = computed(() => getDeadlineUrgency(props.offer.deadline, t));
 
 const availableFromFormatted = computed(() => {
@@ -110,6 +120,13 @@ function onGalleryPointerDown(e: PointerEvent) {
 
 function openGallery(e: MouseEvent) {
   if (Math.abs(e.clientX - galleryStartX) > 5 || Math.abs(e.clientY - galleryStartY) > 5) return;
+  galleryTab.value = "images";
+  showGallery.value = true;
+  history.pushState({ sheet: true, gallery: true }, "");
+}
+
+function openBlueprints() {
+  galleryTab.value = "blueprints";
   showGallery.value = true;
   history.pushState({ sheet: true, gallery: true }, "");
 }
@@ -277,12 +294,25 @@ onUnmounted(() => {
               </SwiperSlide>
             </Swiper>
 
+            <!-- Blueprint shortcut -->
+            <button
+              v-if="blueprints.length > 0"
+              class="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                     bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white text-xs font-medium tabular-nums
+                     transition-colors"
+              @pointerdown.stop
+              @click.stop="openBlueprints"
+            >
+              <img src="/icons/blueprint.svg" alt="" class="size-3.5 invert" />
+              {{ t("gallery.blueprintCount", { count: blueprints.length }).toLowerCase() }}
+            </button>
+
             <div
               v-if="allImages.length > 1"
               class="absolute bottom-3 right-3 z-10 px-2.5 py-1 rounded-full
                      bg-black/40 backdrop-blur-sm text-white text-xs tabular-nums pointer-events-none"
             >
-              {{ allImages.length }} {{ t("gallery.photos").toLowerCase() }}
+              {{ t("gallery.photoCount", { count: allImages.length }).toLowerCase() }}
             </div>
           </div>
 
@@ -293,6 +323,9 @@ onUnmounted(() => {
               <h2 class="text-lg font-bold text-neutral-900 dark:text-white leading-snug">
                 {{ offer.residence.adressLine1 }}
               </h2>
+              <p v-if="facts" class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mt-0.5 tabular-nums">
+                {{ facts }}
+              </p>
               <button class="flex items-center gap-1.5 mt-1.5 group" @click="handleMapClick">
                 <p class="text-sm text-neutral-500 dark:text-neutral-400
                            group-hover:text-neutral-700 dark:group-hover:text-neutral-300 transition-colors">
@@ -373,65 +406,6 @@ onUnmounted(() => {
               <img src="/icons/chevron-down.svg" alt="" class="size-4 -rotate-90 opacity-30 dark:invert shrink-0 ml-2" />
             </button>
 
-            <hr class="border-neutral-200 dark:border-neutral-700/50" />
-
-            <!-- Action area -->
-            <div>
-              <p class="text-xs text-center text-neutral-500 dark:text-neutral-400 mb-3">
-                {{ t("offers.respondBefore") }}
-              </p>
-
-              <!-- OfferReceived: Accept + Decline -->
-              <div v-if="offer.recipientState === 'OfferReceived'" class="flex gap-3">
-                <button
-                  class="flex-1 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold transition-colors"
-                  @click="promptAction('accept')"
-                >
-                  {{ t("offers.accept") }}
-                </button>
-                <button
-                  class="flex-1 py-3.5 rounded-xl border border-neutral-200 dark:border-neutral-700/50
-                         text-neutral-500 dark:text-neutral-400 font-semibold
-                         hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors"
-                  @click="promptAction('decline')"
-                >
-                  {{ t("offers.decline") }}
-                </button>
-              </div>
-
-              <!-- OfferAccepted: Undo (decline) -->
-              <div v-else-if="offer.recipientState === 'OfferAccepted'" class="flex gap-3">
-                <button
-                  class="flex-1 py-3.5 rounded-xl border border-amber-400/50
-                         text-amber-600 dark:text-amber-400 font-semibold
-                         hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
-                  @click="promptAction('decline')"
-                >
-                  {{ t("offers.undoAccept") }}
-                </button>
-                <div class="flex-1 py-3.5 rounded-xl bg-emerald-500/10 text-center">
-                  <span class="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-                    &#x2713; {{ t("offers.accepted") }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- OfferDeclined: Accept again -->
-              <div v-else-if="offer.recipientState === 'OfferDeclined'" class="flex gap-3">
-                <button
-                  class="flex-1 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold transition-colors"
-                  @click="promptAction('accept')"
-                >
-                  {{ t("offers.accept") }}
-                </button>
-                <div class="flex-1 py-3.5 rounded-xl bg-neutral-100 dark:bg-white/5 text-center">
-                  <span class="text-sm text-neutral-400 dark:text-neutral-500 font-medium">
-                    {{ t("offers.declined") }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
             <!-- Open on findbolig -->
             <button
               class="w-full flex items-center justify-center gap-2 p-3 rounded-xl
@@ -446,6 +420,69 @@ onUnmounted(() => {
             </button>
           </div>
         </div>
+        <!-- Sticky action footer — always visible without scrolling -->
+        <div
+          class="shrink-0 px-5 pt-3 action-footer
+                 border-t border-neutral-200 dark:border-neutral-700/50
+                 bg-white dark:bg-neutral-900"
+        >
+          <p
+            v-if="offer.recipientState === 'OfferReceived'"
+            class="text-xs text-center text-neutral-500 dark:text-neutral-400 mb-2.5"
+          >
+            {{ t("offers.respondBefore") }}
+          </p>
+
+          <!-- OfferReceived: Accept + Decline -->
+          <div v-if="offer.recipientState === 'OfferReceived'" class="flex gap-3">
+            <button
+              class="flex-1 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold transition-colors"
+              @click="promptAction('accept')"
+            >
+              {{ t("offers.accept") }}
+            </button>
+            <button
+              class="flex-1 py-3.5 rounded-xl border border-neutral-200 dark:border-neutral-700/50
+                     text-neutral-500 dark:text-neutral-400 font-semibold
+                     hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors"
+              @click="promptAction('decline')"
+            >
+              {{ t("offers.decline") }}
+            </button>
+          </div>
+
+          <!-- OfferAccepted: Undo (decline) -->
+          <div v-else-if="offer.recipientState === 'OfferAccepted'" class="flex gap-3">
+            <button
+              class="flex-1 py-3.5 rounded-xl border border-amber-400/50
+                     text-amber-600 dark:text-amber-400 font-semibold
+                     hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
+              @click="promptAction('decline')"
+            >
+              {{ t("offers.undoAccept") }}
+            </button>
+            <div class="flex-1 py-3.5 rounded-xl bg-emerald-500/10 text-center">
+              <span class="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+                &#x2713; {{ t("offers.accepted") }}
+              </span>
+            </div>
+          </div>
+
+          <!-- OfferDeclined: Accept again -->
+          <div v-else-if="offer.recipientState === 'OfferDeclined'" class="flex gap-3">
+            <button
+              class="flex-1 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold transition-colors"
+              @click="promptAction('accept')"
+            >
+              {{ t("offers.accept") }}
+            </button>
+            <div class="flex-1 py-3.5 rounded-xl bg-neutral-100 dark:bg-white/5 text-center">
+              <span class="text-sm text-neutral-400 dark:text-neutral-500 font-medium">
+                {{ t("offers.declined") }}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -453,8 +490,9 @@ onUnmounted(() => {
     <ImageGalleryModal
       v-if="showGallery"
       :images="allImages"
-      :blueprints="offer.blueprints ?? []"
+      :blueprints="blueprints"
       :initial-index="galleryActiveIndex"
+      :initial-tab="galleryTab"
       :get-image-url="getImageUrl"
       @close="onGalleryClose"
     />
@@ -479,6 +517,9 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.action-footer {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
 .detail-swiper :deep(.swiper-pagination-bullet) {
   background: white;
   opacity: 0.5;

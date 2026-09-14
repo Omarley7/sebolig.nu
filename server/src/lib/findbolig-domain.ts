@@ -71,6 +71,8 @@ export function mapOfferToDomain({
     },
     deadline: offer.deadline ?? null,
     availableFrom: residence.availableFrom ?? null,
+    rooms: residence.rooms ?? null,
+    area: residence.area ?? null,
     recipientState,
     company: offer.company ?? offer.organization ?? "",
     financials: {

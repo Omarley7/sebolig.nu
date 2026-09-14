@@ -8,6 +8,8 @@
     },
     "deadline": "",
     "availableFrom": "2026-04-01T00:00:00Z",
+    "rooms": 3,
+    "area": 83,
     "recipientState": "OfferReceived",
     "company": "PFA (Capital Investment)",
     "financials": {
@@ -38,6 +40,8 @@
     },
     "deadline": "",
     "availableFrom": "2026-05-01T00:00:00Z",
+    "rooms": 2,
+    "area": 65,
     "recipientState": "OfferReceived",
     "company": "PFA (Capital Investment)",
     "financials": {
@@ -65,6 +69,8 @@
     },
     "deadline": "",
     "availableFrom": "2026-06-01T00:00:00Z",
+    "rooms": 2,
+    "area": 58,
     "recipientState": "OfferAccepted",
     "company": "DEAS",
     "financials": {

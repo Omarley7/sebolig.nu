@@ -88,7 +88,7 @@ onUnmounted(() => {
         class="relative w-[92vw] max-w-2xl h-[70vh] rounded-xl bg-white dark:bg-neutral-900 shadow-xl flex flex-col overflow-hidden">
         <!-- Header -->
         <div class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700/50">
-          <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Kort</h2>
+          <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{{ $t("common.map") }}</h2>
           <button class="p-1 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors" @click="emit('close')">
             <img src="/icons/x.svg" alt="Close" class="size-5 dark:invert" />
           </button>

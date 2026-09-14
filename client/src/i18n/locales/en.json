@@ -10,7 +10,8 @@
     "tomorrow": "Tomorrow",
     "sourceCode": "Source code on GitHub",
     "connect": "Connect",
-    "close": "Close"
+    "close": "Close",
+    "map": "Map"
   },
   "appointments": {
     "emptyTitle": "No upcoming appointments",
@@ -59,7 +60,9 @@
     "queuePosition": "Position",
     "mapOfLocations": "Map of {count} locations",
     "respondBefore": "Would you like to be considered?",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "rooms": "{count} room | {count} rooms",
+    "area": "{value} m²"
   },
   "waitingLists": {
     "pageTitle": "Waiting lists",
@@ -144,21 +147,23 @@
   },
   "gallery": {
     "photos": "Photos",
-    "blueprints": "Blueprints"
+    "blueprints": "Blueprints",
+    "blueprintCount": "{count} blueprint | {count} blueprints",
+    "photoCount": "{count} photo | {count} photos"
   },
   "home": {
     "welcomeUser": "Welcome, {0}!",
     "welcomeBack": "Welcome back, {0}!",
     "welcomeBackAnonymous": "Welcome back!",
     "welcome": "Your data, your control",
-    "viewAppointments": "View your {0} appointments",
+    "viewAppointments": "View your {count} appointment | View your {count} appointments",
     "fetchAppointments": "Fetch your appointments",
     "readyToFetch": "Your appointments from findbolig.nu are ready to be fetched.",
     "noAppointmentsHint": "Don't have any appointments yet? Use findbolig.nu to search for housing and wait for invitations.",
     "lastUpdated": "Last updated {0} ago",
-    "viewOffers": "View your {0} offers",
+    "viewOffers": "View your {count} offer | View your {count} offers",
     "checkOffers": "Check for housing offers",
-    "viewWaitingLists": "View your {0} waiting lists",
+    "viewWaitingLists": "View your {count} waiting list | View your {count} waiting lists",
     "checkWaitingLists": "Check your waiting lists"
   },
   "nav": {

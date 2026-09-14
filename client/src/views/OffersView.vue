@@ -30,7 +30,7 @@ onMounted(() => {
       <p class="text-xl font-semibold tracking-tight dark:text-white flex items-baseline gap-2">
         {{ t("offers.pageTitle") }}
         <span v-if="offerCount > 0" class="text-xs font-normal text-neutral-400 dark:text-neutral-500">
-          {{ t("offers.count", { count: offerCount }, offerCount) }}
+          {{ t("offers.count", { count: offerCount }) }}
         </span>
       </p>
       <button

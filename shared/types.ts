@@ -47,6 +47,8 @@ export type Offer = {
   residence: Pick<Residence, "adressLine1" | "adressLine2" | "location">;
   deadline: string | null;
   availableFrom: string | null;
+  rooms: number | null;
+  area: number | null; // m²
   recipientState: RecipientState;
   company: string;
   financials: Financials;

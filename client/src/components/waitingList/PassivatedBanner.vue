@@ -26,7 +26,7 @@ const nameList = computed(() => affected.value.map((l) => l.name).join(", "));
           {{ t("waitingLists.banner.title") }}
         </p>
         <p class="mt-1 text-xs text-amber-800 dark:text-amber-300/90 leading-snug">
-          {{ t("waitingLists.banner.body", { count }, count) }}
+          {{ t("waitingLists.banner.body", { count }) }}
         </p>
         <p
           v-if="nameList"

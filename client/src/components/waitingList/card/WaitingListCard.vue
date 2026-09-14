@@ -95,7 +95,7 @@ async function handleReactivate(e: MouseEvent) {
         <div class="flex items-end justify-between gap-2 mt-auto">
           <div class="min-w-0">
             <p class="text-[0.625rem] font-medium text-neutral-500 dark:text-neutral-400">
-              {{ t("waitingLists.card.residencesApplied", { count: list.residencesAppliedCount }, list.residencesAppliedCount) }}
+              {{ t("waitingLists.card.residencesApplied", { count: list.residencesAppliedCount }) }}
             </p>
             <p class="text-[0.8125rem] font-medium tabular-nums dark:text-neutral-200">
               {{ formatCurrency(list.minRent) }}–{{ formatCurrency(list.maxRent) }}

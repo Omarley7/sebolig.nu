@@ -71,7 +71,7 @@ const lastUpdatedText = computed(() => {
           to="/offers"
           class="px-6 py-3 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors font-medium"
         >
-          {{ t("home.viewOffers") }}
+          {{ t("home.checkOffers") }}
         </router-link>
       </div>
       <p class="text-xs text-gray-400 dark:text-gray-500">{{ t("home.noAppointmentsHint") }}</p>
@@ -100,7 +100,7 @@ const lastUpdatedText = computed(() => {
         <div class="min-w-0 flex-1">
           <p class="font-semibold text-neutral-800 dark:text-neutral-100">{{ t("nav.appointments") }}</p>
           <p class="text-sm text-neutral-500 dark:text-neutral-400">
-            {{ t("home.viewAppointments", [store.appointments.length]) }}
+            {{ t("home.viewAppointments", { count: store.appointments.length }) }}
           </p>
         </div>
         <img
@@ -119,7 +119,7 @@ const lastUpdatedText = computed(() => {
         <div class="min-w-0 flex-1">
           <p class="font-semibold text-neutral-800 dark:text-neutral-100">{{ t("nav.offers") }}</p>
           <p class="text-sm text-neutral-500 dark:text-neutral-400">
-            {{ offerCount > 0 ? t("home.viewOffers", [offerCount]) : t("home.checkOffers") }}
+            {{ offerCount > 0 ? t("home.viewOffers", { count: offerCount }) : t("home.checkOffers") }}
           </p>
         </div>
         <img
@@ -146,7 +146,7 @@ const lastUpdatedText = computed(() => {
             </span>
           </p>
           <p class="text-sm text-neutral-500 dark:text-neutral-400">
-            {{ waitingListsCount > 0 ? t("home.viewWaitingLists", [waitingListsCount]) : t("home.checkWaitingLists") }}
+            {{ waitingListsCount > 0 ? t("home.viewWaitingLists", { count: waitingListsCount }) : t("home.checkWaitingLists") }}
           </p>
         </div>
         <img

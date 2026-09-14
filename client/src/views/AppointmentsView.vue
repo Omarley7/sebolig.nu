@@ -37,7 +37,7 @@ function handleOpenLogin() {
         <p class="mb-3 text-xl font-semibold tracking-tight dark:text-white flex items-baseline gap-2">
             {{ t("appointments.pageTitle") }}
             <span v-if="appointmentCount > 0" class="text-xs font-normal text-neutral-400 dark:text-neutral-500">
-                {{ t("appointments.count", { count: appointmentCount }, appointmentCount) }}
+                {{ t("appointments.count", { count: appointmentCount }) }}
             </span>
         </p>
         <StaleDataBanner @open-login="handleOpenLogin" />

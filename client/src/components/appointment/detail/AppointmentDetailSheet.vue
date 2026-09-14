@@ -37,6 +37,7 @@ const visible = ref(false);
 const showGallery = ref(false);
 const showFinancials = ref(false);
 const galleryActiveIndex = ref(0);
+const galleryTab = ref<"images" | "blueprints">("images");
 const sheetEl = ref<HTMLElement | null>(null);
 // Drag-to-dismiss
 const dragY = ref(0);
@@ -92,6 +93,8 @@ const allImages = computed(() => {
   return [props.appointment.imageUrl];
 });
 
+const blueprints = computed(() => props.appointment.blueprints ?? []);
+
 // Gallery click vs swipe — track pointer displacement
 let galleryStartX = 0;
 let galleryStartY = 0;
@@ -103,6 +106,13 @@ function onGalleryPointerDown(e: PointerEvent) {
 
 function openGallery(e: MouseEvent) {
   if (Math.abs(e.clientX - galleryStartX) > 5 || Math.abs(e.clientY - galleryStartY) > 5) return;
+  galleryTab.value = "images";
+  showGallery.value = true;
+  history.pushState({ sheet: true, gallery: true }, "");
+}
+
+function openBlueprints() {
+  galleryTab.value = "blueprints";
   showGallery.value = true;
   history.pushState({ sheet: true, gallery: true }, "");
 }
@@ -270,13 +280,26 @@ onUnmounted(() => {
               </SwiperSlide>
             </Swiper>
 
+            <!-- Blueprint shortcut -->
+            <button
+              v-if="blueprints.length > 0"
+              class="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                     bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white text-xs font-medium tabular-nums
+                     transition-colors"
+              @pointerdown.stop
+              @click.stop="openBlueprints"
+            >
+              <img src="/icons/blueprint.svg" alt="" class="size-3.5 invert" />
+              {{ t("gallery.blueprintCount", { count: blueprints.length }).toLowerCase() }}
+            </button>
+
             <!-- Photo count -->
             <div
               v-if="allImages.length > 1"
               class="absolute bottom-3 right-3 z-10 px-2.5 py-1 rounded-full
                      bg-black/40 backdrop-blur-sm text-white text-xs tabular-nums pointer-events-none"
             >
-              {{ allImages.length }} {{ t("gallery.photos").toLowerCase() }}
+              {{ t("gallery.photoCount", { count: allImages.length }).toLowerCase() }}
             </div>
           </div>
 
@@ -417,8 +440,9 @@ onUnmounted(() => {
     <ImageGalleryModal
       v-if="showGallery"
       :images="allImages"
-      :blueprints="appointment.blueprints ?? []"
+      :blueprints="blueprints"
       :initial-index="galleryActiveIndex"
+      :initial-tab="galleryTab"
       :get-image-url="getImageUrl"
       @close="onGalleryClose"
     />

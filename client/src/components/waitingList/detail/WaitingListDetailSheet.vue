@@ -318,7 +318,7 @@ onUnmounted(() => {
               </div>
               <div>
                 <p class="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1">
-                  {{ t("waitingLists.card.residencesApplied", { count: list.residencesAppliedCount }, list.residencesAppliedCount) }}
+                  {{ t("waitingLists.card.residencesApplied", { count: list.residencesAppliedCount }) }}
                 </p>
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">
                   {{ t("waitingLists.detail.rooms", { min: list.minRooms, max: list.maxRooms }) }}

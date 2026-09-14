@@ -12,10 +12,13 @@ import "swiper/css/pagination";
 
 useScrollLock();
 
+type Tab = "images" | "blueprints";
+
 const props = defineProps<{
   images: string[];
   blueprints?: string[];
   initialIndex?: number;
+  initialTab?: Tab;
   getImageUrl: (path: string) => string;
 }>();
 
@@ -23,8 +26,9 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-type Tab = "images" | "blueprints";
-const activeTab = ref<Tab>("images");
+const activeTab = ref<Tab>(
+  props.initialTab === "blueprints" && props.blueprints?.length ? "blueprints" : "images",
+);
 
 const activeList = computed(() =>
   activeTab.value === "images" ? props.images : (props.blueprints ?? []),
