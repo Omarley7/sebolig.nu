@@ -201,7 +201,8 @@
     },
     "notStored": {
       "title": "What we do not store",
-      "p1": "Nothing on our servers. SeBolig has no database of users, passwords or housing data. The server forwards your requests to findbolig.nu and forgets them again."
+      "p1": "Nothing on our servers. SeBolig has no database of users, passwords or housing data. The server forwards your requests to findbolig.nu and forgets them again.",
+      "p2": "We use PostHog for anonymous usage statistics, stored in the EU: which pages are used and where people click. PostHog never receives your name, your email, or the text you see and type."
     },
     "why": {
       "title": "Why we need your password",

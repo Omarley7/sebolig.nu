@@ -7,7 +7,7 @@ const { t } = useI18n();
 /** The six approved sections, in order. `link` renders an external link after the paragraphs. */
 const sections = [
   { key: "password", paragraphs: ["p1", "p2", "p3"] },
-  { key: "notStored", paragraphs: ["p1"] },
+  { key: "notStored", paragraphs: ["p1", "p2"] },
   { key: "why", paragraphs: ["p1"] },
   { key: "revoke", paragraphs: ["p1", "p2", "p3"] },
   { key: "device", paragraphs: ["p1", "p2", "p3"] },
