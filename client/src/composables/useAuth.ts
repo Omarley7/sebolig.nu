@@ -4,7 +4,7 @@ import { ref } from "vue";
 import { identify } from "~/composables/usePostHog";
 import config from "~/config";
 import { clearAppointmentsCache } from "~/data/appointments";
-import { login as apiLogin, handleApiError, HttpError, readEndedReason } from "~/data/appointmentsSource";
+import { connect as apiConnect, handleApiError, HttpError, readEndedReason } from "~/data/appointmentsSource";
 import { clearOffersCache } from "~/data/offers";
 import { clearSnapshots, clearWaitingListsCache } from "~/data/waitingLists";
 import { useI18n } from "~/i18n";
@@ -30,7 +30,7 @@ export const useAuth = defineStore(
     const isAuthenticated = ref(false);
     const isDemo = ref(false);
     const name = ref("");
-    const showLoginModal = ref(false);
+    const showConnectModal = ref(false);
     /**
      * Set when the server ended the Connection because findbolig.nu rejected the stored
      * password. Deliberately not persisted: a page load clears it, as does the next connect.
@@ -39,12 +39,12 @@ export const useAuth = defineStore(
     let keepAliveTimer: number | null = null;
     const toast = useToastStore();
 
-    async function login(userEmail: string, userPassword: string) {
+    async function connect(userEmail: string, userPassword: string) {
       isLoading.value = true;
 
       const { t } = useI18n();
       try {
-        const userData = await apiLogin(userEmail, userPassword);
+        const userData = await apiConnect(userEmail, userPassword);
         if (!userData) {
           toast.error(t("errors.connectFailed"));
           return setAuthenticated(false);
@@ -86,7 +86,7 @@ export const useAuth = defineStore(
       name.value = demoName;
       email.value = `${demoName.toLowerCase().replace(/\s+/g, "")}@example.com`;
       isAuthenticated.value = true;
-      showLoginModal.value = false;
+      showConnectModal.value = false;
       toast.success(useI18n().t("auth.demoLoginSuccess"));
       identify({ name: demoName });
     }
@@ -132,7 +132,7 @@ export const useAuth = defineStore(
       await router.push({ name: "home" });
     }
 
-    async function logout() {
+    async function disconnect() {
       try {
         await fetch(`${config.backendDomain}/api/auth/logout`, {
           method: "POST",
@@ -222,11 +222,11 @@ export const useAuth = defineStore(
       isAuthenticated,
       isDemo,
       name,
-      showLoginModal,
+      showConnectModal,
       endedByPasswordChange,
-      login,
+      connect,
       loginAsDemo,
-      logout,
+      disconnect,
       startKeepAlive,
       stopKeepAlive,
       checkConnection,

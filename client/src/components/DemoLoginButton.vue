@@ -22,7 +22,7 @@ function closeModal() {
 function handleSubmit() {
   if (!demoName.value.trim()) return;
   isModalOpen.value = false;
-  auth.showLoginModal = false;
+  auth.showConnectModal = false;
   auth.loginAsDemo(demoName.value.trim());
 }
 </script>

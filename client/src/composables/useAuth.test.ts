@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createApp } from "vue";
 import { useAuth } from "~/composables/useAuth";
 import router from "~/router";
+import { fetchOfferDelta } from "~/data/offersSource";
 import { useOffersStore } from "~/stores/offers";
 
 vi.mock("posthog-js", () => ({
@@ -39,7 +40,7 @@ function stubConnectAndDisconnect(
     if (url.endsWith("/api/auth/login")) return jsonResponse(CONNECTED_USER);
     if (url.endsWith("/api/auth/logout")) return new Response(null, { status: 200 });
     if (url.endsWith("/api/auth/refresh")) return refresh();
-    if (url.endsWith("/api/offers/active")) return dataRoute();
+    if (url.includes("/api/offers/")) return dataRoute();
     throw new Error(`Unexpected fetch: ${url}`);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -57,7 +58,7 @@ function refreshAnswers(status: number, body?: unknown) {
 /** A connected user with Local data on the device, sitting on the offers page. */
 async function connectedUserOnOffersPage() {
   const auth = useAuth();
-  await auth.login("person@example.com", "secret");
+  await auth.connect("person@example.com", "secret");
   seedLocalDataAndPreferences();
   await router.push({ name: "offers" });
   return auth;
@@ -97,7 +98,7 @@ afterEach(() => {
 it("disconnecting erases every piece of Local data and the persisted identity, keeps preferences, and ends the Connection", async () => {
   const fetchMock = stubConnectAndDisconnect();
   const auth = useAuth();
-  await auth.login("person@example.com", "secret");
+  await auth.connect("person@example.com", "secret");
   seedLocalDataAndPreferences();
   expect(auth.isAuthenticated).toBe(true);
   expect(JSON.parse(localStorage.getItem("auth")!)).toMatchObject({
@@ -106,7 +107,7 @@ it("disconnecting erases every piece of Local data and the persisted identity, k
     isAuthenticated: true,
   });
 
-  await auth.logout();
+  await auth.disconnect();
 
   expect(fetchMock).toHaveBeenCalledWith(
     expect.stringMatching(/\/api\/auth\/logout$/),
@@ -124,16 +125,16 @@ it("disconnecting erases every piece of Local data and the persisted identity, k
 it("disconnecting brings the user back to the home page", async () => {
   stubConnectAndDisconnect();
   const auth = useAuth();
-  await auth.login("person@example.com", "secret");
+  await auth.connect("person@example.com", "secret");
   await router.push({ name: "offers" });
   expect(router.currentRoute.value.name).toBe("offers");
 
-  await auth.logout();
+  await auth.disconnect();
 
   expect(router.currentRoute.value.name).toBe("home");
 });
 
-it("a refresh answered 401 with credentials_rejected erases Local data, ends the Connection, flags the password change and goes home", async () => {
+it("a Connection check answered 401 with credentials_rejected erases Local data, ends the Connection, flags the password change and goes home", async () => {
   stubConnectAndDisconnect(refreshAnswers(401, { error: "rejected", reason: "credentials_rejected" }));
   const auth = await connectedUserOnOffersPage();
 
@@ -146,7 +147,7 @@ it("a refresh answered 401 with credentials_rejected erases Local data, ends the
   expect(router.currentRoute.value.name).toBe("home");
 });
 
-it("a refresh answered 401 without a reason erases Local data and ends the Connection without the password-change message", async () => {
+it("a Connection check answered 401 without a reason erases Local data and ends the Connection without the password-change message", async () => {
   stubConnectAndDisconnect(refreshAnswers(401, { error: "Authentication required" }));
   const auth = await connectedUserOnOffersPage();
 
@@ -158,7 +159,7 @@ it("a refresh answered 401 without a reason erases Local data and ends the Conne
   expect(router.currentRoute.value.name).toBe("home");
 });
 
-it("a refresh answered 504 keeps the Connection and erases nothing", async () => {
+it("a Connection check answered 504 keeps the Connection and erases nothing", async () => {
   stubConnectAndDisconnect(refreshAnswers(504, { error: "findbolig.nu is not responding" }));
   const auth = await connectedUserOnOffersPage();
 
@@ -170,7 +171,7 @@ it("a refresh answered 504 keeps the Connection and erases nothing", async () =>
   expect(router.currentRoute.value.name).toBe("offers");
 });
 
-it("a refresh that fails on the network keeps the Connection and erases nothing", async () => {
+it("a Connection check that fails on the network keeps the Connection and erases nothing", async () => {
   stubConnectAndDisconnect(async () => {
     throw new TypeError("Failed to fetch");
   });
@@ -189,7 +190,7 @@ it("a successful connect clears the password-change flag", async () => {
   await auth.checkConnection();
   expect(auth.endedByPasswordChange).toBe(true);
 
-  await auth.login("person@example.com", "new-secret");
+  await auth.connect("person@example.com", "new-secret");
 
   expect(auth.endedByPasswordChange).toBe(false);
   expect(auth.isAuthenticated).toBe(true);
@@ -222,6 +223,32 @@ it("a data fetch answered 401 with credentials_rejected ends the Connection with
   const auth = await connectedUserOnOffersPage();
 
   await useOffersStore().refresh();
+
+  expectLocalDataErased();
+  expect(auth.isAuthenticated).toBe(false);
+  expect(auth.endedByPasswordChange).toBe(true);
+  expect(router.currentRoute.value.name).toBe("home");
+  expect(fetchMock.mock.calls.map(([url]) => String(url)).filter((u) => u.endsWith("/api/auth/refresh"))).toEqual([]);
+});
+
+it("a delta check answered 401 keeps the reason the server gave", async () => {
+  // The delta check is a data fetch like any other: the auth store needs the reason from it.
+  stubConnectAndDisconnect(undefined, refreshAnswers(401, { error: "rejected", reason: "credentials_rejected" }));
+
+  await expect(fetchOfferDelta("2026-09-01T00:00:00Z")).rejects.toMatchObject({
+    status: 401,
+    reason: "credentials_rejected",
+  });
+});
+
+it("an offer action answered 401 with credentials_rejected ends the Connection with the same explanation", async () => {
+  const fetchMock = stubConnectAndDisconnect(
+    refreshAnswers(401, { error: "Not authenticated" }),
+    refreshAnswers(401, { error: "rejected", reason: "credentials_rejected" }),
+  );
+  const auth = await connectedUserOnOffersPage();
+
+  expect(await useOffersStore().acceptOffer("offer-1")).toBe(false);
 
   expectLocalDataErased();
   expect(auth.isAuthenticated).toBe(false);

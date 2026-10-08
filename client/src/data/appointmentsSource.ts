@@ -47,7 +47,7 @@ export class HttpError extends Error {
 export async function readEndedReason(res: Response): Promise<ConnectionEndedReason | undefined> {
   const body = await res.json().catch(() => null);
   const reason = body?.reason;
-  return reason === "credentials_rejected" || reason === "session_expired" ? reason : undefined;
+  return reason === "credentials_rejected" || reason === "findbolig_session_lost" ? reason : undefined;
 }
 
 export function isTimeoutError(error: unknown): boolean {
@@ -159,13 +159,13 @@ export async function fetchAppointmentDelta(
   );
 
   if (!res.ok) {
-    throw new HttpError(`Failed to fetch appointment delta: ${res.status}`, res.status);
+    throw await HttpError.fromResponse(res, "Failed to fetch appointment delta");
   }
 
   return (await res.json()) as AppointmentDelta;
 }
 
-export async function login(email: string, password: string): Promise<UserData | null> {
+export async function connect(email: string, password: string): Promise<UserData | null> {
   try {
     const result = await fetchWithTimeout(
       `${config.backendDomain}/api/auth/login`,
@@ -178,11 +178,11 @@ export async function login(email: string, password: string): Promise<UserData |
       TIMEOUT_LOGIN,
     );
     if (!result.ok) {
-      throw await HttpError.fromResponse(result, "Failed to login");
+      throw await HttpError.fromResponse(result, "Failed to connect");
     }
     return await result.json();
   } catch (error) {
-    console.error("Failed to login:", error);
+    console.error("Failed to connect:", error);
     throw error;
   }
 }

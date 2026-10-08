@@ -142,6 +142,8 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
       // Revert
       list.status = originalStatus;
       persistWaitingListsCache(lists.value, updatedAt.value);
+      // An ended Connection is the auth store's to explain (it erases the cache just reverted).
+      if ((await auth.recoverFrom(error)) === "ended") return false;
       handleApiError(error, toast, t, t("waitingLists.actions.reactivateFailed", { name: list.name }));
       return false;
     } finally {
@@ -165,12 +167,13 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
 
     let cursor = 0;
     const failed: WaitingList[] = [];
-    let connectionRefusedDuringBulk = false;
+    // The first refused request, kept so the auth store sees the reason the server gave.
+    let connectionRefusal: unknown = null;
 
     async function worker() {
       while (true) {
         // Short-circuit once the Connection was refused — don't keep firing failing requests.
-        if (connectionRefusedDuringBulk) return;
+        if (connectionRefusal) return;
         const i = cursor++;
         if (i >= passive.length) return;
         const list = passive[i];
@@ -182,7 +185,7 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
           recentlyPassivated.value = recentlyPassivated.value.filter((id) => id !== list.propertyId);
         } catch (error) {
           if (auth.isUnauthenticated(error)) {
-            connectionRefusedDuringBulk = true;
+            connectionRefusal ??= error;
             failed.push(list);
             return;
           }
@@ -204,10 +207,10 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
     bulkInProgress.value = false;
     isMutating.value = false;
 
-    if (connectionRefusedDuringBulk) {
+    if (connectionRefusal) {
       // Ended: the auth store erased Local data and sent the user home. Live or unreachable:
       // let the user retry from the summary below; we don't auto-retry to avoid surprise side effects.
-      if ((await auth.checkConnection()) === "ended") return;
+      if ((await auth.recoverFrom(connectionRefusal)) === "ended") return;
     }
 
     const succeeded = passive.length - failed.length;
@@ -244,6 +247,8 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
       toast.success(t("waitingLists.actions.unsubscribeSuccess", { name: list.name }));
       return true;
     } catch (error) {
+      // An ended Connection is the auth store's to explain; it has already sent the user home.
+      if ((await auth.recoverFrom(error)) === "ended") return false;
       handleApiError(error, toast, t, t("waitingLists.actions.unsubscribeFailed", { name: list.name }));
       return false;
     } finally {

@@ -176,6 +176,8 @@ export const useOffersStore = defineStore("offers", () => {
       toast.success(t("offers.acceptSuccess"));
       return true;
     } catch (error) {
+      // An ended Connection is the auth store's to explain; it has already sent the user home.
+      if ((await auth.recoverFrom(error)) === "ended") return false;
       handleApiError(error, toast, t, t("offers.actionFailed"));
       return false;
     } finally {
@@ -199,6 +201,8 @@ export const useOffersStore = defineStore("offers", () => {
       toast.success(t("offers.declineSuccess"));
       return true;
     } catch (error) {
+      // An ended Connection is the auth store's to explain; it has already sent the user home.
+      if ((await auth.recoverFrom(error)) === "ended") return false;
       handleApiError(error, toast, t, t("offers.actionFailed"));
       return false;
     } finally {

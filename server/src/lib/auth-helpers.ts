@@ -33,8 +33,8 @@ export interface Reauthenticator {
  * so the rejected-versus-unreachable split has exactly one implementation:
  * - findbolig.nu answers 403 (password changed): the Connection ends, the cookie is
  *   cleared, and the 401 carries `credentials_rejected`.
- * - the re-login yields no session for any other reason: the Connection ends with
- *   `session_expired`.
+ * - the re-login yields no findbolig session for any other reason: the Connection ends with
+ *   `findbolig_session_lost`.
  * - findbolig.nu is unreachable or times out: the error propagates and the Connection
  *   is kept; the cookie is left untouched.
  *
@@ -54,7 +54,7 @@ export function createReauthenticate(findbolig: Reauthenticator) {
     }
     if (!fresh.cookies.length) {
       await clearSessionCookie(c);
-      throw new AuthError("findbolig session expired", "session_expired");
+      throw new AuthError("findbolig session expired", "findbolig_session_lost");
     }
     const renewed: SealedSession = {
       ...session,

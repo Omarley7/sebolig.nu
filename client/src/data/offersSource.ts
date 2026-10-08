@@ -63,7 +63,7 @@ export async function fetchOfferDelta(since: string, sinceIds: string[] = []): P
   );
 
   if (!res.ok) {
-    throw new HttpError(`Failed to fetch offer delta: ${res.status}`, res.status);
+    throw await HttpError.fromResponse(res, "Failed to fetch offer delta");
   }
 
   return (await res.json()) as OfferDelta;

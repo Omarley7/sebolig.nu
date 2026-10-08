@@ -98,7 +98,7 @@ async function connectedHeaders(): Promise<HeadersInit> {
   return { Cookie: `session=${sealed}` };
 }
 
-test("refreshing a live Connection renews it for another 30 days", async () => {
+test("checking a live Connection renews it for another 30 days", async () => {
   const app = createApp({
     findbolig: fakeFindbolig({
       refreshSession: async () => ({ ...TENANT, cookies: [] }),
@@ -119,7 +119,7 @@ const rejectedCredentials = async () => {
   throw new UpstreamHttpError("Invalid username or password (errorCode 105)", 403);
 };
 
-test("refresh where findbolig.nu rejects the stored password ends the Connection with reason credentials_rejected", async () => {
+test("silent re-authentication where findbolig.nu rejects the stored password ends the Connection with reason credentials_rejected", async () => {
   const app = createApp({
     findbolig: fakeFindbolig({
       refreshSession: async () => null,
@@ -141,7 +141,7 @@ const findboligTimesOut = async () => {
   throw new TimeoutError("https://findbolig.nu/api/authentication/login", 8000);
 };
 
-test("refresh where findbolig.nu times out keeps the Connection: 504 and no cookie change", async () => {
+test("silent re-authentication where findbolig.nu times out keeps the Connection: 504 and no cookie change", async () => {
   const app = createApp({
     findbolig: fakeFindbolig({
       refreshSession: async () => null,
@@ -156,7 +156,7 @@ test("refresh where findbolig.nu times out keeps the Connection: 504 and no cook
   assert.equal(sessionCookieAttrs(res), null, "the Connection cookie must not be touched");
 });
 
-test("a data route whose findbolig session expired and whose re-login is rejected behaves like refresh", async () => {
+test("a data route whose findbolig session expired and whose re-login is rejected behaves like the Connection check", async () => {
   const app = createApp({
     findbolig: fakeFindbolig({
       getUpcomingAppointments: async () => {
@@ -185,7 +185,7 @@ test("connecting with a wrong password is refused with 401 and no reason; nothin
   assert.equal(sessionCookieAttrs(res), null);
 });
 
-test("refresh where the re-login yields no findbolig session ends the Connection with reason session_expired", async () => {
+test("silent re-authentication where the re-login yields no findbolig session ends the Connection with reason findbolig_session_lost", async () => {
   const app = createApp({
     findbolig: fakeFindbolig({
       refreshSession: async () => null,
@@ -196,11 +196,11 @@ test("refresh where the re-login yields no findbolig session ends the Connection
   const res = await app.request("/api/auth/refresh", { headers: await connectedHeaders() });
 
   assert.equal(res.status, 401);
-  assert.equal((await res.json()).reason, "session_expired");
+  assert.equal((await res.json()).reason, "findbolig_session_lost");
   assert.equal(sessionCookieAttrs(res)?.["max-age"], "0", "the Connection cookie was not cleared");
 });
 
-test("refresh where findbolig.nu is unreachable keeps the Connection: 504 and no cookie change", async () => {
+test("silent re-authentication where findbolig.nu is unreachable keeps the Connection: 504 and no cookie change", async () => {
   const app = createApp({
     findbolig: fakeFindbolig({
       refreshSession: async () => null,
@@ -214,4 +214,16 @@ test("refresh where findbolig.nu is unreachable keeps the Connection: 504 and no
 
   assert.equal(res.status, 504);
   assert.equal(sessionCookieAttrs(res), null, "the Connection cookie must not be touched");
+});
+
+test("disconnecting deletes the Connection cookie without contacting findbolig.nu", async () => {
+  const app = createApp({ findbolig: unreachableFindbolig() });
+
+  const res = await app.request("/api/auth/logout", { method: "POST", headers: await connectedHeaders() });
+
+  assert.equal(res.status, 200);
+  const attrs = sessionCookieAttrs(res);
+  assert.ok(attrs, "the Connection cookie was not cleared");
+  assert.equal(attrs["max-age"], "0");
+  assert.equal(attrs.path, "/api");
 });

@@ -23,7 +23,7 @@ const { isDark, toggle: toggleDarkMode } = useDarkMode();
       </h1>
     </router-link>
 
-    <!-- Right: dark mode toggle + login (equal width to left for centering) -->
+    <!-- Right: dark mode toggle + connect (equal width to left for centering) -->
     <div class="flex-1 flex items-center justify-end gap-2">
       <LanguageSwitcher />
       <button

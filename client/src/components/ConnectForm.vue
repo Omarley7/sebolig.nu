@@ -18,7 +18,7 @@ const password = ref("");
 const showPassword = ref(false);
 
 async function handleConnect() {
-  if (await auth.login(auth.email, password.value)) {
+  if (await auth.connect(auth.email, password.value)) {
     password.value = "";
     emit("connected");
   }
