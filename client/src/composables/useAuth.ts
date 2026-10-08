@@ -56,7 +56,7 @@ export const useAuth = defineStore(
           endedByPasswordChange.value = false;
           startKeepAlive();
           toast.success(t("auth.connected"));
-          identify({ email: userEmail, name: userData.fullName });
+          identify();
         }
         return ok;
       } catch (err) {

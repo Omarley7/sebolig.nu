@@ -16,9 +16,10 @@ export function usePostHog() {
     api_host: "https://eu.i.posthog.com",
     defaults: "2026-01-30",
     person_profiles: "always",
+    // Replays show clicks and navigation, never what is on screen or typed.
     session_recording: {
-      maskAllInputs: false,
-      maskInputOptions: { password: true, email: true },
+      maskAllInputs: true,
+      maskTextSelector: "*",
     },
     loaded: function (ph) {
       if (import.meta.env.DEV) {
@@ -31,6 +32,10 @@ export function usePostHog() {
   return { posthog };
 }
 
-export function identify(properties?: { email?: string; name?: string }) {
-  posthog.identify(properties?.email ?? getOrCreateUserId(), properties);
+/**
+ * Links events to this device's random id. A connected user's email and name are never sent;
+ * only demo mode passes the name the visitor typed for the demo.
+ */
+export function identify(properties?: { name?: string }) {
+  posthog.identify(getOrCreateUserId(), properties);
 }
