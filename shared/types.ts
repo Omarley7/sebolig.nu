@@ -58,6 +58,22 @@ export type Offer = {
   position: number | null;
 };
 
+/**
+ * Result of a lightweight "what changed since `latestUpdated`" check, shared by every
+ * resource derived from findbolig.nu's offers listing (offers, appointments).
+ */
+export type Delta<T> = {
+  items: T[]; // new/updated items that still belong in the active view
+  removedIds: string[]; // previously-cached items that changed out of the active view
+  latestUpdated: string | null; // new cursor to persist for the next delta check
+  // Every item id already reported at exactly `latestUpdated`. Pass both back as `since`/
+  // `sinceIds` on the next delta call so items sharing that same timestamp are told apart
+  // by id rather than by fetch order — see `getOffersUpdatedSince` for why that matters.
+  latestUpdatedIds: string[];
+};
+
+export type OfferDelta = Delta<Offer>;
+
 export type CachedAppointmentEntry = {
   offerId: string;
   messageCount: number;
@@ -69,6 +85,8 @@ export type SyncAppointmentsRequest = {
   cached: CachedAppointmentEntry[];
   includeAll: boolean;
 };
+
+export type AppointmentDelta = Delta<Appointment>;
 
 export type WaitingListStatus = "Active" | "Passive";
 

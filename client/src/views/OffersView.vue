@@ -34,12 +34,9 @@ onMounted(() => {
         </span>
       </p>
       <button
-        @click="store.refresh()"
+        @click="store.handleRefresh()"
         :disabled="store.isLoading"
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
-               text-neutral-500 dark:text-neutral-400
-               hover:bg-neutral-100 dark:hover:bg-white/5
-               disabled:opacity-40 transition-colors"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 disabled:opacity-40 transition-colors"
       >
         <img
           src="/icons/refresh-ccw.svg"

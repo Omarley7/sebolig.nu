@@ -21,12 +21,6 @@ export function persistWaitingListsCache(lists: WaitingList[], updatedAt: Date |
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ updatedAt, lists }));
 }
 
-export function isWaitingListsCacheStale(thresholdMs = 24 * 60 * 60 * 1000): boolean {
-  const age = getWaitingListsCacheAge();
-  if (age === null) return false;
-  return age > thresholdMs;
-}
-
 export async function getWaitingLists(forceRefresh: boolean = false) {
   if (!forceRefresh) {
     const cached = localStorage.getItem(STORAGE_KEY);

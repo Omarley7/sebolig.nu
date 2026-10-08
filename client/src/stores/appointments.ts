@@ -1,10 +1,11 @@
-import type { Appointment } from "@/types";
-import { defineStore, storeToRefs } from "pinia";
-import { ref, watch } from "vue";
+import type { Appointment, AppointmentDelta } from "@/types";
+import { defineStore } from "pinia";
+import { ref } from "vue";
 import { useAuth } from "~/composables/useAuth";
+import { useRefreshGate } from "~/composables/useRefreshGate";
 import config from "~/config";
-import { getAppointments, isCacheStale } from "~/data/appointments";
-import { applyMockAppointmentDates, handleApiError } from "~/data/appointmentsSource";
+import { getAppointments, persistAppointmentsCache } from "~/data/appointments";
+import { applyMockAppointmentDates, fetchAppointmentDelta, handleApiError } from "~/data/appointmentsSource";
 import mockAppointmentsJson from "~/data/MOCK_APPOINTMENTS.json";
 import { useI18n } from "~/i18n";
 import { useToastStore } from "~/stores/toast";
@@ -12,10 +13,14 @@ import { useToastStore } from "~/stores/toast";
 export const useAppointmentsStore = defineStore("appointments", () => {
   const appointments = ref<Appointment[]>([]);
   const updatedAt = ref<Date | null>(null);
+  // Cursor for the delta check — see offers store / getAppointmentUpdates for why this must
+  // always come from the server (findbolig.nu's own `updated` clock), never a client Date.
+  const latestUpdated = ref<string | null>(null);
+  // Ids already reported at exactly `latestUpdated` — paired with it on the next delta call
+  // so equal-timestamp appointments are told apart by id instead of by fetch order.
+  const latestUpdatedIds = ref<string[]>([]);
   const isLoading = ref(false);
   const showAllOffers = ref(false);
-  const needsRefresh = ref(false);
-  const sessionExpired = ref(false);
 
   async function init() {
     const auth = useAuth();
@@ -34,15 +39,21 @@ export const useAppointmentsStore = defineStore("appointments", () => {
       const cached = await getAppointments(false, showAllOffers.value);
       appointments.value = cached.appointments;
       updatedAt.value = cached.updatedAt;
+      latestUpdated.value = cached.latestUpdated;
+      latestUpdatedIds.value = cached.latestUpdatedIds;
 
-      if (!auth.isAuthenticated) {
-        sessionExpired.value = true;
-        return;
-      }
+      if (!auth.isAuthenticated) return;
 
-      // Stale either way; only an ended Connection (handled by the auth store) means there is nothing to refresh.
-      if (isCacheStale() && (await auth.checkConnection()) !== "ended") {
-        needsRefresh.value = true;
+      if (latestUpdated.value) {
+        // We have a cursor from a previous fetch — ask "did anything actually change"
+        // instead of blindly refetching on a fixed clock.
+        await checkForUpdates();
+      } else if ((await auth.checkConnection()) === "live") {
+        // No cursor yet — a cache from before the delta cursor existed. Self-heal with one
+        // full refresh (which seeds latestUpdated) instead of leaving the user stuck until
+        // they notice and click a manual refresh. An ended Connection is handled by the auth
+        // store; an unreachable findbolig.nu just leaves the cached data as-is.
+        await refresh();
       }
     } catch {
       if (!auth.isAuthenticated) return;
@@ -50,6 +61,8 @@ export const useAppointmentsStore = defineStore("appointments", () => {
         const payload = await getAppointments(true, showAllOffers.value);
         appointments.value = payload.appointments;
         updatedAt.value = payload.updatedAt;
+        latestUpdated.value = payload.latestUpdated;
+        latestUpdatedIds.value = payload.latestUpdatedIds;
       } catch (error) {
         handleApiError(error, useToastStore(), useI18n().t, "Failed to load appointments");
       }
@@ -58,9 +71,49 @@ export const useAppointmentsStore = defineStore("appointments", () => {
     }
   }
 
+  /** Merges a delta response into the local list: upserts changed appointments, drops ones that left view. */
+  function applyDelta(delta: AppointmentDelta) {
+    if (delta.latestUpdated) {
+      latestUpdated.value = delta.latestUpdated;
+      latestUpdatedIds.value = delta.latestUpdatedIds;
+    }
+
+    if (delta.items.length === 0 && delta.removedIds.length === 0) {
+      persistAppointmentsCache(appointments.value, updatedAt.value, latestUpdated.value, latestUpdatedIds.value);
+      return;
+    }
+
+    const removed = new Set(delta.removedIds);
+    const byOfferId = new Map(
+      appointments.value.filter((a) => !removed.has(a.offerId)).map((a) => [a.offerId, a]),
+    );
+    for (const appointment of delta.items) {
+      byOfferId.set(appointment.offerId, appointment);
+    }
+
+    appointments.value = Array.from(byOfferId.values());
+    updatedAt.value = new Date();
+    // Persist the merge and the advanced cursor — otherwise a reload falls back to the
+    // stale pre-delta cache, re-running (and re-paying for) the same delta on next load.
+    persistAppointmentsCache(appointments.value, updatedAt.value, latestUpdated.value, latestUpdatedIds.value);
+  }
+
+  /** Lightweight check, meant to run on every navigation to the appointments view: asks the
+   * server whether anything changed since our cursor, and only re-derives what did. */
+  async function checkForUpdates() {
+    const cursor = latestUpdated.value;
+    if (!cursor) return;
+    try {
+      applyDelta(await fetchAppointmentDelta(cursor, showAllOffers.value, latestUpdatedIds.value));
+    } catch (error) {
+      // Best-effort — keep showing cached data if the check itself fails. A refused
+      // request still goes to the auth store, so an ended Connection is noticed here too.
+      await useAuth().recoverFrom(error);
+    }
+  }
+
   async function refresh() {
     isLoading.value = true;
-    needsRefresh.value = false;
     const auth = useAuth();
 
     if (auth.isDemo) {
@@ -75,6 +128,8 @@ export const useAppointmentsStore = defineStore("appointments", () => {
       const payload = await getAppointments(true, showAllOffers.value);
       appointments.value = payload.appointments;
       updatedAt.value = payload.updatedAt;
+      latestUpdated.value = payload.latestUpdated;
+      latestUpdatedIds.value = payload.latestUpdatedIds;
     } catch (error) {
       const check = await auth.recoverFrom(error);
       if (check === "live") {
@@ -82,6 +137,8 @@ export const useAppointmentsStore = defineStore("appointments", () => {
           const payload = await getAppointments(true, showAllOffers.value);
           appointments.value = payload.appointments;
           updatedAt.value = payload.updatedAt;
+          latestUpdated.value = payload.latestUpdated;
+          latestUpdatedIds.value = payload.latestUpdatedIds;
           return;
         } catch {
           // retry also failed
@@ -95,38 +152,14 @@ export const useAppointmentsStore = defineStore("appointments", () => {
     }
   }
 
-  function dismissRefresh() {
-    needsRefresh.value = false;
-  }
-
-  let pendingRefresh = false;
-
-  async function handleRefresh() {
-    const auth = useAuth();
-    if (!auth.isAuthenticated) {
-      pendingRefresh = true;
-      auth.showLoginModal = true;
-      return;
-    }
-    // No pre-check: the server answers the data request itself with 401 (ended) or 504
-    // (unreachable), and refresh() reacts to either through auth.recoverFrom.
-    await refresh();
-  }
-
-  const { isAuthenticated } = storeToRefs(useAuth());
-  watch(isAuthenticated, (loggedIn) => {
-    if (loggedIn) {
-      sessionExpired.value = false;
-      if (pendingRefresh) {
-        pendingRefresh = false;
-        refresh();
-      }
-    } else {
+  const { handleRefresh } = useRefreshGate({
+    refresh,
+    onLoggedOut: () => {
       appointments.value = [];
       updatedAt.value = null;
-      needsRefresh.value = false;
-      sessionExpired.value = false;
-    }
+      latestUpdated.value = null;
+      latestUpdatedIds.value = [];
+    },
   });
 
   function toggleShowAllOffers() {
@@ -142,11 +175,8 @@ export const useAppointmentsStore = defineStore("appointments", () => {
     updatedAt,
     isLoading,
     showAllOffers,
-    needsRefresh,
-    sessionExpired,
     init,
     refresh,
-    dismissRefresh,
     handleRefresh,
     toggleShowAllOffers,
     getImageUrl,

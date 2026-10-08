@@ -1,7 +1,8 @@
 import type { WaitingList } from "@/types";
-import { defineStore, storeToRefs } from "pinia";
-import { ref, watch } from "vue";
+import { defineStore } from "pinia";
+import { ref } from "vue";
 import { useAuth } from "~/composables/useAuth";
+import { useRefreshGate } from "~/composables/useRefreshGate";
 import config from "~/config";
 import { handleApiError } from "~/data/appointmentsSource";
 import {
@@ -9,7 +10,6 @@ import {
   detectPassivated,
   getSnapshots,
   getWaitingLists,
-  isWaitingListsCacheStale,
   persistSnapshots,
   persistWaitingListsCache,
 } from "~/data/waitingLists";
@@ -27,8 +27,6 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
   const updatedAt = ref<Date | null>(null);
   const isLoading = ref(false);
   const isMutating = ref(false);
-  const needsRefresh = ref(false);
-  const sessionExpired = ref(false);
   const recentlyPassivated = ref<string[]>([]);
 
   // For "Reactivating X of N" counter
@@ -54,15 +52,12 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
         persistSnapshots(buildSnapshots(cached.lists));
       }
 
-      if (!auth.isDemo && !auth.isAuthenticated) {
-        sessionExpired.value = true;
-        return;
-      }
+      if (!auth.isDemo && !auth.isAuthenticated) return;
 
-      // Stale either way; only an ended Connection (handled by the auth store) means there is nothing to refresh.
-      if (!auth.isDemo && isWaitingListsCacheStale() && (await auth.checkConnection()) !== "ended") {
-        needsRefresh.value = true;
-      }
+      // No cheap "did anything change" signal for waiting lists — the thing users care about
+      // (queue position) has no cursor cheaper than the expensive per-property fetch itself
+      // (see getPositionForProperty). Just show cached data; the header refresh button is
+      // there when they want fresh data.
     } catch {
       if (!auth.isDemo && !auth.isAuthenticated) return;
       try {
@@ -81,7 +76,6 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
   async function refresh() {
     if (isLoading.value) return;
     isLoading.value = true;
-    needsRefresh.value = false;
     const auth = useAuth();
 
     if (auth.isDemo) {
@@ -199,9 +193,8 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
       }
     }
 
-    const workers = Array.from(
-      { length: Math.min(CONCURRENCY_REACTIVATE_ALL, passive.length) },
-      () => worker(),
+    const workers = Array.from({ length: Math.min(CONCURRENCY_REACTIVATE_ALL, passive.length) }, () =>
+      worker(),
     );
     await Promise.all(workers);
 
@@ -267,35 +260,13 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
     return `${config.imageBaseUrl}${imagePath}`;
   }
 
-  let pendingRefresh = false;
-
-  async function handleRefresh() {
-    const auth = useAuth();
-    if (!auth.isAuthenticated) {
-      pendingRefresh = true;
-      auth.showLoginModal = true;
-      return;
-    }
-    // No pre-check: the server answers the data request itself with 401 (ended) or 504
-    // (unreachable), and refresh() reacts to either through auth.recoverFrom.
-    await refresh();
-  }
-
-  const { isAuthenticated } = storeToRefs(useAuth());
-  watch(isAuthenticated, (loggedIn) => {
-    if (loggedIn) {
-      sessionExpired.value = false;
-      if (pendingRefresh) {
-        pendingRefresh = false;
-        refresh();
-      }
-    } else {
+  const { handleRefresh } = useRefreshGate({
+    refresh,
+    onLoggedOut: () => {
       lists.value = [];
       updatedAt.value = null;
-      needsRefresh.value = false;
-      sessionExpired.value = false;
       recentlyPassivated.value = [];
-    }
+    },
   });
 
   return {
@@ -303,8 +274,6 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
     updatedAt,
     isLoading,
     isMutating,
-    needsRefresh,
-    sessionExpired,
     recentlyPassivated,
     bulkInProgress,
     bulkDone,

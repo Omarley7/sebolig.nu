@@ -21,6 +21,20 @@ export interface AppDeps {
   findbolig: FindboligService;
 }
 
+/** Reads and validates the `since` query param shared by every delta endpoint. */
+function parseSinceParam(c: Context): string | null {
+  const since = c.req.query("since");
+  if (!since || Number.isNaN(new Date(since).getTime())) return null;
+  return since;
+}
+
+/** Reads the `sinceIds` query param shared by every delta endpoint — see `Delta.latestUpdatedIds`. */
+function parseSinceIdsParam(c: Context): string[] {
+  const sinceIds = c.req.query("sinceIds");
+  if (!sinceIds) return [];
+  return sinceIds.split(",").filter(Boolean);
+}
+
 function handleError(c: Context, error: unknown) {
   if (error instanceof AuthError) {
     return c.json(
@@ -172,6 +186,23 @@ export function createApp({ findbolig: findboligService }: AppDeps) {
     }
   });
 
+  appointments.get("/delta", async (c) => {
+    const since = parseSinceParam(c);
+    if (!since) {
+      return c.json({ error: "Query param 'since' (ISO timestamp) is required" }, 400);
+    }
+    try {
+      const includeAll = c.req.query("includeAll") === "true";
+      const sinceIds = parseSinceIdsParam(c);
+      const result = await withReauth(c, (cookies) =>
+        findboligService.getAppointmentUpdates(cookies, since, includeAll, sinceIds)
+      );
+      return c.json(result);
+    } catch (error) {
+      return handleError(c, error);
+    }
+  });
+
   offers.get("/", async (c) => {
     try {
       const result = await withReauth(c, (cookies) =>
@@ -187,6 +218,22 @@ export function createApp({ findbolig: findboligService }: AppDeps) {
     try {
       const result = await withReauth(c, (cookies) =>
         findboligService.getActiveOffers(cookies)
+      );
+      return c.json(result);
+    } catch (error) {
+      return handleError(c, error);
+    }
+  });
+
+  offers.get("/delta", async (c) => {
+    const since = parseSinceParam(c);
+    if (!since) {
+      return c.json({ error: "Query param 'since' (ISO timestamp) is required" }, 400);
+    }
+    try {
+      const sinceIds = parseSinceIdsParam(c);
+      const result = await withReauth(c, (cookies) =>
+        findboligService.getOfferUpdates(cookies, since, sinceIds)
       );
       return c.json(result);
     } catch (error) {

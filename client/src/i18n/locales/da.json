@@ -25,7 +25,8 @@
     "openOnFindbolig": "Åbn på findbolig.nu",
     "addToCalendar": "Tilføj til kalender",
     "queuePosition": "Køposition",
-    "cancelled": "Aflyst"
+    "cancelled": "Aflyst",
+    "refresh": "Opdatér"
   },
   "offers": {
     "pageTitle": "Boligtilbud",
@@ -179,30 +180,11 @@
     "featureOffline": "Offline adgang med lokal lagring",
     "featureAI": "AI-drevet udtrækning af åbent hus-datoer"
   },
-  "stale": {
-    "dataAge": "Dine data er {0} gamle.",
-    "refreshNow": "Opdater nu",
-    "dismiss": "Afvis",
-    "connectionEnded": "Forbindelsen til findbolig.nu er afbrudt. Forbind igen for at hente opdateringer.",
-    "connectAgain": "Forbind igen"
-  },
   "errors": {
     "timeout": "findbolig.nu svarer ikke lige nu. Prøv igen senere.",
     "invalidCredentials": "Forkert email eller adgangskode. Prøv igen.",
     "timeoutConnect": "Kunne ikke nå findbolig.nu for at forbinde. Prøv igen senere.",
     "connectFailed": "Forbindelsen mislykkedes. Prøv igen."
-  },
-  "sync": {
-    "updatedAgo": "Opdateret {0}",
-    "justNow": "lige nu",
-    "minutesAgo": "for {0} min. siden",
-    "hoursAgo": "for {0}t siden",
-    "daysAgo": "for {0}d siden",
-    "fetchData": "Hent data",
-    "syncing": "Henter...",
-    "clickToExpand": "Klik for at se præcist tidspunkt",
-    "date": "Dato",
-    "time": "Kl"
   },
   "footer": {
     "notAffiliated": "SeBolig er ikke tilknyttet findbolig.nu eller DEAS."
