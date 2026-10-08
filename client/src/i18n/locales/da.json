@@ -132,7 +132,7 @@
     "cancel": "Annuller",
     "demoLogin": "Prøv som demo",
     "demoNamePlaceholder": "Et kaldenavn (til demo)",
-    "demoNameHint": "Indtast dit navn for at prøve demoen.",
+    "demoNameHint": "Vælg et kaldenavn for at prøve demoen.",
     "demoLoginSuccess": "Du er nu i demo-tilstand.",
     "orSeparator": "eller",
     "connectHeading": "Forbind din findbolig.nu-konto for at komme i gang",
@@ -202,7 +202,7 @@
     "notStored": {
       "title": "Hvad vi ikke gemmer",
       "p1": "Intet på vores servere. SeBolig har ingen database med brugere, adgangskoder eller boligdata. Serveren videresender dine forespørgsler til findbolig.nu og glemmer dem igen.",
-      "p2": "Vi bruger PostHog til anonym brugsstatistik, som opbevares i EU: hvilke sider der bruges, og hvor der klikkes. PostHog får aldrig dit navn, din e-mail eller den tekst, du ser og skriver."
+      "p2": "Vi bruger PostHog til brugsstatistik, som opbevares i EU: hvilke sider der bruges, og hvor der klikkes. Den knyttes til et tilfældigt id på din enhed, ikke til din findbolig.nu-konto: PostHog får aldrig dit navn, din e-mail eller den tekst, du ser og skriver."
     },
     "why": {
       "title": "Hvorfor vi har brug for din adgangskode",
