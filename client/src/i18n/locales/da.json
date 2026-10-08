@@ -131,7 +131,7 @@
     "disconnectConfirm": "Afbryd forbindelsen til findbolig.nu? Alt, SeBolig har gemt på denne enhed, slettes.",
     "cancel": "Annuller",
     "demoLogin": "Prøv som demo",
-    "demoNamePlaceholder": "Dit navn (til demo)",
+    "demoNamePlaceholder": "Et kaldenavn (til demo)",
     "demoNameHint": "Indtast dit navn for at prøve demoen.",
     "demoLoginSuccess": "Du er nu i demo-tilstand.",
     "orSeparator": "eller",

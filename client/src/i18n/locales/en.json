@@ -131,7 +131,7 @@
     "disconnectConfirm": "Disconnect from findbolig.nu? Everything SeBolig stored on this device will be erased.",
     "cancel": "Cancel",
     "demoLogin": "Try as demo",
-    "demoNamePlaceholder": "Your name (for demo)",
+    "demoNamePlaceholder": "A nickname (for demo)",
     "demoNameHint": "Enter your name to try the demo.",
     "demoLoginSuccess": "You are now in demo mode.",
     "orSeparator": "or",
