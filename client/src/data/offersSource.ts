@@ -40,7 +40,7 @@ export async function fetchActiveOffers(): Promise<{
   );
 
   if (!res.ok) {
-    throw new HttpError(`Failed to fetch offers: ${res.status}`, res.status);
+    throw await HttpError.fromResponse(res, "Failed to fetch offers");
   }
 
   const data = (await res.json()) as { offers: Offer[]; latestUpdated: string | null };
@@ -63,7 +63,7 @@ export async function fetchOfferDelta(since: string, sinceIds: string[] = []): P
   );
 
   if (!res.ok) {
-    throw new HttpError(`Failed to fetch offer delta: ${res.status}`, res.status);
+    throw await HttpError.fromResponse(res, "Failed to fetch offer delta");
   }
 
   return (await res.json()) as OfferDelta;
@@ -77,7 +77,7 @@ export async function acceptOffer(offerId: string): Promise<RecipientState> {
   );
 
   if (!res.ok) {
-    throw new HttpError(`Failed to accept offer: ${res.status}`, res.status);
+    throw await HttpError.fromResponse(res, "Failed to accept offer");
   }
 
   const data = await res.json();
@@ -92,7 +92,7 @@ export async function declineOffer(offerId: string): Promise<RecipientState> {
   );
 
   if (!res.ok) {
-    throw new HttpError(`Failed to decline offer: ${res.status}`, res.status);
+    throw await HttpError.fromResponse(res, "Failed to decline offer");
   }
 
   const data = await res.json();

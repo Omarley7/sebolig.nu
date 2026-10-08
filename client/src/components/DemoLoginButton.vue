@@ -22,7 +22,7 @@ function closeModal() {
 function handleSubmit() {
   if (!demoName.value.trim()) return;
   isModalOpen.value = false;
-  auth.showLoginModal = false;
+  auth.showConnectModal = false;
   auth.loginAsDemo(demoName.value.trim());
 }
 </script>
@@ -51,9 +51,9 @@ function handleSubmit() {
           <button
             @click="closeModal"
             class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-            aria-label="Close modal"
+            :aria-label="t('common.close')"
           >
-            <img src="/icons/x.svg" alt="Close" class="size-6 dark:invert" />
+            <img src="/icons/x.svg" alt="" class="size-6 dark:invert" />
           </button>
         </div>
         <p class="text-sm text-violet-600 dark:text-violet-400 mb-4">

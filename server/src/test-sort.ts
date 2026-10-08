@@ -5,7 +5,8 @@ import { createInterface } from "node:readline/promises";
 // session.ts throws at import time unless COOKIE_SECRET is set.
 process.env.COOKIE_SECRET ||= "x".repeat(32);
 
-import { fetchOffers, login, UpstreamHttpError } from "./findbolig-service";
+import { fetchOffers, login } from "./findbolig-service";
+import { UpstreamHttpError } from "./lib/errors";
 import { parseCookies } from "./lib/session";
 import "./lib/tls-setup";
 import type { ApiOffer } from "./types/offers";

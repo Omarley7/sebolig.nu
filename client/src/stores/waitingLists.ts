@@ -4,10 +4,9 @@ import { ref } from "vue";
 import { useAuth } from "~/composables/useAuth";
 import { useRefreshGate } from "~/composables/useRefreshGate";
 import config from "~/config";
-import { handleApiError, HttpError } from "~/data/appointmentsSource";
+import { handleApiError } from "~/data/appointmentsSource";
 import {
   buildSnapshots,
-  clearSnapshots,
   detectPassivated,
   getSnapshots,
   getWaitingLists,
@@ -93,25 +92,19 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
       lists.value = payload.lists;
       updatedAt.value = payload.updatedAt;
     } catch (error) {
-      const is401 = error instanceof HttpError && error.status === 401;
-      if (is401) {
-        const recovered = await auth.ensureSession();
-        if (recovered) {
-          try {
-            const payload = await getWaitingLists(true);
-            runDiff(payload.lists);
-            lists.value = payload.lists;
-            updatedAt.value = payload.updatedAt;
-            return;
-          } catch {
-            // fall through
-          }
-        } else {
-          // Session is confirmed dead — prompt login directly instead of a separate
-          // "session expired" state the user would otherwise have no way to see.
-          auth.showLoginModal = true;
+      const check = await auth.recoverFrom(error);
+      if (check === "live") {
+        try {
+          const payload = await getWaitingLists(true);
+          runDiff(payload.lists);
+          lists.value = payload.lists;
+          updatedAt.value = payload.updatedAt;
           return;
+        } catch {
+          // retry also failed
         }
+      } else if (check === "ended") {
+        return; // the auth store erased Local data and sent the user home
       }
       handleApiError(error, useToastStore(), useI18n().t, "Failed to refresh waiting lists");
     } finally {
@@ -149,6 +142,8 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
       // Revert
       list.status = originalStatus;
       persistWaitingListsCache(lists.value, updatedAt.value);
+      // An ended Connection is the auth store's to explain (it erases the cache just reverted).
+      if ((await auth.recoverFrom(error)) === "ended") return false;
       handleApiError(error, toast, t, t("waitingLists.actions.reactivateFailed", { name: list.name }));
       return false;
     } finally {
@@ -172,12 +167,13 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
 
     let cursor = 0;
     const failed: WaitingList[] = [];
-    let sessionExpiredDuringBulk = false;
+    // The first refused request, kept so the auth store sees the reason the server gave.
+    let connectionRefusal: unknown = null;
 
     async function worker() {
       while (true) {
-        // Short-circuit if session died — don't keep firing failing requests.
-        if (sessionExpiredDuringBulk) return;
+        // Short-circuit once the Connection was refused — don't keep firing failing requests.
+        if (connectionRefusal) return;
         const i = cursor++;
         if (i >= passive.length) return;
         const list = passive[i];
@@ -188,8 +184,8 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
           persistWaitingListsCache(lists.value, updatedAt.value);
           recentlyPassivated.value = recentlyPassivated.value.filter((id) => id !== list.propertyId);
         } catch (error) {
-          if (error instanceof HttpError && error.status === 401) {
-            sessionExpiredDuringBulk = true;
+          if (auth.isUnauthenticated(error)) {
+            connectionRefusal ??= error;
             failed.push(list);
             return;
           }
@@ -211,13 +207,10 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
     bulkInProgress.value = false;
     isMutating.value = false;
 
-    if (sessionExpiredDuringBulk) {
-      const recovered = await auth.ensureSession();
-      if (!recovered) {
-        auth.showLoginModal = true;
-        return;
-      }
-      // Session restored — let the user retry; we don't auto-retry to avoid surprise side effects.
+    if (connectionRefusal) {
+      // Ended: the auth store erased Local data and sent the user home. Live or unreachable:
+      // let the user retry from the summary below; we don't auto-retry to avoid surprise side effects.
+      if ((await auth.recoverFrom(connectionRefusal)) === "ended") return;
     }
 
     const succeeded = passive.length - failed.length;
@@ -254,6 +247,8 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
       toast.success(t("waitingLists.actions.unsubscribeSuccess", { name: list.name }));
       return true;
     } catch (error) {
+      // An ended Connection is the auth store's to explain; it has already sent the user home.
+      if ((await auth.recoverFrom(error)) === "ended") return false;
       handleApiError(error, toast, t, t("waitingLists.actions.unsubscribeFailed", { name: list.name }));
       return false;
     } finally {
@@ -276,7 +271,6 @@ export const useWaitingListsStore = defineStore("waitingLists", () => {
       lists.value = [];
       updatedAt.value = null;
       recentlyPassivated.value = [];
-      clearSnapshots();
     },
   });
 

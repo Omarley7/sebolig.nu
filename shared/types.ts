@@ -136,3 +136,11 @@ export type WaitingListSnapshot = {
   status: WaitingListStatus;
   observedAt: string;
 };
+
+/**
+ * Why the server ended a Connection during silent re-authentication, carried
+ * as `reason` on the 401 body. Absent when the request simply had no usable cookie.
+ * - credentials_rejected: findbolig.nu answered the re-login with 403 (password changed)
+ * - findbolig_session_lost: the re-login yielded no findbolig session for another reason
+ */
+export type ConnectionEndedReason = "credentials_rejected" | "findbolig_session_lost";

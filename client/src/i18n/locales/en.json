@@ -1,8 +1,6 @@
 {
   "common": {
     "appTitle": "SeBolig.nu",
-    "login": "Login",
-    "logout": "Logout",
     "pageNotFound": "Page not found",
     "backToHome": "Back to home",
     "day": "Day",
@@ -10,12 +8,15 @@
     "month": "Month",
     "today": "Today",
     "tomorrow": "Tomorrow",
+    "sourceCode": "Source code on GitHub",
+    "connect": "Connect",
+    "close": "Close",
     "map": "Map"
   },
   "appointments": {
     "emptyTitle": "No upcoming appointments",
-    "emptyDescription": "It looks like you don't have any upcoming viewings yet. Search for housing on FindBolig.nu and wait for invitations.",
-    "searchOnFindbolig": "Search housing on FindBolig.nu",
+    "emptyDescription": "It looks like you don't have any upcoming viewings yet. Search for housing on findbolig.nu and wait for invitations.",
+    "searchOnFindbolig": "Search housing on findbolig.nu",
     "pageTitle": "Upcoming viewings",
     "count": "{count} viewing | {count} viewings",
     "openHouse": "Open House",
@@ -55,7 +56,7 @@
     "declineSuccess": "Offer declined",
     "actionFailed": "Action failed. Please try again.",
     "emptyTitle": "No new offers",
-    "emptyDescription": "You don't have any active housing offers right now. Offers will appear here when you receive them on FindBolig.nu.",
+    "emptyDescription": "You don't have any active housing offers right now. Offers will appear here when you receive them on findbolig.nu.",
     "openOnFindbolig": "Open on findbolig.nu",
     "queuePosition": "Position",
     "mapOfLocations": "Map of {count} locations",
@@ -69,7 +70,7 @@
     "count": "{count} waiting list | {count} waiting lists",
     "refresh": "Refresh",
     "emptyTitle": "You are not on any waiting lists",
-    "emptyDescription": "Find properties on FindBolig.nu and sign up to a waiting list to receive offers.",
+    "emptyDescription": "Find properties on findbolig.nu and sign up to a waiting list to receive offers.",
     "groups": {
       "passive": "Passive",
       "active": "Active"
@@ -126,18 +127,24 @@
     "shortMonth": "mo"
   },
   "auth": {
-    "loggingIn": "Logging in...",
-    "loggingOut": "Logging out...",
-    "logoutConfirm": "Are you sure you want to log out?",
+    "disconnect": "Disconnect",
+    "disconnectConfirm": "Disconnect from findbolig.nu? Everything SeBolig stored on this device will be erased.",
     "cancel": "Cancel",
-    "securityNote": "Your connection to findbolig.nu is encrypted and secure.",
-    "findboligCredentials": "Connect your findbolig.nu account",
-    "loginSuccess": "You are now logged in!",
     "demoLogin": "Try as demo",
-    "demoNamePlaceholder": "Your name (for demo)",
-    "demoNameHint": "Enter your name to try the demo.",
+    "demoNamePlaceholder": "A nickname (for demo)",
+    "demoNameHint": "Pick a nickname to try the demo.",
     "demoLoginSuccess": "You are now in demo mode.",
-    "orSeparator": "or"
+    "orSeparator": "or",
+    "connectHeading": "Connect your findbolig.nu account to get started",
+    "passwordChangedHeading": "Your findbolig.nu password seems to have changed, so the connection was ended and your data on this device was erased. Connect again to continue.",
+    "connectButton": "Connect with findbolig.nu",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "connecting": "Connecting...",
+    "connected": "Connected to findbolig.nu",
+    "emailPlaceholder": "findbolig.nu email",
+    "passwordPlaceholder": "findbolig.nu password",
+    "custodyNote": "SeBolig keeps your password encrypted in your browser so you stay connected for up to 30 days. Nothing is stored on our servers. You can disconnect at any time."
   },
   "gallery": {
     "photos": "Photos",
@@ -152,7 +159,7 @@
     "welcome": "Your data, your control",
     "viewAppointments": "View your {count} appointment | View your {count} appointments",
     "fetchAppointments": "Fetch your appointments",
-    "readyToFetch": "Your appointments from FindBolig.nu are ready to be fetched.",
+    "readyToFetch": "Your appointments from findbolig.nu are ready to be fetched.",
     "noAppointmentsHint": "Don't have any appointments yet? Use findbolig.nu to search for housing and wait for invitations.",
     "lastUpdated": "Last updated {0} ago",
     "viewOffers": "View your {count} offer | View your {count} offers",
@@ -167,19 +174,56 @@
     "waitingLists": "Waiting lists"
   },
   "landing": {
-    "tagline": "A better dashboard for your FindBolig.nu account",
+    "tagline": "A better dashboard for your findbolig.nu account",
     "description": "We fetch your appointments, housing offers and more directly from findbolig.nu - with offline access and local storage.",
     "featureAppointments": "Chronological appointment overview",
     "featureOffline": "Offline access with local storage",
-    "featureAI": "AI-powered open house date extraction",
-    "getStarted": "Log in with your findbolig.nu account to get started.",
-    "loginButton": "Log in with FindBolig.nu",
-    "emailPlaceholder": "FindBolig.nu email",
-    "passwordPlaceholder": "FindBolig.nu password"
+    "featureAI": "AI-powered open house date extraction"
   },
   "errors": {
     "timeout": "findbolig.nu is not responding right now. Please try again later.",
-    "timeoutLogin": "Could not reach findbolig.nu to log in. Please try again later.",
-    "invalidCredentials": "Invalid email or password. Please try again."
+    "invalidCredentials": "Invalid email or password. Please try again.",
+    "timeoutConnect": "Could not reach findbolig.nu to connect. Please try again later.",
+    "connectFailed": "Connecting failed. Please try again."
+  },
+  "footer": {
+    "notAffiliated": "SeBolig is not affiliated with findbolig.nu or DEAS."
+  },
+  "explainer": {
+    "linkLabel": "How it works",
+    "title": "How it works",
+    "intro": "SeBolig shows you your own data from findbolig.nu. To do that, SeBolig has to use your findbolig.nu account on your behalf. Here is what that means in practice.",
+    "password": {
+      "title": "What happens to your password",
+      "p1": "When you connect your account, SeBolig sends your email and password to findbolig.nu – exactly as when you use findbolig.nu yourself.",
+      "p2": "Afterwards SeBolig keeps your password encrypted in your own browser. It is used for one thing only: renewing your findbolig session when it expires, so you do not have to type it again.",
+      "p3": "The password is never sent to anyone but findbolig.nu."
+    },
+    "notStored": {
+      "title": "What we do not store",
+      "p1": "Nothing on our servers. SeBolig has no database of users, passwords or housing data. The server forwards your requests to findbolig.nu and forgets them again.",
+      "p2": "We use PostHog for usage statistics, stored in the EU: which pages are used and where people click. They are tied to a random id on your device, not to your findbolig.nu account: PostHog never receives your name, your email, or the text you see and type."
+    },
+    "why": {
+      "title": "Why we need your password",
+      "p1": "findbolig.nu offers no way to give an app like SeBolig access without your password – not via MitID, not via a “continue with” button, and not via any official app access. We checked. The only way in is the same one you use yourself."
+    },
+    "revoke": {
+      "title": "How to take access back",
+      "p1": "Disconnect in SeBolig. Everything SeBolig stored on this device is erased – including the encrypted password.",
+      "p2": "Change your password on findbolig.nu. SeBolig can then no longer get into your account, and the connection ends by itself.",
+      "p3": "Do nothing for 30 days. The connection expires automatically."
+    },
+    "device": {
+      "title": "Your data on this device",
+      "p1": "Your appointments, offers and waiting lists are fetched from findbolig.nu through our server, but are kept only on the device you use, so they can be shown without a network too.",
+      "p2": "A connection is per device and browser. Disconnecting on your phone leaves your computer connected – and the other way round.",
+      "p3": "When you disconnect, all of it is erased."
+    },
+    "who": {
+      "title": "Who runs this",
+      "p1": "SeBolig.nu is an independent project and is not affiliated with findbolig.nu or DEAS.",
+      "p2": "The code is open. You can read it and ask questions on GitHub."
+    }
   }
 }

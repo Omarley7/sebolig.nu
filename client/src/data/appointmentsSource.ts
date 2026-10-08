@@ -1,4 +1,11 @@
-import type { Appointment, AppointmentDelta, CachedAppointmentEntry, SyncAppointmentsRequest, UserData } from "@/types";
+import type {
+  Appointment,
+  AppointmentDelta,
+  CachedAppointmentEntry,
+  ConnectionEndedReason,
+  SyncAppointmentsRequest,
+  UserData,
+} from "@/types";
 import mockAppointmentsJson from "~/data/MOCK_APPOINTMENTS.json";
 
 import config from "~/config";
@@ -20,11 +27,27 @@ async function fetchWithTimeout(
 
 export class HttpError extends Error {
   readonly status: number;
-  constructor(message: string, status: number) {
+  /** Why the server ended the Connection, when a 401 body says so. */
+  readonly reason?: ConnectionEndedReason;
+  constructor(message: string, status: number, reason?: ConnectionEndedReason) {
     super(message);
     this.name = "HttpError";
     this.status = status;
+    this.reason = reason;
   }
+
+  /** Builds the error from a failed response, keeping the reason a 401 body carries. */
+  static async fromResponse(res: Response, what: string): Promise<HttpError> {
+    const reason = res.status === 401 ? await readEndedReason(res) : undefined;
+    return new HttpError(`${what}: ${res.status}`, res.status, reason);
+  }
+}
+
+/** The reason a 401 body carries, if it is one the client knows how to react to. */
+export async function readEndedReason(res: Response): Promise<ConnectionEndedReason | undefined> {
+  const body = await res.json().catch(() => null);
+  const reason = body?.reason;
+  return reason === "credentials_rejected" || reason === "findbolig_session_lost" ? reason : undefined;
 }
 
 export function isTimeoutError(error: unknown): boolean {
@@ -83,7 +106,7 @@ export async function fetchAppointments(includeAll: boolean = false): Promise<Ap
       TIMEOUT_APPOINTMENTS,
     );
     if (!result.ok) {
-      throw new HttpError(`Failed to fetch appointments: ${result.status}`, result.status);
+      throw await HttpError.fromResponse(result, "Failed to fetch appointments");
     }
     const data = (await result.json()) as { appointments: Appointment[]; latestUpdated: string | null };
     return { updatedAt: new Date(), appointments: data.appointments, latestUpdated: data.latestUpdated };
@@ -109,7 +132,7 @@ export async function syncAppointments(
     TIMEOUT_APPOINTMENTS,
   );
   if (!result.ok) {
-    throw new HttpError(`Failed to sync appointments: ${result.status}`, result.status);
+    throw await HttpError.fromResponse(result, "Failed to sync appointments");
   }
   const data = (await result.json()) as { appointments: Appointment[]; latestUpdated: string | null };
   return { updatedAt: new Date(), appointments: data.appointments, latestUpdated: data.latestUpdated };
@@ -136,17 +159,13 @@ export async function fetchAppointmentDelta(
   );
 
   if (!res.ok) {
-    throw new HttpError(`Failed to fetch appointment delta: ${res.status}`, res.status);
+    throw await HttpError.fromResponse(res, "Failed to fetch appointment delta");
   }
 
   return (await res.json()) as AppointmentDelta;
 }
 
-export async function login(
-  email: string,
-  password: string,
-  remember: boolean = true,
-): Promise<UserData | null> {
+export async function connect(email: string, password: string): Promise<UserData | null> {
   try {
     const result = await fetchWithTimeout(
       `${config.backendDomain}/api/auth/login`,
@@ -154,16 +173,16 @@ export async function login(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password, remember }),
+        body: JSON.stringify({ email, password }),
       },
       TIMEOUT_LOGIN,
     );
     if (!result.ok) {
-      throw new HttpError(`Failed to login: ${result.status}`, result.status);
+      throw await HttpError.fromResponse(result, "Failed to connect");
     }
     return await result.json();
   } catch (error) {
-    console.error("Failed to login:", error);
+    console.error("Failed to connect:", error);
     throw error;
   }
 }

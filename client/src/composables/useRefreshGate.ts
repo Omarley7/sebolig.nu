@@ -5,15 +5,15 @@ import { useAuth } from "~/composables/useAuth";
 export interface RefreshGateOptions {
   /** Performs the actual refresh; expected to manage its own isLoading state. */
   refresh: () => void | Promise<void>;
-  /** Resets resource-specific state (data, cursors, snapshots, ...) on logout. */
+  /** Resets resource-specific state (data, cursors, snapshots, ...) when the Connection ends. */
   onLoggedOut: () => void;
 }
 
 /**
  * Shared "refresh gated behind auth" lifecycle used by every synced-resource store
- * (offers, appointments, waiting lists): a manual refresh trigger that prompts login
- * whenever there isn't a valid session — whether the user was never logged in or their
- * session just expired, both funnel into the same login modal — plus a login/logout
+ * (offers, appointments, waiting lists): a manual refresh trigger that opens the connect form
+ * when there is no Connection — an ended Connection is handled by the auth store, which
+ * erases Local data and shows the connect form — plus a connect/disconnect
  * watcher that clears state or replays a refresh that was waiting on that prompt.
  */
 export function useRefreshGate({ refresh, onLoggedOut }: RefreshGateOptions) {
@@ -23,15 +23,11 @@ export function useRefreshGate({ refresh, onLoggedOut }: RefreshGateOptions) {
     const auth = useAuth();
     if (!auth.isAuthenticated) {
       pendingRefresh = true;
-      auth.showLoginModal = true;
+      auth.showConnectModal = true;
       return;
     }
-    const sessionValid = await auth.ensureSession();
-    if (!sessionValid) {
-      pendingRefresh = true;
-      auth.showLoginModal = true;
-      return;
-    }
+    // No pre-check: the server answers the data request itself with 401 (ended) or 504
+    // (unreachable), and refresh() reacts to either through auth.recoverFrom.
     await refresh();
   }
 

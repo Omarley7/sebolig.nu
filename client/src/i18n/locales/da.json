@@ -1,8 +1,6 @@
 {
   "common": {
     "appTitle": "SeBolig.nu",
-    "login": "Login",
-    "logout": "Log ud",
     "pageNotFound": "Siden blev ikke fundet",
     "backToHome": "Tilbage til forsiden",
     "day": "Dag",
@@ -10,12 +8,15 @@
     "month": "Måned",
     "today": "I dag",
     "tomorrow": "I morgen",
+    "sourceCode": "Kildekode på GitHub",
+    "connect": "Forbind",
+    "close": "Luk",
     "map": "Kort"
   },
   "appointments": {
     "emptyTitle": "Ingen kommende aftaler",
-    "emptyDescription": "Det ser ud til, at du ikke har nogen kommende fremvisninger endnu. Søg efter boliger på FindBolig.nu og vent på invitationer.",
-    "searchOnFindbolig": "Søg boliger på FindBolig.nu",
+    "emptyDescription": "Det ser ud til, at du ikke har nogen kommende fremvisninger endnu. Søg efter boliger på findbolig.nu og vent på invitationer.",
+    "searchOnFindbolig": "Søg boliger på findbolig.nu",
     "pageTitle": "Kommende fremvisninger",
     "count": "{count} fremvisning | {count} fremvisninger",
     "openHouse": "Åbent hus",
@@ -55,7 +56,7 @@
     "declineSuccess": "Tilbud afvist",
     "actionFailed": "Handling mislykkedes. Prøv igen.",
     "emptyTitle": "Ingen nye tilbud",
-    "emptyDescription": "Du har ingen aktive boligtilbud i øjeblikket. Tilbud vises her, når du modtager dem på FindBolig.nu.",
+    "emptyDescription": "Du har ingen aktive boligtilbud i øjeblikket. Tilbud vises her, når du modtager dem på findbolig.nu.",
     "openOnFindbolig": "Åbn på findbolig.nu",
     "queuePosition": "Placering",
     "mapOfLocations": "Kort over {count} lokationer",
@@ -69,7 +70,7 @@
     "count": "{count} venteliste | {count} ventelister",
     "refresh": "Opdatér",
     "emptyTitle": "Du er ikke skrevet op til nogen ventelister",
-    "emptyDescription": "Find boliger på FindBolig.nu og skriv dig op til en venteliste for at modtage tilbud.",
+    "emptyDescription": "Find boliger på findbolig.nu og skriv dig op til en venteliste for at modtage tilbud.",
     "groups": {
       "passive": "Passive",
       "active": "Aktive"
@@ -126,18 +127,24 @@
     "shortMonth": "md"
   },
   "auth": {
-    "loggingIn": "Logger ind...",
-    "loggingOut": "Logger ud...",
-    "logoutConfirm": "Er du sikker på, at du vil logge ud?",
+    "disconnect": "Afbryd forbindelsen",
+    "disconnectConfirm": "Afbryd forbindelsen til findbolig.nu? Alt, SeBolig har gemt på denne enhed, slettes.",
     "cancel": "Annuller",
-    "securityNote": "Din forbindelse til findbolig.nu er krypteret og sikker.",
-    "findboligCredentials": "Forbind din findbolig.nu-konto",
-    "loginSuccess": "Du er nu logget ind!",
     "demoLogin": "Prøv som demo",
-    "demoNamePlaceholder": "Dit navn (til demo)",
-    "demoNameHint": "Indtast dit navn for at prøve demoen.",
+    "demoNamePlaceholder": "Et kaldenavn (til demo)",
+    "demoNameHint": "Vælg et kaldenavn for at prøve demoen.",
     "demoLoginSuccess": "Du er nu i demo-tilstand.",
-    "orSeparator": "eller"
+    "orSeparator": "eller",
+    "connectHeading": "Forbind din findbolig.nu-konto for at komme i gang",
+    "passwordChangedHeading": "Din findbolig.nu-adgangskode ser ud til at være ændret, så forbindelsen er afbrudt og dine data på denne enhed er slettet. Forbind igen for at fortsætte.",
+    "connectButton": "Forbind med findbolig.nu",
+    "showPassword": "Vis adgangskode",
+    "hidePassword": "Skjul adgangskode",
+    "connecting": "Forbinder...",
+    "connected": "Forbundet til findbolig.nu",
+    "emailPlaceholder": "findbolig.nu email",
+    "passwordPlaceholder": "findbolig.nu adgangskode",
+    "custodyNote": "SeBolig gemmer din adgangskode krypteret i din browser, så du forbliver forbundet i op til 30 dage. Intet gemmes på vores servere. Du kan afbryde når som helst."
   },
   "gallery": {
     "photos": "Fotos",
@@ -152,7 +159,7 @@
     "welcome": "Din data, din kontrol",
     "viewAppointments": "Se din {count} aftale | Se dine {count} aftaler",
     "fetchAppointments": "Hent dine aftaler",
-    "readyToFetch": "Dine aftaler fra FindBolig.nu er klar til at blive hentet.",
+    "readyToFetch": "Dine aftaler fra findbolig.nu er klar til at blive hentet.",
     "noAppointmentsHint": "Har du ingen aftaler endnu? Brug findbolig.nu til at søge efter boliger og vent på invitationer.",
     "lastUpdated": "Sidst opdateret for {0} siden",
     "viewOffers": "Se dit {count} tilbud | Se dine {count} tilbud",
@@ -167,19 +174,56 @@
     "waitingLists": "Ventelister"
   },
   "landing": {
-    "tagline": "Et bedre dashboard til din FindBolig.nu-konto",
+    "tagline": "Et bedre dashboard til din findbolig.nu-konto",
     "description": "Vi henter dine aftaler, boligtilbud og mere direkte fra findbolig.nu - med offline adgang og lokal lagring.",
     "featureAppointments": "Kronologisk aftaleoversigt",
     "featureOffline": "Offline adgang med lokal lagring",
-    "featureAI": "AI-drevet udtrækning af åbent hus-datoer",
-    "getStarted": "Log ind med din findbolig.nu-konto for at komme i gang.",
-    "loginButton": "Log ind med FindBolig.nu",
-    "emailPlaceholder": "FindBolig.nu email",
-    "passwordPlaceholder": "FindBolig.nu adgangskode"
+    "featureAI": "AI-drevet udtrækning af åbent hus-datoer"
   },
   "errors": {
     "timeout": "findbolig.nu svarer ikke lige nu. Prøv igen senere.",
-    "timeoutLogin": "Kunne ikke nå findbolig.nu for at logge ind. Prøv igen senere.",
-    "invalidCredentials": "Forkert email eller adgangskode. Prøv igen."
+    "invalidCredentials": "Forkert email eller adgangskode. Prøv igen.",
+    "timeoutConnect": "Kunne ikke nå findbolig.nu for at forbinde. Prøv igen senere.",
+    "connectFailed": "Forbindelsen mislykkedes. Prøv igen."
+  },
+  "footer": {
+    "notAffiliated": "SeBolig er ikke tilknyttet findbolig.nu eller DEAS."
+  },
+  "explainer": {
+    "linkLabel": "Sådan virker det",
+    "title": "Sådan virker det",
+    "intro": "SeBolig viser dig dine egne data fra findbolig.nu. For at kunne det skal SeBolig bruge din findbolig.nu-konto på dine vegne. Her er, hvad det betyder i praksis.",
+    "password": {
+      "title": "Hvad sker der med din adgangskode",
+      "p1": "Når du forbinder din konto, sender SeBolig din e-mail og adgangskode til findbolig.nu – præcis som når du selv bruger findbolig.nu.",
+      "p2": "Bagefter gemmer SeBolig din adgangskode krypteret i din egen browser. Den bruges kun til én ting: at forny din findbolig-session, når den udløber, så du ikke skal indtaste den igen.",
+      "p3": "Adgangskoden sendes aldrig til andre end findbolig.nu."
+    },
+    "notStored": {
+      "title": "Hvad vi ikke gemmer",
+      "p1": "Intet på vores servere. SeBolig har ingen database med brugere, adgangskoder eller boligdata. Serveren videresender dine forespørgsler til findbolig.nu og glemmer dem igen.",
+      "p2": "Vi bruger PostHog til brugsstatistik, som opbevares i EU: hvilke sider der bruges, og hvor der klikkes. Den knyttes til et tilfældigt id på din enhed, ikke til din findbolig.nu-konto: PostHog får aldrig dit navn, din e-mail eller den tekst, du ser og skriver."
+    },
+    "why": {
+      "title": "Hvorfor vi har brug for din adgangskode",
+      "p1": "findbolig.nu tilbyder ingen måde at give en app som SeBolig adgang uden din adgangskode – hverken via MitID, en “fortsæt med”-knap eller en officiel app-adgang. Vi har undersøgt det. Den eneste vej ind er den samme, som du selv bruger."
+    },
+    "revoke": {
+      "title": "Sådan trækker du adgangen tilbage",
+      "p1": "Afbryd forbindelsen i SeBolig. Så slettes alt, SeBolig har gemt på denne enhed – også den krypterede adgangskode.",
+      "p2": "Skift din adgangskode på findbolig.nu. Så kan SeBolig ikke længere komme ind på din konto, og forbindelsen ophører af sig selv.",
+      "p3": "Gør ingenting i 30 dage. Så udløber forbindelsen automatisk."
+    },
+    "device": {
+      "title": "Dine data på denne enhed",
+      "p1": "Dine fremvisninger, tilbud og ventelister hentes fra findbolig.nu via vores server, men opbevares kun på den enhed, du bruger, så de også kan vises uden netværk.",
+      "p2": "Forbindelsen gælder pr. enhed og browser. Afbryder du på telefonen, er computeren stadig forbundet – og omvendt.",
+      "p3": "Når du afbryder forbindelsen, slettes det hele."
+    },
+    "who": {
+      "title": "Hvem står bag",
+      "p1": "SeBolig.nu er et uafhængigt projekt og er ikke tilknyttet findbolig.nu eller DEAS.",
+      "p2": "Koden er åben. Du kan læse den og stille spørgsmål på GitHub."
+    }
   }
 }

@@ -25,21 +25,7 @@ const TIMEOUT_DATA = 20_000; // 20s – heavier data fetches
 // How many offers to pull per page when walking the updated-desc listing for a delta check.
 const DELTA_PAGE_SIZE = 25;
 
-export class TimeoutError extends Error {
-  constructor(url: string, timeoutMs: number) {
-    super(`Request to ${url} timed out after ${timeoutMs / 1000}s`);
-    this.name = "TimeoutError";
-  }
-}
-
-export class UpstreamHttpError extends Error {
-  readonly status: number;
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "UpstreamHttpError";
-    this.status = status;
-  }
-}
+import { TimeoutError, UnreachableError, UpstreamHttpError } from "~/lib/errors";
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
@@ -51,7 +37,7 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new TimeoutError(url, timeoutMs);
     }
-    throw error;
+    throw new UnreachableError(url, error);
   } finally {
     clearTimeout(timer);
   }
@@ -75,40 +61,41 @@ function upstreamFetch(path: string, cookies: string, init: RequestInit = {}, ti
 }
 
 /**
- * Performs initial GET and login to establish authenticated session
- * Returns the Set-Cookie headers if successful
+ * Performs initial GET and login to establish a findbolig session.
+ * Returns the user data with the Set-Cookie headers of both requests.
+ *
+ * Failures are thrown, not swallowed, so callers can tell them apart:
+ * - UpstreamHttpError with status 403: findbolig.nu rejected the email or
+ *   password (observed body: "Invalid username or password", errorCode 105)
+ * - UpstreamHttpError with another status: findbolig.nu answered but not with a session
+ * - TimeoutError / UnreachableError: findbolig.nu is not responding
  */
-export async function login(email: string, password: string): Promise<(UserData & { cookies: string[] }) | null> {
-  try {
-    // Initial GET to receive __Secure-SID cookie
-    const initialRes = await fetchWithTimeout(BASE_URL, { redirect: "follow" }, TIMEOUT_LOGIN);
-    const initialCookies = initialRes.headers.getSetCookie();
+export async function login(
+  email: string,
+  password: string,
+): Promise<UserData & { cookies: string[] }> {
+  // Initial GET to receive __Secure-SID cookie
+  const initialRes = await fetchWithTimeout(BASE_URL, { redirect: "follow" }, TIMEOUT_LOGIN);
+  const initialCookies = initialRes.headers.getSetCookie();
 
-    // Perform login with initial cookies
-    const cookieHeader = initialCookies.join("; ");
-    const res = await fetchWithTimeout(
-      `${BASE_URL}/api/authentication/login`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          ...(cookieHeader && { Cookie: cookieHeader }),
-        },
-        body: JSON.stringify({ email, password }),
-      },
-      TIMEOUT_LOGIN,
-    );
+  // Perform login with initial cookies
+  const cookieHeader = initialCookies.join("; ");
+  const res = await fetchWithTimeout(`${BASE_URL}/api/authentication/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(cookieHeader && { Cookie: cookieHeader }),
+    },
+    body: JSON.stringify({ email, password }),
+  }, TIMEOUT_LOGIN);
 
-    if (!res.ok) {
-      return null;
-    }
-    // Combine cookies from both requests
-    return apiUserDataToDomain((await res.json()) as ApiUserData, [...initialCookies, ...res.headers.getSetCookie()]);
-  } catch (error) {
-    console.error("Login failed:", error);
-    return null;
+  if (!res.ok) {
+    const detail = (await res.text().catch(() => "")).slice(0, 200);
+    throw new UpstreamHttpError(`Login failed: ${res.status} ${detail}`.trim(), res.status);
   }
+  // Combine cookies from both requests
+  return apiUserDataToDomain(await res.json() as ApiUserData, [...initialCookies, ...res.headers.getSetCookie()]);
 }
 
 export interface FetchOffersOptions {

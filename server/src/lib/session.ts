@@ -17,9 +17,12 @@ if (!COOKIE_SECRET || COOKIE_SECRET.length < 32) {
   throw new Error("COOKIE_SECRET must be set and at least 32 characters long");
 }
 
+/** A Connection lives this long without use; every authenticated request renews it. */
+const CONNECTION_IDLE_SECONDS = 30 * 24 * 60 * 60;
+
 const SEAL_OPTIONS: Iron.SealOptions = {
   ...Iron.defaults,
-  ttl: 7 * 24 * 60 * 60 * 1000, // 7 days
+  ttl: CONNECTION_IDLE_SECONDS * 1000, // matches the cookie so a payload never outlives its cookie, or vice versa
 };
 
 export async function sealSession(session: SealedSession): Promise<string> {
@@ -40,7 +43,7 @@ export async function getSessionFromCookie(c: Context): Promise<SealedSession | 
   }
 }
 
-export async function setSessionCookie(c: Context, session: SealedSession, remember: boolean = true): Promise<void> {
+export async function setSessionCookie(c: Context, session: SealedSession): Promise<void> {
   const sealed = await sealSession(session);
   const isProduction = process.env.NODE_ENV === "production";
   setCookie(c, COOKIE_NAME, sealed, {
@@ -48,7 +51,7 @@ export async function setSessionCookie(c: Context, session: SealedSession, remem
     httpOnly: true,
     secure: isProduction,
     sameSite: "Lax",
-    ...(remember ? { maxAge: 7 * 24 * 60 * 60 } : {}), // session cookie if not "remember me"
+    maxAge: CONNECTION_IDLE_SECONDS,
   });
 }
 

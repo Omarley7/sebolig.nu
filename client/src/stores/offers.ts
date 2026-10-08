@@ -4,7 +4,7 @@ import { ref } from "vue";
 import { useAuth } from "~/composables/useAuth";
 import { useRefreshGate } from "~/composables/useRefreshGate";
 import config from "~/config";
-import { handleApiError, HttpError } from "~/data/appointmentsSource";
+import { handleApiError } from "~/data/appointmentsSource";
 import MOCK_OFFERS_JSON from "~/data/MOCK_OFFERS.json";
 import { getOffers, persistOffersCache } from "~/data/offers";
 import {
@@ -60,11 +60,11 @@ export const useOffersStore = defineStore("offers", () => {
         // We have a cursor from a previous fetch — ask "did anything actually change"
         // instead of blindly refetching on a fixed clock.
         await checkForUpdates();
-      } else if (await auth.ensureSession()) {
+      } else if ((await auth.checkConnection()) === "live") {
         // No cursor yet — a cache from before the delta cursor existed. Self-heal with one
         // full refresh (which seeds latestUpdated) instead of leaving the user stuck until
-        // they notice and click a manual refresh. If the session isn't valid, just leave the
-        // cached data as-is — the header refresh button prompts login when they want fresh data.
+        // they notice and click a manual refresh. An ended Connection is handled by the auth
+        // store; an unreachable findbolig.nu just leaves the cached data as-is.
         await refresh();
       }
     } catch {
@@ -113,8 +113,10 @@ export const useOffersStore = defineStore("offers", () => {
     if (!cursor) return;
     try {
       applyDelta(await fetchOfferDelta(cursor, latestUpdatedIds.value));
-    } catch {
-      // Best-effort — keep showing cached data if the check itself fails.
+    } catch (error) {
+      // Best-effort — keep showing cached data if the check itself fails. A refused
+      // request still goes to the auth store, so an ended Connection is noticed here too.
+      await useAuth().recoverFrom(error);
     }
   }
 
@@ -137,26 +139,20 @@ export const useOffersStore = defineStore("offers", () => {
       latestUpdated.value = payload.latestUpdated;
       latestUpdatedIds.value = payload.latestUpdatedIds;
     } catch (error) {
-      const is401 = error instanceof HttpError && error.status === 401;
-      if (is401) {
-        const recovered = await auth.ensureSession();
-        if (recovered) {
-          try {
-            const payload = await getOffers(true);
-            offers.value = payload.offers;
-            updatedAt.value = payload.updatedAt;
-            latestUpdated.value = payload.latestUpdated;
-            latestUpdatedIds.value = payload.latestUpdatedIds;
-            return;
-          } catch {
-            // retry also failed
-          }
-        } else {
-          // Session is confirmed dead — prompt login directly instead of a separate
-          // "session expired" state the user would otherwise have no way to see.
-          auth.showLoginModal = true;
+      const check = await auth.recoverFrom(error);
+      if (check === "live") {
+        try {
+          const payload = await getOffers(true);
+          offers.value = payload.offers;
+          updatedAt.value = payload.updatedAt;
+          latestUpdated.value = payload.latestUpdated;
+          latestUpdatedIds.value = payload.latestUpdatedIds;
           return;
+        } catch {
+          // retry also failed
         }
+      } else if (check === "ended") {
+        return; // the auth store erased Local data and sent the user home
       }
       handleApiError(error, useToastStore(), useI18n().t, "Failed to refresh offers");
     } finally {
@@ -180,6 +176,8 @@ export const useOffersStore = defineStore("offers", () => {
       toast.success(t("offers.acceptSuccess"));
       return true;
     } catch (error) {
+      // An ended Connection is the auth store's to explain; it has already sent the user home.
+      if ((await auth.recoverFrom(error)) === "ended") return false;
       handleApiError(error, toast, t, t("offers.actionFailed"));
       return false;
     } finally {
@@ -203,6 +201,8 @@ export const useOffersStore = defineStore("offers", () => {
       toast.success(t("offers.declineSuccess"));
       return true;
     } catch (error) {
+      // An ended Connection is the auth store's to explain; it has already sent the user home.
+      if ((await auth.recoverFrom(error)) === "ended") return false;
       handleApiError(error, toast, t, t("offers.actionFailed"));
       return false;
     } finally {
