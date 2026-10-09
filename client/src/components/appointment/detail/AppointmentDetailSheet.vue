@@ -87,6 +87,9 @@ function onDragEnd(e: PointerEvent) {
 
 const hasValidOfferId = computed(() => UUID_RE.test(props.appointment.offerId ?? ""));
 
+// add-to-calendar-button rejects a start without an end (or vice versa); with neither it makes an all-day event.
+const hasTimeSlot = computed(() => !!(props.appointment.start && props.appointment.end));
+
 const allImages = computed(() => {
   if (props.appointment.images?.length) return props.appointment.images;
   return [props.appointment.imageUrl];
@@ -338,7 +341,7 @@ onUnmounted(() => {
                   v-if="appointment.date"
                   class="text-sm font-medium text-neutral-800 dark:text-neutral-200 tabular-nums"
                 >
-                  {{ formatTimeSlot(appointment, true) }}
+                  {{ formatTimeSlot(appointment, t, true) }}
                 </p>
                 <p v-else class="text-sm italic text-neutral-400 dark:text-neutral-500">
                   {{ t("appointments.noDate") }}
@@ -353,8 +356,8 @@ onUnmounted(() => {
                     :location="`${appointment.residence.adressLine1}, ${appointment.residence.adressLine2}`"
                     :startDate="appointment.date"
                     :endDate="appointment.date"
-                    :startTime="appointment.start"
-                    :endTime="appointment.end"
+                    :startTime="hasTimeSlot ? appointment.start : undefined"
+                    :endTime="hasTimeSlot ? appointment.end : undefined"
                     timeZone="Europe/Copenhagen"
                     listStyle="dropup-static"
                     hideBackground

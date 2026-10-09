@@ -43,7 +43,7 @@ const thumbUrl = computed(() => {
   return compactThumb(imageUrl(props.appointment.imageUrl));
 });
 
-const timeLabel = computed(() => formatTimeSlot(props.appointment, props.includeDate));
+const timeLabel = computed(() => formatTimeSlot(props.appointment, t, props.includeDate));
 </script>
 
 <template>
