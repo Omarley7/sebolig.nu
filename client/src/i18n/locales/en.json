@@ -26,7 +26,8 @@
     "addToCalendar": "Add to calendar",
     "queuePosition": "Queue",
     "cancelled": "Cancelled",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "refreshFailed": "Could not update appointments. Please try again."
   },
   "offers": {
     "pageTitle": "Housing Offers",
@@ -62,6 +63,7 @@
     "mapOfLocations": "Map of {count} locations",
     "respondBefore": "Would you like to be considered?",
     "refresh": "Refresh",
+    "refreshFailed": "Could not update offers. Please try again.",
     "rooms": "{count} room | {count} rooms",
     "area": "{value} m²"
   },
@@ -69,6 +71,7 @@
     "pageTitle": "Waiting lists",
     "count": "{count} waiting list | {count} waiting lists",
     "refresh": "Refresh",
+    "refreshFailed": "Could not update waiting lists. Please try again.",
     "emptyTitle": "You are not on any waiting lists",
     "emptyDescription": "Find properties on findbolig.nu and sign up to a waiting list to receive offers.",
     "groups": {

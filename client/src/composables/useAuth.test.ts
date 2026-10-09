@@ -1,11 +1,14 @@
 import { createPinia, setActivePinia } from "pinia";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createApp } from "vue";
+import { createApp, nextTick } from "vue";
 import { useAuth } from "~/composables/useAuth";
+import { installLocalData } from "~/app/wiring";
+import config from "~/config";
+import { httpOffers } from "~/data/offers/http";
 import router from "~/router";
-import { fetchOfferDelta } from "~/data/offersSource";
 import { useOffersStore } from "~/stores/offers";
+import { LOCAL_DATA_KEYS } from "~/test/localDataKeys";
 
 vi.mock("posthog-js", () => ({
   default: { init: vi.fn(), identify: vi.fn() },
@@ -13,12 +16,6 @@ vi.mock("posthog-js", () => ({
 
 const CONNECTED_USER = { fullName: "Test Person" };
 
-const LOCAL_DATA_KEYS = [
-  "appointments_cache",
-  "offers_cache",
-  "waiting_lists_cache",
-  "waiting_lists_snapshots",
-];
 
 const PREFERENCE_KEYS: Record<string, string> = {
   "locale-preference": "en",
@@ -66,7 +63,7 @@ async function connectedUserOnOffersPage() {
 
 function expectLocalDataErased() {
   for (const key of LOCAL_DATA_KEYS) expect(localStorage.getItem(key), key).toBeNull();
-  expect(JSON.parse(localStorage.getItem("auth")!)).toEqual({ email: "", name: "", isAuthenticated: false });
+  expect(JSON.parse(localStorage.getItem("auth")!)).toEqual({ email: "", name: "", isAuthenticated: false, demoChosen: false });
 }
 
 function expectLocalDataIntact() {
@@ -82,13 +79,19 @@ function seedLocalDataAndPreferences() {
   for (const [key, value] of Object.entries(PREFERENCE_KEYS)) localStorage.setItem(key, value);
 }
 
-beforeEach(() => {
-  localStorage.clear();
+/** A fresh pinia over whatever is on the device, as after a page load. */
+function loadPage() {
   const pinia = createPinia();
   pinia.use(piniaPluginPersistedstate);
   // Pinia only runs plugins once it is installed on an app, so persistence needs a host app.
   createApp({}).use(pinia);
   setActivePinia(pinia);
+  installLocalData();
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  loadPage();
 });
 
 afterEach(() => {
@@ -116,7 +119,7 @@ it("disconnecting erases every piece of Local data and the persisted identity, k
   for (const key of LOCAL_DATA_KEYS) expect(localStorage.getItem(key), key).toBeNull();
   for (const [key, value] of Object.entries(PREFERENCE_KEYS)) expect(localStorage.getItem(key), key).toBe(value);
 
-  expect(JSON.parse(localStorage.getItem("auth")!)).toEqual({ email: "", name: "", isAuthenticated: false });
+  expect(JSON.parse(localStorage.getItem("auth")!)).toEqual({ email: "", name: "", isAuthenticated: false, demoChosen: false });
   expect(auth.email).toBe("");
   expect(auth.name).toBe("");
   expect(auth.isAuthenticated).toBe(false);
@@ -235,7 +238,7 @@ it("a delta check answered 401 keeps the reason the server gave", async () => {
   // The delta check is a data fetch like any other: the auth store needs the reason from it.
   stubConnectAndDisconnect(undefined, refreshAnswers(401, { error: "rejected", reason: "credentials_rejected" }));
 
-  await expect(fetchOfferDelta("2026-09-01T00:00:00Z")).rejects.toMatchObject({
+  await expect(httpOffers.fetchDelta({ latestUpdated: "2026-09-01T00:00:00Z", latestUpdatedIds: [] })).rejects.toMatchObject({
     status: 401,
     reason: "credentials_rejected",
   });
@@ -255,4 +258,41 @@ it("an offer action answered 401 with credentials_rejected ends the Connection w
   expect(auth.endedByPasswordChange).toBe(true);
   expect(router.currentRoute.value.name).toBe("home");
   expect(fetchMock.mock.calls.map(([url]) => String(url)).filter((u) => u.endsWith("/api/auth/refresh"))).toEqual([]);
+});
+
+it("a Demo is still a Demo after a reload, so it isn't checked against findbolig.nu", async () => {
+  const fetchMock = stubConnectAndDisconnect(refreshAnswers(401, { error: "Not authenticated" }));
+  useAuth().loginAsDemo("Demo Person");
+  await nextTick(); // let the persisted state reach the device
+
+  loadPage();
+  const auth = useAuth();
+
+  expect(auth.isDemo).toBe(true);
+  expect(await auth.checkConnection()).toBe("live");
+  expect(auth.isAuthenticated).toBe(true);
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+it("a VITE_DEMO_MODE build is always the Demo: connecting starts one, and nothing reaches the server", async () => {
+  vi.useFakeTimers();
+  const built = config.demoMode;
+  config.demoMode = true;
+  try {
+    const fetchMock = stubConnectAndDisconnect();
+    const auth = useAuth();
+
+    expect(await auth.connect("person@example.com", "secret")).toBe(true);
+    const refreshing = useOffersStore().refresh();
+    await vi.advanceTimersByTimeAsync(1000); // past the Demo's artificial delay
+    await refreshing;
+    expect(await auth.checkConnection()).toBe("live");
+    await auth.disconnect();
+
+    expect(auth.isDemo).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+  } finally {
+    config.demoMode = built;
+    vi.useRealTimers();
+  }
 });

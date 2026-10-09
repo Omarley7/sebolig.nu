@@ -2,14 +2,13 @@
 import type { Offer } from "@/types";
 import { computed, nextTick, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useOffersStore } from "~/stores/offers";
+import { imageUrl } from "~/lib/imageUrl";
 import { compactThumb } from "~/lib/imageTransform";
 import { formatCurrency } from "~/lib/formatters";
 import { getDeadlineUrgency, urgencyColors } from "~/lib/deadlineUrgency";
 import OfferDetailSheet from "../detail/OfferDetailSheet.vue";
 
 const { t } = useI18n();
-const { getImageUrl } = useOffersStore();
 
 const props = defineProps<{
   offer: Offer;
@@ -40,7 +39,7 @@ async function onDetailAfterLeave() {
 
 const thumbUrl = computed(() => {
   if (props.loadImage === false) return undefined;
-  return compactThumb(getImageUrl(props.offer.imageUrl));
+  return compactThumb(imageUrl(props.offer.imageUrl));
 });
 
 const urgency = computed(() => getDeadlineUrgency(props.offer.deadline, t));

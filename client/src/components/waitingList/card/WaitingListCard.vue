@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { imageUrl } from "~/lib/imageUrl";
 import type { WaitingList } from "@/types";
 import { computed, nextTick, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -9,7 +10,6 @@ import WaitingListDetailSheet from "../detail/WaitingListDetailSheet.vue";
 
 const { t } = useI18n();
 const store = useWaitingListsStore();
-const { getImageUrl } = store;
 
 const props = defineProps<{
   list: WaitingList;
@@ -42,7 +42,7 @@ const thumbUrl = computed(() => {
   if (props.loadImage === false) return undefined;
   const first = props.list.images[0];
   if (!first) return undefined;
-  return compactThumb(getImageUrl(first));
+  return compactThumb(imageUrl(first));
 });
 
 async function handleReactivate(e: MouseEvent) {

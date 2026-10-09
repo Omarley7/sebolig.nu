@@ -3,9 +3,6 @@ import { computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import LandingSection from "~/components/LandingSection.vue";
 import { useAuth } from "~/composables/useAuth";
-import { getCacheAge } from "~/data/appointments";
-import { getOffersCacheAge } from "~/data/offers";
-import { getWaitingListsCacheAge } from "~/data/waitingLists";
 import { useAppointmentsStore } from "~/stores/appointments";
 import { useOffersStore } from "~/stores/offers";
 import { useWaitingListsStore } from "~/stores/waitingLists";
@@ -16,18 +13,17 @@ const offersStore = useOffersStore();
 const waitingListsStore = useWaitingListsStore();
 const { t } = useI18n();
 
-const hasCache = computed(() => getCacheAge() !== null);
-// Re-read the cache when the Connection flips: an ending erases it, and the user should then
-// see the connect form (with its explanation) even if they were already on this page. Relies on
-// eraseLocalData() clearing the caches before it flips isAuthenticated.
-const showLanding = computed(() => !auth.isAuthenticated && getCacheAge() === null);
-const hasOffersCache = computed(() => getOffersCacheAge() !== null);
-const hasWaitingListsCache = computed(() => getWaitingListsCacheAge() !== null);
+// Landing only for someone with no Connection and nothing on the device. Reactive: a
+// Connection that ends erases Local data, and the connect form shows right away.
+const showLanding = computed(
+  () => !auth.isAuthenticated && !store.hasData && !offersStore.hasData && !waitingListsStore.hasData,
+);
 
+// Each store shows what is stored, and only checks findbolig.nu when there is a Connection.
 onMounted(() => {
-  if (auth.isAuthenticated || hasCache.value) store.init();
-  if (auth.isAuthenticated || hasOffersCache.value) offersStore.init();
-  if (auth.isAuthenticated || hasWaitingListsCache.value) waitingListsStore.init();
+  store.init();
+  offersStore.init();
+  waitingListsStore.init();
 });
 
 const hasAppointments = computed(() => store.appointments.length > 0);
@@ -36,8 +32,8 @@ const waitingListsCount = computed(() => waitingListsStore.lists.length);
 const firstName = computed(() => auth.name?.split(" ")[0] || "");
 
 const lastUpdatedText = computed(() => {
-  const age = getCacheAge();
-  if (age === null) return null;
+  if (!store.updatedAt) return null;
+  const age = Date.now() - store.updatedAt.getTime();
   const hours = Math.floor(age / (1000 * 60 * 60));
   const minutes = Math.floor((age % (1000 * 60 * 60)) / (1000 * 60));
   if (hours > 0) return t("home.lastUpdated", [`${hours}h ${minutes}m`]);
@@ -46,10 +42,10 @@ const lastUpdatedText = computed(() => {
 </script>
 
 <template>
-  <!-- Unauthenticated with no cache: landing page -->
+  <!-- No Connection and no Local data: landing page -->
   <LandingSection v-if="showLanding" />
 
-  <!-- First-time user: no cached appointments -->
+  <!-- First-time user: no appointments stored yet -->
   <div
     v-else-if="!hasAppointments"
     class="flex flex-col items-center justify-center gap-6 py-12 px-4 max-w-md mx-auto text-center"
@@ -78,7 +74,7 @@ const lastUpdatedText = computed(() => {
     </div>
   </div>
 
-  <!-- Returning user: has cached data -->
+  <!-- Returning user: has Local data -->
   <div
     v-else
     class="flex flex-col items-center justify-center gap-4 py-12 px-4 max-w-md mx-auto text-center"
