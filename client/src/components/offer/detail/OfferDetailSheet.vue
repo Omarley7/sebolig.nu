@@ -11,6 +11,7 @@ import { useScrollLock } from "~/composables/useScrollLock";
 import { formatCurrency } from "~/lib/formatters";
 import { getDeadlineUrgency, urgencyColors } from "~/lib/deadlineUrgency";
 import { galleryImage } from "~/lib/imageTransform";
+import { imageUrl } from "~/lib/imageUrl";
 import { useOffersStore } from "~/stores/offers";
 import ImageGalleryModal from "~/components/appointment/gallery/ImageGalleryModal.vue";
 import FinancialsModal from "~/components/appointment/card/FinancialsModal.vue";
@@ -19,7 +20,6 @@ import ConfirmActionDialog from "./ConfirmActionDialog.vue";
 const { t } = useI18n();
 useScrollLock();
 const store = useOffersStore();
-const { getImageUrl } = store;
 
 const props = defineProps<{
   offer: Offer;
@@ -286,7 +286,7 @@ onUnmounted(() => {
             >
               <SwiperSlide v-for="(img, i) in allImages" :key="img">
                 <img
-                  :src="galleryImage(getImageUrl(img))"
+                  :src="galleryImage(imageUrl(img))"
                   :alt="`Photo ${i + 1}`"
                   class="w-full aspect-[16/10] object-cover"
                   :loading="i > 0 ? 'lazy' : 'eager'"
@@ -493,7 +493,7 @@ onUnmounted(() => {
       :blueprints="blueprints"
       :initial-index="galleryActiveIndex"
       :initial-tab="galleryTab"
-      :get-image-url="getImageUrl"
+      :get-image-url="imageUrl"
       @close="onGalleryClose"
     />
 

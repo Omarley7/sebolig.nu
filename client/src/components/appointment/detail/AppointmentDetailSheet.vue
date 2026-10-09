@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { imageUrl } from "~/lib/imageUrl";
 import type { Appointment } from "@/types";
 import "add-to-calendar-button";
 import { Navigation, Pagination } from "swiper/modules";
@@ -12,7 +13,6 @@ import { useDarkMode } from "~/composables/useDarkMode";
 import { useScrollLock } from "~/composables/useScrollLock";
 import { formatCurrency, formatTimeSlot } from "~/lib/formatters";
 import { galleryImage } from "~/lib/imageTransform";
-import { useAppointmentsStore } from "~/stores/appointments";
 import ImageGalleryModal from "../gallery/ImageGalleryModal.vue";
 import FinancialsModal from "../card/FinancialsModal.vue";
 
@@ -21,7 +21,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const { t } = useI18n();
 const { isDark } = useDarkMode();
 useScrollLock();
-const { getImageUrl } = useAppointmentsStore();
 
 const props = defineProps<{
   appointment: Appointment;
@@ -272,7 +271,7 @@ onUnmounted(() => {
             >
               <SwiperSlide v-for="(img, i) in allImages" :key="img">
                 <img
-                  :src="galleryImage(getImageUrl(img))"
+                  :src="galleryImage(imageUrl(img))"
                   :alt="`Photo ${i + 1}`"
                   class="w-full aspect-[16/10] object-cover"
                   :loading="i > 0 ? 'lazy' : 'eager'"
@@ -443,7 +442,7 @@ onUnmounted(() => {
       :blueprints="blueprints"
       :initial-index="galleryActiveIndex"
       :initial-tab="galleryTab"
-      :get-image-url="getImageUrl"
+      :get-image-url="imageUrl"
       @close="onGalleryClose"
     />
 

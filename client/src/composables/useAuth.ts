@@ -1,16 +1,14 @@
-import type { ConnectionEndedReason } from "@/types";
+import type { ConnectionEndedReason, UserData } from "@/types";
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { identify } from "~/composables/usePostHog";
 import config from "~/config";
-import { clearAppointmentsCache } from "~/data/appointments";
-import { connect as apiConnect, handleApiError, HttpError, readEndedReason } from "~/data/appointmentsSource";
-import { clearOffersCache } from "~/data/offers";
-import { clearSnapshots, clearWaitingListsCache } from "~/data/waitingLists";
+import { fetchWithTimeout, HttpError, isTimeoutError, readEndedReason } from "~/data/http";
 import { useI18n } from "~/i18n";
 import router from "~/router";
 import { useToastStore } from "~/stores/toast";
 
+const TIMEOUT_CONNECT = 25_000;
 const TIMEOUT_REFRESH = 15_000;
 const KEEP_ALIVE_INTERVAL = 3 * 60 * 1000;
 
@@ -22,13 +20,31 @@ const KEEP_ALIVE_INTERVAL = 3 * 60 * 1000;
  */
 export type ConnectionCheck = "live" | "ended" | "unreachable";
 
+async function apiConnect(email: string, password: string): Promise<UserData | null> {
+  const res = await fetchWithTimeout(
+    `${config.backendDomain}/api/auth/login`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email, password }),
+    },
+    TIMEOUT_CONNECT,
+  );
+  if (!res.ok) throw await HttpError.fromResponse(res, "Failed to connect");
+  return await res.json();
+}
+
 export const useAuth = defineStore(
   "auth",
   () => {
     const email = ref("");
     const isLoading = ref(false);
     const isAuthenticated = ref(false);
-    const isDemo = ref(false);
+    /** The user chose to try the Demo. Persisted, so a reload doesn't end it. */
+    const demoChosen = ref(false);
+    /** A Demo never reaches findbolig.nu or our backend. A VITE_DEMO_MODE build is always one. */
+    const isDemo = computed(() => config.demoMode || demoChosen.value);
     const name = ref("");
     const showConnectModal = ref(false);
     /**
@@ -37,9 +53,15 @@ export const useAuth = defineStore(
      */
     const endedByPasswordChange = ref(false);
     let keepAliveTimer: number | null = null;
+    const localDataErasers: (() => void)[] = [];
     const toast = useToastStore();
 
     async function connect(userEmail: string, userPassword: string) {
+      if (config.demoMode) {
+        // A demo build has nothing to connect to: whoever connects gets the Demo.
+        loginAsDemo(userEmail.split("@")[0] || "Demo");
+        return true;
+      }
       isLoading.value = true;
 
       const { t } = useI18n();
@@ -62,8 +84,10 @@ export const useAuth = defineStore(
       } catch (err) {
         if (err instanceof HttpError && err.status === 401) {
           toast.error(t("errors.invalidCredentials"), 6000);
+        } else if (isTimeoutError(err)) {
+          toast.warning(t("errors.timeoutConnect"), 8000);
         } else {
-          handleApiError(err, toast, t, t("errors.connectFailed"), "errors.timeoutConnect");
+          toast.error(t("errors.connectFailed"));
         }
         return setAuthenticated(false);
       } finally {
@@ -75,20 +99,32 @@ export const useAuth = defineStore(
       isAuthenticated.value = value;
       if (newName !== undefined) name.value = newName;
       if (!value) {
-        isDemo.value = false;
+        demoChosen.value = false;
         stopKeepAlive();
       }
       return value;
     }
 
     function loginAsDemo(demoName: string) {
-      isDemo.value = true;
+      demoChosen.value = true;
       name.value = demoName;
       email.value = `${demoName.toLowerCase().replace(/\s+/g, "")}@example.com`;
       isAuthenticated.value = true;
       showConnectModal.value = false;
       toast.success(useI18n().t("auth.demoLoginSuccess"));
       identify({ name: demoName });
+    }
+
+    /** Asks the user to connect; resolves true once they have (a Demo counts), false if they close the form. */
+    function requestConnect(): Promise<boolean> {
+      showConnectModal.value = true;
+      return new Promise((resolve) => {
+        const stop = watch([isAuthenticated, showConnectModal], ([connected, asking]) => {
+          if (!connected && asking) return;
+          stop();
+          resolve(connected);
+        });
+      });
     }
 
     function startKeepAlive() {
@@ -103,18 +139,20 @@ export const useAuth = defineStore(
       }
     }
 
+    /** Registers what erases the rest of Local data (the data kinds) when a Connection ends. */
+    function onEraseLocalData(erase: () => void) {
+      localDataErasers.push(erase);
+    }
+
     /**
-     * The one definition of what Local data is: the data caches plus the persisted identity.
-     * Persisted preferences (locale, theme) are not Local data and survive.
+     * Local data is the persisted identity plus whatever the registered erasers own (see
+     * app/wiring.ts). Persisted preferences (locale, theme) are not Local data and survive.
      *
      * The identity is this store's own persisted state, so blanking it here is what ends up
      * on the device; removing the storage key would be undone by the next state write.
      */
     function eraseLocalData() {
-      clearAppointmentsCache();
-      clearOffersCache();
-      clearWaitingListsCache();
-      clearSnapshots();
+      for (const erase of localDataErasers) erase();
       email.value = "";
       name.value = "";
       isAuthenticated.value = false;
@@ -133,6 +171,12 @@ export const useAuth = defineStore(
     }
 
     async function disconnect() {
+      // A Demo has no Connection on the server to end.
+      if (!isDemo.value) await endConnectionOnServer();
+      await endConnection();
+    }
+
+    async function endConnectionOnServer() {
       try {
         await fetch(`${config.backendDomain}/api/auth/logout`, {
           method: "POST",
@@ -141,7 +185,6 @@ export const useAuth = defineStore(
       } catch {
         // Best-effort — clear client state regardless
       }
-      await endConnection();
     }
 
     /**
@@ -153,14 +196,11 @@ export const useAuth = defineStore(
       if (isDemo.value) return "live";
       let res: Response;
       try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), TIMEOUT_REFRESH);
-        res = await fetch(`${config.backendDomain}/api/auth/refresh`, {
-          method: "GET",
-          credentials: "include",
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
+        res = await fetchWithTimeout(
+          `${config.backendDomain}/api/auth/refresh`,
+          { method: "GET", credentials: "include" },
+          TIMEOUT_REFRESH,
+        );
       } catch {
         return "unreachable";
       }
@@ -175,11 +215,6 @@ export const useAuth = defineStore(
       if (data?.fullName) name.value = data.fullName;
       isAuthenticated.value = true;
       return "live";
-    }
-
-    /** Whether a failed data request was refused because the server could not use the Connection. */
-    function isUnauthenticated(error: unknown): boolean {
-      return error instanceof HttpError && error.status === 401;
     }
 
     /**
@@ -201,7 +236,7 @@ export const useAuth = defineStore(
     // Resume keep-alive if already authenticated on startup (skip in demo mode)
     if (isAuthenticated.value && !isDemo.value) startKeepAlive();
 
-    // Validate session when tab regains focus
+    // Check the Connection when the tab regains focus
     let lastVisibilityCheck = 0;
     const VISIBILITY_COOLDOWN = 30_000;
 
@@ -221,6 +256,7 @@ export const useAuth = defineStore(
       isLoading,
       isAuthenticated,
       isDemo,
+      demoChosen,
       name,
       showConnectModal,
       endedByPasswordChange,
@@ -230,13 +266,14 @@ export const useAuth = defineStore(
       startKeepAlive,
       stopKeepAlive,
       checkConnection,
-      isUnauthenticated,
       recoverFrom,
+      requestConnect,
+      onEraseLocalData,
     };
   },
   {
     persist: {
-      paths: ["email", "isAuthenticated", "name"],
+      paths: ["email", "isAuthenticated", "demoChosen", "name"],
     },
   },
 );

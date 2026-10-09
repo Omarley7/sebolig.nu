@@ -1,14 +1,13 @@
 <script setup lang="ts">
+import { imageUrl } from "~/lib/imageUrl";
 import type { Appointment } from "@/types";
 import { computed, nextTick, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useAppointmentsStore } from "~/stores/appointments";
 import { compactThumb } from "~/lib/imageTransform";
 import { formatCurrency, formatTimeSlot } from "~/lib/formatters";
 import AppointmentDetailSheet from "../detail/AppointmentDetailSheet.vue";
 
 const { t } = useI18n();
-const { getImageUrl } = useAppointmentsStore();
 
 const props = defineProps<{
   appointment: Appointment;
@@ -41,7 +40,7 @@ async function onDetailAfterLeave() {
 
 const thumbUrl = computed(() => {
   if (props.loadImage === false) return undefined;
-  return compactThumb(getImageUrl(props.appointment.imageUrl));
+  return compactThumb(imageUrl(props.appointment.imageUrl));
 });
 
 const timeLabel = computed(() => formatTimeSlot(props.appointment, props.includeDate));

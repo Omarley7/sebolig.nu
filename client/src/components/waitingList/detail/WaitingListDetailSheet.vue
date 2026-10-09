@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { imageUrl } from "~/lib/imageUrl";
 import type { WaitingList } from "@/types";
 import { Navigation, Pagination } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/vue";
@@ -17,7 +18,6 @@ import ConfirmUnsubscribeDialog from "./ConfirmUnsubscribeDialog.vue";
 const { t } = useI18n();
 useScrollLock();
 const store = useWaitingListsStore();
-const { getImageUrl } = store;
 
 const props = defineProps<{
   list: WaitingList;
@@ -92,7 +92,7 @@ const appliedSinceFormatted = computed(() => {
 });
 
 const orgLogoUrl = computed(() =>
-  props.list.organization.logoUrl ? getImageUrl(props.list.organization.logoUrl) : null,
+  props.list.organization.logoUrl ? imageUrl(props.list.organization.logoUrl) : null,
 );
 
 // Gallery click vs swipe
@@ -253,7 +253,7 @@ onUnmounted(() => {
             >
               <SwiperSlide v-for="(img, i) in allImages" :key="img">
                 <img
-                  :src="galleryImage(getImageUrl(img))"
+                  :src="galleryImage(imageUrl(img))"
                   :alt="`Photo ${i + 1}`"
                   class="w-full aspect-[16/10] object-cover"
                   :loading="i > 0 ? 'lazy' : 'eager'"
@@ -405,7 +405,7 @@ onUnmounted(() => {
       :images="allImages"
       :blueprints="list.blueprints ?? []"
       :initial-index="galleryActiveIndex"
-      :get-image-url="getImageUrl"
+      :get-image-url="imageUrl"
       @close="onGalleryClose"
     />
 

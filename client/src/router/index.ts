@@ -10,16 +10,19 @@ const routes: RouteRecordRaw[] = [
   {
     path: "/appointments",
     name: "appointments",
+    meta: { requiresConnection: true },
     component: () => import("~/views/AppointmentsView.vue"),
   },
   {
     path: "/offers",
     name: "offers",
+    meta: { requiresConnection: true },
     component: () => import("~/views/OffersView.vue"),
   },
   {
     path: "/waiting-lists",
     name: "waiting-lists",
+    meta: { requiresConnection: true },
     component: () => import("~/views/WaitingListsView.vue"),
   },
   {

@@ -1,12 +1,13 @@
 interface Config {
   backendDomain: string;
-  useMockData: boolean;
+  /** A demo build: the app is always the Demo and never talks to findbolig.nu or our backend. */
+  demoMode: boolean;
   imageBaseUrl: string;
 }
 
 const config: Config = {
   backendDomain: import.meta.env.VITE_BACKEND_DOMAIN ?? "",
-  useMockData: import.meta.env.VITE_USE_MOCK_DATA === "true",
+  demoMode: import.meta.env.VITE_DEMO_MODE === "true",
   imageBaseUrl: import.meta.env.VITE_IMAGE_BASE_URL ?? "https://findbolig.nu",
 };
 

@@ -26,7 +26,8 @@
     "addToCalendar": "Tilføj til kalender",
     "queuePosition": "Køposition",
     "cancelled": "Aflyst",
-    "refresh": "Opdatér"
+    "refresh": "Opdatér",
+    "refreshFailed": "Fremvisningerne kunne ikke opdateres. Prøv igen."
   },
   "offers": {
     "pageTitle": "Boligtilbud",
@@ -62,6 +63,7 @@
     "mapOfLocations": "Kort over {count} lokationer",
     "respondBefore": "Ønsker du at komme i betragtning?",
     "refresh": "Opdatér",
+    "refreshFailed": "Tilbuddene kunne ikke opdateres. Prøv igen.",
     "rooms": "{count} værelse | {count} værelser",
     "area": "{value} m²"
   },
@@ -69,6 +71,7 @@
     "pageTitle": "Ventelister",
     "count": "{count} venteliste | {count} ventelister",
     "refresh": "Opdatér",
+    "refreshFailed": "Ventelisterne kunne ikke opdateres. Prøv igen.",
     "emptyTitle": "Du er ikke skrevet op til nogen ventelister",
     "emptyDescription": "Find boliger på findbolig.nu og skriv dig op til en venteliste for at modtage tilbud.",
     "groups": {

@@ -1,28 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 import PassivatedBanner from "~/components/waitingList/PassivatedBanner.vue";
 import WaitingListsList from "~/components/waitingList/WaitingListsList.vue";
-import { useAuth } from "~/composables/useAuth";
-import { getWaitingListsCacheAge } from "~/data/waitingLists";
 import { useWaitingListsStore } from "~/stores/waitingLists";
 
 const store = useWaitingListsStore();
-const auth = useAuth();
-const router = useRouter();
 const { t } = useI18n();
 
 const count = computed(() => store.lists.length);
 
-onMounted(() => {
-  const hasCache = getWaitingListsCacheAge() !== null;
-  if (!auth.isAuthenticated && !hasCache && !auth.isDemo) {
-    router.replace("/");
-    return;
-  }
-  store.init();
-});
+onMounted(() => store.init());
 </script>
 
 <template>
@@ -35,7 +23,7 @@ onMounted(() => {
         </span>
       </p>
       <button
-        @click="store.handleRefresh()"
+        @click="store.refresh()"
         :disabled="store.isLoading"
         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
                text-neutral-500 dark:text-neutral-400
