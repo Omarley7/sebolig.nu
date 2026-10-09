@@ -25,3 +25,7 @@ _Avoid_: cache, offline data
 **Explainer**:
 The single page that tells a user, in plain language, what happens to their password and Local data, and how to take access back.
 _Avoid_: privacy policy, security page, FAQ
+
+**Demo**:
+Trying SeBolig with sample data and no findbolig account. It behaves like a Connection to the user, but nothing ever reaches findbolig.nu. Chosen at connect time and remembered across reloads; ending it erases the sample Local data like a disconnect.
+_Avoid_: mock mode, demo login
