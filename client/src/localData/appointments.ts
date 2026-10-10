@@ -15,7 +15,7 @@ function reviveAppointment(stored: Appointment): Appointment {
   };
 }
 
-/** What a full refresh tells the server it already knows, so unchanged threads aren't extracted again. */
+/** What a fetch tells the server it already knows, so unchanged threads aren't extracted again. */
 function knownEntries(appointments: Appointment[]): CachedAppointmentEntry[] {
   return appointments.map((appointment) => ({
     offerId: appointment.offerId,
@@ -36,9 +36,10 @@ export function appointmentsKind(sources: Record<Mode, AppointmentsSource>) {
       keyOf: (appointment) => appointment.offerId,
       reviveItem: reviveAppointment,
       async fetchEverything(current, source) {
-        const { appointments, latestUpdated } = await source.sync(knownEntries(current?.items ?? []));
-        return { items: appointments, latestUpdated };
+        const { appointments, ...cursor } = await source.sync(knownEntries(current?.items ?? []));
+        return { items: appointments, ...cursor };
       },
+      fetchChanges: (cursor, current, source) => source.fetchDelta(cursor, knownEntries(current.items)),
     }),
     expose: exposeAppointments,
   };

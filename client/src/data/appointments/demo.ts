@@ -15,7 +15,7 @@ export function demoAppointments(): AppointmentsSource {
   return {
     async sync() {
       await demoDelay(1500);
-      return { appointments, latestUpdated: demoCursor().latestUpdated };
+      return { appointments, ...demoCursor() };
     },
     fetchDelta: async () => noChanges<Appointment>(),
   };

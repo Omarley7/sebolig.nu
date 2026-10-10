@@ -1,5 +1,5 @@
 import type { Appointment, Offer, RecipientState, UserData, WaitingList, WaitingListStatus } from "@/types";
-import type { AppointmentDetails } from "~/lib/llm/openai-extractor";
+import type { AppointmentDetails } from "~/lib/llm/appointment-extractor";
 import type { ApiOffer, ApiUserData } from "~/types/offers";
 import type { ApiResidence, Residence } from "~/types/residences";
 import type { ApiPositionForProperty, ApiPropertySearchResult, ApiResidenceApplication } from "~/types/waiting-lists";

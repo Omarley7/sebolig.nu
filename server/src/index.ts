@@ -4,8 +4,9 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { createApp } from "~/app";
 import { httpTransport } from "~/lib/http-transport";
+import { openAIExtractor } from "~/lib/llm/openai-extractor";
 
-const app = createApp({ transport: httpTransport });
+const app = createApp({ transport: httpTransport, extractor: openAIExtractor(process.env.OPENAI_API_KEY) });
 
 // Static client build, then SPA fallback for anything the API did not answer
 app.get("/*", serveStatic({ root: "../client/dist" }));

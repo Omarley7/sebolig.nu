@@ -68,7 +68,7 @@ export type Delta<T> = {
   latestUpdated: string | null; // new cursor to persist for the next delta check
   // Every item id already reported at exactly `latestUpdated`. Pass both back as `since`/
   // `sinceIds` on the next delta call so items sharing that same timestamp are told apart
-  // by id rather than by fetch order — see `getOffersUpdatedSince` for why that matters.
+  // by id rather than by fetch order — see the cursor rule in server/src/offer-listing.ts.
   latestUpdatedIds: string[];
 };
 
@@ -81,9 +81,16 @@ export type CachedAppointmentEntry = {
   appointment: Appointment;
 };
 
+/** `POST /api/appointments/sync`: what the client already has, so unchanged threads aren't extracted again. */
 export type SyncAppointmentsRequest = {
   cached: CachedAppointmentEntry[];
-  includeAll: boolean;
+};
+
+/** `POST /api/appointments/delta`: a cursor, plus what the client already has, as for a sync. */
+export type AppointmentDeltaRequest = {
+  since: string;
+  sinceIds: string[];
+  cached: CachedAppointmentEntry[];
 };
 
 export type AppointmentDelta = Delta<Appointment>;

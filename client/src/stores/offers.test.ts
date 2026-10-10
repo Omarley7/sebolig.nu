@@ -32,7 +32,7 @@ function storedOffers(offers: Offer[], cursor: { latestUpdated?: string | null; 
 
 function fakeSource(overrides: Partial<OffersSource> = {}): OffersSource {
   return {
-    fetchActive: async () => ({ offers: [], latestUpdated: null }),
+    fetchActive: async () => ({ offers: [], latestUpdated: null, latestUpdatedIds: [] }),
     fetchDelta: async () => ({ items: [], removedIds: [], latestUpdated: null, latestUpdatedIds: [] }),
     respond: async (_id, answer): Promise<RecipientState> => (answer === "accept" ? "OfferAccepted" : "OfferDeclined"),
     ...overrides,
@@ -98,16 +98,19 @@ it("a delta without a cursor keeps the old one, so the same changes are asked fo
   expect(readStored("offers_cache")).toMatchObject({ latestUpdated: "2026-10-01T00:00:00Z", latestUpdatedIds: ["a"] });
 });
 
-it("offers stored before the delta cursor existed are replaced by one full refresh that seeds it", async () => {
+it("offers stored before the delta cursor existed are replaced by one full refresh that seeds it, ids included", async () => {
   const { store, readStored } = setup(
-    fakeSource({ fetchActive: async () => ({ offers: [offer("z")], latestUpdated: "2026-10-03T00:00:00Z" }) }),
+    fakeSource({
+      fetchActive: async () => ({ offers: [offer("z")], latestUpdated: "2026-10-03T00:00:00Z", latestUpdatedIds: ["z", "gone"] }),
+    }),
     { stored: { offers_cache: storedOffers([offer("a")]) } },
   );
 
   await store.init();
 
   expect(store.offers.map((o) => o.id)).toEqual(["z"]);
-  expect(readStored("offers_cache")).toMatchObject({ latestUpdated: "2026-10-03T00:00:00Z", latestUpdatedIds: [] });
+  // Storing the ids keeps the next delta from re-reporting offers that share the cursor's timestamp.
+  expect(readStored("offers_cache")).toMatchObject({ latestUpdated: "2026-10-03T00:00:00Z", latestUpdatedIds: ["z", "gone"] });
 });
 
 it("offers stored in today's format load as they are when there is no Connection", async () => {
