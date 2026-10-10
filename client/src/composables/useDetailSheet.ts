@@ -46,7 +46,6 @@ export function useDetailSheet<T>(lookup: (id: string) => T | undefined) {
     item: computed(() => (mounted.value ? (current.value ?? lastKnown.value) : undefined)),
     /** True when the open item has disappeared from the store. */
     gone: computed(() => mounted.value && current.value === undefined),
-    openDetail,
     onClose() {
       wantedId.value = null;
     },

@@ -1,13 +1,10 @@
 import { onMounted, reactive, watch } from "vue";
-import { useHistoryLayer, type HistoryLayer } from "./useHistoryLayer";
+import { useHistoryLayer, type HistoryLayer, type LayerOptions } from "./useHistoryLayer";
 
 /** A layer opened on top of a sheet: gallery, financials, confirm dialog. */
 export type SheetPopup = HistoryLayer;
 
-export interface PopupOptions {
-  /** Whether Esc may close the popup right now. Back always can. */
-  escapable?: () => boolean;
-}
+export type PopupOptions = Pick<LayerOptions, "escapable">;
 
 export interface SheetOptions {
   /** Closes the sheet the normal way, sliding out and unwinding history, once this turns true. */

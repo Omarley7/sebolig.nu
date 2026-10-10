@@ -17,7 +17,7 @@ export interface LayerOptions {
 }
 
 interface Entry {
-  state: HistoryLayer & { isOpen: boolean };
+  handle: HistoryLayer & { isOpen: boolean };
   escapable: () => boolean;
   onClose: () => void;
 }
@@ -35,7 +35,7 @@ function depthOf(state: unknown): number {
 function closeAbove(depth: number) {
   while (stack.length > depth) {
     const entry = stack.pop()!;
-    entry.state.isOpen = false;
+    entry.handle.isOpen = false;
     entry.onClose();
   }
   if (stack.length === 0) listen(false);
@@ -48,7 +48,7 @@ function onPopState(event: PopStateEvent) {
 function onKeydown(e: KeyboardEvent) {
   if (e.key !== "Escape") return;
   const top = stack[stack.length - 1];
-  if (top?.escapable()) top.state.close();
+  if (top?.escapable()) top.handle.close();
 }
 
 function listen(on: boolean) {
@@ -73,11 +73,11 @@ export function useHistoryLayer(options: LayerOptions = {}): HistoryLayer {
   const entry: Entry = {
     escapable: options.escapable ?? (() => true),
     onClose: options.onClose ?? (() => {}),
-    state: reactive({
+    handle: reactive({
       isOpen: false,
       open() {
-        if (entry.state.isOpen) return;
-        entry.state.isOpen = true;
+        if (entry.handle.isOpen) return;
+        entry.handle.isOpen = true;
         stack.push(entry);
         if (stack.length === 1) listen(true);
         history.pushState({ [DEPTH_KEY]: stack.length }, "");
@@ -97,10 +97,10 @@ export function useHistoryLayer(options: LayerOptions = {}): HistoryLayer {
       const index = stack.indexOf(entry);
       if (index === -1) return;
       stack.splice(index, 1);
-      entry.state.isOpen = false;
+      entry.handle.isOpen = false;
       if (stack.length === 0) listen(false);
     });
   }
 
-  return entry.state;
+  return entry.handle;
 }
