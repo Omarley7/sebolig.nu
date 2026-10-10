@@ -16,6 +16,8 @@ const store = useOffersStore();
 
 const props = defineProps<{
   offer: Offer;
+  /** The item has disappeared from the store; the sheet slides out showing its last-known state. */
+  gone?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -23,7 +25,7 @@ const emit = defineEmits<{
   "after-leave": [];
 }>();
 
-const sheet = useSheet();
+const sheet = useSheet({ closeWhen: () => props.gone });
 const financials = sheet.popup();
 const confirm = sheet.popup({ escapable: () => !store.isActioning });
 const confirmAction = ref<"accept" | "decline">("accept");

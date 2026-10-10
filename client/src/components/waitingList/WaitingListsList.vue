@@ -2,14 +2,17 @@
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 import CompactCardSkeleton from "~/components/shared/CompactCardSkeleton.vue";
+import { useDetailSheet } from "~/composables/useDetailSheet";
 import { useGroupWaitingLists } from "~/composables/useGroupWaitingLists";
 import { useWaitingListsStore } from "~/stores/waitingLists";
 import WaitingListGroup from "./WaitingListGroup.vue";
+import WaitingListDetailSheet from "./detail/WaitingListDetailSheet.vue";
 
 const { t } = useI18n();
 const store = useWaitingListsStore();
 const { lists, isLoading } = storeToRefs(store);
 const { grouped } = useGroupWaitingLists(lists, t);
+const detail = useDetailSheet((id) => lists.value.find((l) => l.propertyId === id));
 </script>
 
 <template>
@@ -45,5 +48,13 @@ const { grouped } = useGroupWaitingLists(lists, t);
         {{ t("waitingLists.emptyDescription") }}
       </p>
     </div>
+
+    <WaitingListDetailSheet
+      v-if="detail.item"
+      :list="detail.item"
+      :gone="detail.gone"
+      @close="detail.onClose"
+      @after-leave="detail.onAfterLeave"
+    />
   </div>
 </template>

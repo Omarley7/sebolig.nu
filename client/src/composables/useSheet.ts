@@ -1,4 +1,4 @@
-import { onMounted, reactive } from "vue";
+import { onMounted, reactive, watch } from "vue";
 import { useHistoryLayer, type HistoryLayer } from "./useHistoryLayer";
 
 /** A layer opened on top of a sheet: gallery, financials, confirm dialog. */
@@ -7,6 +7,11 @@ export type SheetPopup = HistoryLayer;
 export interface PopupOptions {
   /** Whether Esc may close the popup right now. Back always can. */
   escapable?: () => boolean;
+}
+
+export interface SheetOptions {
+  /** Closes the sheet the normal way, sliding out and unwinding history, once this turns true. */
+  closeWhen?: () => boolean;
 }
 
 export interface Sheet {
@@ -25,7 +30,7 @@ export interface Sheet {
  *
  * Back and Esc close the top popup first, then the sheet. Back never changes the route.
  */
-export function useSheet(): Sheet {
+export function useSheet(options: SheetOptions = {}): Sheet {
   const layer = useHistoryLayer({ onClose: markClosed });
 
   const sheet = reactive({
@@ -57,6 +62,12 @@ export function useSheet(): Sheet {
     if (sheet.closed) return;
     if (layer.isOpen) layer.close();
     else markClosed();
+  }
+
+  if (options.closeWhen) {
+    watch(options.closeWhen, (shouldClose) => {
+      if (shouldClose) close();
+    });
   }
 
   onMounted(() => {

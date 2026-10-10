@@ -15,6 +15,8 @@ const store = useWaitingListsStore();
 
 const props = defineProps<{
   list: WaitingList;
+  /** The item has disappeared from the store; the sheet slides out showing its last-known state. */
+  gone?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -22,7 +24,7 @@ const emit = defineEmits<{
   "after-leave": [];
 }>();
 
-const sheet = useSheet();
+const sheet = useSheet({ closeWhen: () => props.gone });
 const confirmUnsubscribe = sheet.popup({ escapable: () => !store.isMutating });
 
 const allImages = computed(() => props.list.images ?? []);

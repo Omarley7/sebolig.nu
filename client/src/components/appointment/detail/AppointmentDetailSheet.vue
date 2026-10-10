@@ -18,6 +18,8 @@ const { isDark } = useDarkMode();
 const props = defineProps<{
   appointment: Appointment;
   includeDate?: boolean;
+  /** The item has disappeared from the store; the sheet slides out showing its last-known state. */
+  gone?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -25,7 +27,7 @@ const emit = defineEmits<{
   "after-leave": [];
 }>();
 
-const sheet = useSheet();
+const sheet = useSheet({ closeWhen: () => props.gone });
 const financials = sheet.popup();
 
 const hasValidOfferId = computed(() => UUID_RE.test(props.appointment.offerId ?? ""));
