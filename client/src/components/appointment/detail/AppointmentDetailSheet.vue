@@ -1,21 +1,14 @@
 <script setup lang="ts">
-import { imageUrl } from "~/lib/imageUrl";
 import type { Appointment } from "@/types";
 import "add-to-calendar-button";
-import { Navigation, Pagination } from "swiper/modules";
-import { Swiper, SwiperSlide } from "swiper/vue";
-import "swiper/css";
-import "swiper/css/navigation";
-import "swiper/css/pagination";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDarkMode } from "~/composables/useDarkMode";
 import { useSheet } from "~/composables/useSheet";
 import { formatCurrency, formatTimeSlot } from "~/lib/formatters";
-import { galleryImage } from "~/lib/imageTransform";
-import ImageGalleryModal from "~/components/shared/ImageGalleryModal.vue";
 import FinancialsModal from "~/components/shared/FinancialsModal.vue";
 import BottomSheet from "~/components/shared/BottomSheet.vue";
+import DetailGallery from "~/components/shared/DetailGallery.vue";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -33,10 +26,7 @@ const emit = defineEmits<{
 }>();
 
 const sheet = useSheet();
-const gallery = sheet.popup();
 const financials = sheet.popup();
-const galleryActiveIndex = ref(0);
-const galleryTab = ref<"images" | "blueprints">("images");
 
 const hasValidOfferId = computed(() => UUID_RE.test(props.appointment.offerId ?? ""));
 
@@ -49,26 +39,6 @@ const allImages = computed(() => {
 });
 
 const blueprints = computed(() => props.appointment.blueprints ?? []);
-
-// Gallery click vs swipe — track pointer displacement
-let galleryStartX = 0;
-let galleryStartY = 0;
-
-function onGalleryPointerDown(e: PointerEvent) {
-  galleryStartX = e.clientX;
-  galleryStartY = e.clientY;
-}
-
-function openGallery(e: MouseEvent) {
-  if (Math.abs(e.clientX - galleryStartX) > 5 || Math.abs(e.clientY - galleryStartY) > 5) return;
-  galleryTab.value = "images";
-  gallery.open();
-}
-
-function openBlueprints() {
-  galleryTab.value = "blueprints";
-  gallery.open();
-}
 
 function handleMapClick() {
   const address = `${props.appointment.residence.addressLine1}, ${props.appointment.residence.addressLine2}`;
@@ -89,49 +59,7 @@ function openOnFindbolig() {
 
 <template>
   <BottomSheet :sheet="sheet" @close="emit('close')" @after-leave="emit('after-leave')">
-    <!-- Image gallery -->
-    <div v-if="allImages.length > 0" class="relative cursor-pointer" @pointerdown="onGalleryPointerDown" @click="openGallery">
-      <Swiper
-        :modules="[Navigation, Pagination]"
-        :slides-per-view="1"
-        :space-between="0"
-        :pagination="{ clickable: true, dynamicBullets: true }"
-        :navigation="allImages.length > 1"
-        class="detail-swiper"
-        @slide-change="(s: any) => galleryActiveIndex = s.activeIndex"
-      >
-        <SwiperSlide v-for="(img, i) in allImages" :key="img">
-          <img
-            :src="galleryImage(imageUrl(img))"
-            :alt="`Photo ${i + 1}`"
-            class="w-full aspect-[16/10] object-cover"
-            :loading="i > 0 ? 'lazy' : 'eager'"
-          />
-        </SwiperSlide>
-      </Swiper>
-
-      <!-- Blueprint shortcut -->
-      <button
-        v-if="blueprints.length > 0"
-        class="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full
-               bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white text-xs font-medium tabular-nums
-               transition-colors"
-        @pointerdown.stop
-        @click.stop="openBlueprints"
-      >
-        <img src="/icons/blueprint.svg" alt="" class="size-3.5 invert" />
-        {{ t("gallery.blueprintCount", { count: blueprints.length }).toLowerCase() }}
-      </button>
-
-      <!-- Photo count -->
-      <div
-        v-if="allImages.length > 1"
-        class="absolute bottom-3 right-3 z-10 px-2.5 py-1 rounded-full
-               bg-black/40 backdrop-blur-sm text-white text-xs tabular-nums pointer-events-none"
-      >
-        {{ t("gallery.photoCount", { count: allImages.length }).toLowerCase() }}
-      </div>
-    </div>
+    <DetailGallery :sheet="sheet" :images="allImages" :blueprints="blueprints" />
 
     <!-- Content -->
     <div class="p-5 space-y-5">
@@ -264,17 +192,6 @@ function openOnFindbolig() {
     </div>
 
     <template #popups>
-      <!-- Gallery modal (on top of detail sheet) -->
-      <ImageGalleryModal
-        v-if="gallery.isOpen"
-        :images="allImages"
-        :blueprints="blueprints"
-        :initial-index="galleryActiveIndex"
-        :initial-tab="galleryTab"
-        :get-image-url="imageUrl"
-        @close="gallery.close()"
-      />
-
       <!-- Financials modal -->
       <FinancialsModal
         v-if="financials.isOpen"
@@ -284,32 +201,3 @@ function openOnFindbolig() {
     </template>
   </BottomSheet>
 </template>
-
-<style scoped>
-.detail-swiper :deep(.swiper-pagination-bullet) {
-  background: white;
-  opacity: 0.5;
-}
-
-.detail-swiper :deep(.swiper-pagination-bullet-active) {
-  opacity: 1;
-}
-
-.detail-swiper :deep(.swiper-button-next),
-.detail-swiper :deep(.swiper-button-prev) {
-  color: rgba(255, 255, 255, 0.7);
-  --swiper-navigation-size: 18px;
-}
-
-.detail-swiper :deep(.swiper-button-next:hover),
-.detail-swiper :deep(.swiper-button-prev:hover) {
-  color: white;
-}
-
-@media (max-width: 639px) {
-  .detail-swiper :deep(.swiper-button-next),
-  .detail-swiper :deep(.swiper-button-prev) {
-    display: none;
-  }
-}
-</style>

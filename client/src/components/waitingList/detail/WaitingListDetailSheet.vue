@@ -1,19 +1,13 @@
 <script setup lang="ts">
 import { imageUrl } from "~/lib/imageUrl";
 import type { WaitingList } from "@/types";
-import { Navigation, Pagination } from "swiper/modules";
-import { Swiper, SwiperSlide } from "swiper/vue";
-import "swiper/css";
-import "swiper/css/navigation";
-import "swiper/css/pagination";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useSheet } from "~/composables/useSheet";
 import { formatCurrency } from "~/lib/formatters";
-import { galleryImage } from "~/lib/imageTransform";
 import { useWaitingListsStore } from "~/stores/waitingLists";
-import ImageGalleryModal from "~/components/shared/ImageGalleryModal.vue";
 import BottomSheet from "~/components/shared/BottomSheet.vue";
+import DetailGallery from "~/components/shared/DetailGallery.vue";
 import ConfirmUnsubscribeDialog from "./ConfirmUnsubscribeDialog.vue";
 
 const { t } = useI18n();
@@ -29,9 +23,7 @@ const emit = defineEmits<{
 }>();
 
 const sheet = useSheet();
-const gallery = sheet.popup();
 const confirmUnsubscribe = sheet.popup({ escapable: () => !store.isMutating });
-const galleryActiveIndex = ref(0);
 
 const allImages = computed(() => props.list.images ?? []);
 
@@ -47,20 +39,6 @@ const appliedSinceFormatted = computed(() => {
 const orgLogoUrl = computed(() =>
   props.list.organization.logoUrl ? imageUrl(props.list.organization.logoUrl) : null,
 );
-
-// Gallery click vs swipe
-let galleryStartX = 0;
-let galleryStartY = 0;
-
-function onGalleryPointerDown(e: PointerEvent) {
-  galleryStartX = e.clientX;
-  galleryStartY = e.clientY;
-}
-
-function openGallery(e: MouseEvent) {
-  if (Math.abs(e.clientX - galleryStartX) > 5 || Math.abs(e.clientY - galleryStartY) > 5) return;
-  gallery.open();
-}
 
 function handleMapClick() {
   window.open(
@@ -89,39 +67,7 @@ async function handleConfirmUnsubscribe() {
 
 <template>
   <BottomSheet :sheet="sheet" @close="emit('close')" @after-leave="emit('after-leave')">
-    <!-- Image gallery -->
-    <div
-      v-if="allImages.length > 0"
-      class="relative cursor-pointer"
-      @pointerdown="onGalleryPointerDown"
-      @click="openGallery"
-    >
-      <Swiper
-        :modules="[Navigation, Pagination]"
-        :slides-per-view="1"
-        :space-between="0"
-        :pagination="{ clickable: true, dynamicBullets: true }"
-        :navigation="allImages.length > 1"
-        class="detail-swiper"
-        @slide-change="(s: any) => galleryActiveIndex = s.activeIndex"
-      >
-        <SwiperSlide v-for="(img, i) in allImages" :key="img">
-          <img
-            :src="galleryImage(imageUrl(img))"
-            :alt="`Photo ${i + 1}`"
-            class="w-full aspect-[16/10] object-cover"
-            :loading="i > 0 ? 'lazy' : 'eager'"
-          />
-        </SwiperSlide>
-      </Swiper>
-
-      <div
-        v-if="allImages.length > 1"
-        class="absolute bottom-3 right-3 z-10 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-sm text-white text-xs tabular-nums pointer-events-none"
-      >
-        {{ allImages.length }}
-      </div>
-    </div>
+    <DetailGallery :sheet="sheet" :images="allImages" :blueprints="list.blueprints" />
 
     <!-- Content -->
     <div class="p-5 space-y-5">
@@ -251,16 +197,6 @@ async function handleConfirmUnsubscribe() {
     </div>
 
     <template #popups>
-      <!-- Gallery modal -->
-      <ImageGalleryModal
-        v-if="gallery.isOpen"
-        :images="allImages"
-        :blueprints="list.blueprints ?? []"
-        :initial-index="galleryActiveIndex"
-        :get-image-url="imageUrl"
-        @close="gallery.close()"
-      />
-
       <!-- Confirm unsubscribe -->
       <ConfirmUnsubscribeDialog
         v-if="confirmUnsubscribe.isOpen"
@@ -272,19 +208,3 @@ async function handleConfirmUnsubscribe() {
     </template>
   </BottomSheet>
 </template>
-
-<style scoped>
-.detail-swiper :deep(.swiper-pagination-bullet) { background: white; opacity: 0.5; }
-.detail-swiper :deep(.swiper-pagination-bullet-active) { opacity: 1; }
-.detail-swiper :deep(.swiper-button-next),
-.detail-swiper :deep(.swiper-button-prev) {
-  color: rgba(255, 255, 255, 0.7);
-  --swiper-navigation-size: 18px;
-}
-.detail-swiper :deep(.swiper-button-next:hover),
-.detail-swiper :deep(.swiper-button-prev:hover) { color: white; }
-@media (max-width: 639px) {
-  .detail-swiper :deep(.swiper-button-next),
-  .detail-swiper :deep(.swiper-button-prev) { display: none; }
-}
-</style>
