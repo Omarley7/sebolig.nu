@@ -2,7 +2,9 @@
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 import OfferGroup from "~/components/offer/OfferGroup.vue";
+import OfferDetailSheet from "~/components/offer/detail/OfferDetailSheet.vue";
 import CompactCardSkeleton from "~/components/shared/CompactCardSkeleton.vue";
+import { useDetailSheet } from "~/composables/useDetailSheet";
 import { useGroupOffers } from "~/composables/useGroupOffers";
 import { useOffersStore } from "~/stores/offers";
 
@@ -10,6 +12,7 @@ const { t } = useI18n();
 const store = useOffersStore();
 const { offers, isLoading } = storeToRefs(store);
 const { groupedOffers } = useGroupOffers(offers, t);
+const detail = useDetailSheet((id) => offers.value.find((o) => o.id === id));
 </script>
 
 <template>
@@ -43,5 +46,13 @@ const { groupedOffers } = useGroupOffers(offers, t);
         {{ t("offers.emptyDescription") }}
       </p>
     </div>
+
+    <OfferDetailSheet
+      v-if="detail.item"
+      :offer="detail.item"
+      :gone="detail.gone"
+      @close="detail.onClose"
+      @after-leave="detail.onAfterLeave"
+    />
   </div>
 </template>

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { imageUrl } from "~/lib/imageUrl";
 import type { Appointment } from "@/types";
-import { computed, nextTick, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { useOpenDetail } from "~/composables/useDetailSheet";
 import { compactThumb } from "~/lib/imageTransform";
 import { formatCurrency, formatTimeSlot } from "~/lib/formatters";
-import AppointmentDetailSheet from "../detail/AppointmentDetailSheet.vue";
 
 const { t } = useI18n();
 
@@ -15,28 +15,7 @@ const props = defineProps<{
   loadImage?: boolean;
 }>();
 
-const showDetail = ref(false);
-const detailMounted = ref(false);
-
-function openDetail() {
-  showDetail.value = true;
-  detailMounted.value = true;
-}
-
-function onDetailClose() {
-  showDetail.value = false;
-}
-
-async function onDetailAfterLeave() {
-  if (showDetail.value) {
-    // User re-opened during close animation — force remount
-    detailMounted.value = false;
-    await nextTick();
-    detailMounted.value = true;
-  } else {
-    detailMounted.value = false;
-  }
-}
+const openDetail = useOpenDetail();
 
 const thumbUrl = computed(() => {
   if (props.loadImage === false) return undefined;
@@ -56,7 +35,7 @@ const timeLabel = computed(() => formatTimeSlot(props.appointment, t, props.incl
              cursor-pointer transition-all duration-150
              active:scale-[0.99] select-none"
       :class="{ 'opacity-50 grayscale-[30%]': appointment.cancelled }"
-      @click="openDetail"
+      @click="openDetail(appointment.id)"
     >
       <!-- Thumbnail -->
       <div class="relative w-24 md:w-32 shrink-0 aspect-[3/2] rounded-lg overflow-hidden bg-neutral-200 dark:bg-white/10">
@@ -111,13 +90,5 @@ const timeLabel = computed(() => formatTimeSlot(props.appointment, t, props.incl
         </div>
       </div>
     </div>
-
-    <AppointmentDetailSheet
-      v-if="detailMounted"
-      :appointment="appointment"
-      :include-date="includeDate"
-      @close="onDetailClose"
-      @after-leave="onDetailAfterLeave"
-    />
   </li>
 </template>

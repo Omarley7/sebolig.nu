@@ -5,8 +5,11 @@ import OfferCard from "./card/OfferCard.vue";
 import BaseCollapse from "~/components/Base/BaseCollapse.vue";
 import MapModal from "~/components/shared/MapModal.vue";
 import { useI18n } from "vue-i18n";
+import { useOpenDetail } from "~/composables/useDetailSheet";
+import type { MapPin } from "~/lib/mapPin";
 
 const { t } = useI18n();
+const openDetail = useOpenDetail();
 
 const props = defineProps<{
   groupKey: string;
@@ -28,12 +31,13 @@ function toggleExpanded() {
   expanded.value = !expanded.value;
 }
 
-// Adapt offers to the shape MapModal expects (it uses Appointment[] with residence.location)
-const mapItems = computed(() => props.offers.map((o) => ({
-  id: o.id,
-  residence: o.residence,
-  title: o.residence.addressLine1 ?? "",
-})));
+const pins = computed<MapPin[]>(() =>
+  props.offers.flatMap(({ id, residence }) =>
+    residence.location
+      ? [{ id, lat: residence.location.latitude, lng: residence.location.longitude, label: residence.addressLine1 ?? "" }]
+      : [],
+  ),
+);
 </script>
 
 <template>
@@ -66,6 +70,6 @@ const mapItems = computed(() => props.offers.map((o) => ({
       </ul>
     </BaseCollapse>
 
-    <MapModal v-if="showMap" :appointments="mapItems as any" @close="showMap = false" />
+    <MapModal v-if="showMap" :pins="pins" @select="openDetail" @close="showMap = false" />
   </li>
 </template>

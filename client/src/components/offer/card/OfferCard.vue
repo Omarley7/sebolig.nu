@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import type { Offer } from "@/types";
-import { computed, nextTick, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { useOpenDetail } from "~/composables/useDetailSheet";
 import { imageUrl } from "~/lib/imageUrl";
 import { compactThumb } from "~/lib/imageTransform";
 import { formatCurrency } from "~/lib/formatters";
 import { getDeadlineUrgency, urgencyColors } from "~/lib/deadlineUrgency";
-import OfferDetailSheet from "../detail/OfferDetailSheet.vue";
 
 const { t } = useI18n();
 
@@ -15,27 +15,7 @@ const props = defineProps<{
   loadImage?: boolean;
 }>();
 
-const showDetail = ref(false);
-const detailMounted = ref(false);
-
-function openDetail() {
-  showDetail.value = true;
-  detailMounted.value = true;
-}
-
-function onDetailClose() {
-  showDetail.value = false;
-}
-
-async function onDetailAfterLeave() {
-  if (showDetail.value) {
-    detailMounted.value = false;
-    await nextTick();
-    detailMounted.value = true;
-  } else {
-    detailMounted.value = false;
-  }
-}
+const openDetail = useOpenDetail();
 
 const thumbUrl = computed(() => {
   if (props.loadImage === false) return undefined;
@@ -54,7 +34,7 @@ const urgency = computed(() => getDeadlineUrgency(props.offer.deadline, t));
              border border-transparent dark:border-white/[0.04] hover:border-neutral-200/50 dark:hover:border-white/[0.08]
              cursor-pointer transition-all duration-150
              active:scale-[0.99] select-none"
-      @click="openDetail"
+      @click="openDetail(offer.id)"
     >
       <!-- Thumbnail -->
       <div class="relative w-24 md:w-32 shrink-0 aspect-[3/2] rounded-lg overflow-hidden bg-neutral-200 dark:bg-white/10">
@@ -107,12 +87,5 @@ const urgency = computed(() => getDeadlineUrgency(props.offer.deadline, t));
         </div>
       </div>
     </div>
-
-    <OfferDetailSheet
-      v-if="detailMounted"
-      :offer="offer"
-      @close="onDetailClose"
-      @after-leave="onDetailAfterLeave"
-    />
   </li>
 </template>

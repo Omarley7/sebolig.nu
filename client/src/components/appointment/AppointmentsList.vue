@@ -2,9 +2,11 @@
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import AppointmentGroup from "~/components/appointment/AppointmentGroup.vue";
+import AppointmentDetailSheet from "~/components/appointment/detail/AppointmentDetailSheet.vue";
 import CompactCardSkeleton from "~/components/shared/CompactCardSkeleton.vue";
 import EmptyAppointments from "~/components/appointment/EmptyAppointments.vue";
 import GroupBySelector from "~/components/appointment/GroupBySelector.vue";
+import { useDetailSheet } from "~/composables/useDetailSheet";
 import {
   useGroupAppointments,
   type GroupBy,
@@ -18,6 +20,7 @@ const { groupedAppointments, formatLabel } = useGroupAppointments(
   groupBy,
 );
 const includeDate = computed(() => groupBy.value !== "day");
+const detail = useDetailSheet((id) => appointments.value.find((a) => a.id === id));
 </script>
 <template>
   <div>
@@ -43,5 +46,14 @@ const includeDate = computed(() => groupBy.value !== "day");
 
     <!-- Empty state (not loading, no results) -->
     <EmptyAppointments v-if="!isLoading && !appointments.length" />
+
+    <AppointmentDetailSheet
+      v-if="detail.item"
+      :appointment="detail.item"
+      :include-date="includeDate"
+      :gone="detail.gone"
+      @close="detail.onClose"
+      @after-leave="detail.onAfterLeave"
+    />
   </div>
 </template>

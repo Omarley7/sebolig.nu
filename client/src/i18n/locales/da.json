@@ -11,7 +11,8 @@
     "sourceCode": "Kildekode på GitHub",
     "connect": "Forbind",
     "close": "Luk",
-    "map": "Kort"
+    "map": "Kort",
+    "seeDetails": "Se detaljer"
   },
   "appointments": {
     "emptyTitle": "Ingen kommende aftaler",

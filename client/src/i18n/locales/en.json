@@ -11,7 +11,8 @@
     "sourceCode": "Source code on GitHub",
     "connect": "Connect",
     "close": "Close",
-    "map": "Map"
+    "map": "Map",
+    "seeDetails": "See details"
   },
   "appointments": {
     "emptyTitle": "No upcoming appointments",

@@ -8,7 +8,7 @@ const toastStore = useToastStore();
 <template>
   <Teleport to="body">
     <div
-      class="fixed top-4 right-4 z-50 flex flex-col gap-2"
+      class="fixed top-4 right-4 z-[80] flex flex-col gap-2"
       aria-live="polite"
     >
       <TransitionGroup name="toast">
