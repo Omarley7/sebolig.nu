@@ -1,5 +1,5 @@
 import type { Delta } from "@/types";
-import type { Cursor } from "~/data/cursor";
+import type { Cursor, FullFetchCursor } from "~/data/cursor";
 
 /**
  * Local data kept in step with findbolig.nu's offers listing through a delta cursor: offers
@@ -7,11 +7,6 @@ import type { Cursor } from "~/data/cursor";
  * before cursors existed).
  */
 export type CursorData<T> = { updatedAt: Date; items: T[]; cursor: Cursor | null };
-
-/** A source that can say what changed since a cursor it handed out earlier. */
-export interface DeltaSource<T> {
-  fetchDelta(cursor: Cursor): Promise<Delta<T>>;
-}
 
 /**
  * Merges a delta into cursor data: upserts changed items by key, drops removed ones. A delta
@@ -45,13 +40,15 @@ type Stored<ItemsKey extends string, T> = {
  * The shared half of a cursor kind's definition: storing, the full fetch and the cheap
  * delta check. The kind supplies how items are keyed and how a full fetch is made.
  */
-export function cursorKind<T, ItemsKey extends string, Source extends DeltaSource<T>>(kind: {
+export function cursorKind<T, ItemsKey extends string, Source>(kind: {
   /** The field the items are stored under. */
   itemsKey: ItemsKey;
   keyOf(item: T): string;
   /** Fills in fields that older stored items predate. */
   reviveItem?(stored: T): T;
-  fetchEverything(current: CursorData<T> | null, source: Source): Promise<{ items: T[]; latestUpdated: string | null }>;
+  fetchEverything(current: CursorData<T> | null, source: Source): Promise<{ items: T[] } & FullFetchCursor>;
+  /** What changed since `cursor`, a cursor the same source handed out earlier. */
+  fetchChanges(cursor: Cursor, current: CursorData<T>, source: Source): Promise<Delta<T>>;
 }) {
   return {
     revive(raw: unknown): CursorData<T> {
@@ -77,14 +74,14 @@ export function cursorKind<T, ItemsKey extends string, Source extends DeltaSourc
     },
 
     async fetchAll(current: CursorData<T> | null, source: Source): Promise<CursorData<T>> {
-      const { items, latestUpdated } = await kind.fetchEverything(current, source);
-      // A full fetch has no per-item id cursor; the next delta compares by timestamp only.
-      return { updatedAt: new Date(), items, cursor: latestUpdated ? { latestUpdated, latestUpdatedIds: [] } : null };
+      const { items, latestUpdated, latestUpdatedIds } = await kind.fetchEverything(current, source);
+      // A withheld cursor (some enrichment failed) means the next load does another full fetch.
+      return { updatedAt: new Date(), items, cursor: latestUpdated ? { latestUpdated, latestUpdatedIds } : null };
     },
 
     async checkForChanges(current: CursorData<T>, source: Source): Promise<CursorData<T> | null> {
       if (!current.cursor) return null;
-      return applyDelta(current, await source.fetchDelta(current.cursor), kind.keyOf);
+      return applyDelta(current, await kind.fetchChanges(current.cursor, current, source), kind.keyOf);
     },
   };
 }

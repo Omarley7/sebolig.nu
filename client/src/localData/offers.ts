@@ -16,9 +16,10 @@ export function offersKind(sources: Record<Mode, OffersSource>) {
       itemsKey: "offers",
       keyOf: (offer) => offer.id,
       async fetchEverything(_current, source) {
-        const { offers, latestUpdated } = await source.fetchActive();
-        return { items: offers, latestUpdated };
+        const { offers, ...cursor } = await source.fetchActive();
+        return { items: offers, ...cursor };
       },
+      fetchChanges: (cursor, _current, source) => source.fetchDelta(cursor),
     }),
     expose: exposeOffers,
   };

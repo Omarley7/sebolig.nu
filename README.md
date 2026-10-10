@@ -39,7 +39,9 @@ SeBolig.nu/
 │   ├── package.json
 │   └── src/
 │       ├── index.ts
-│       ├── findbolig-service.ts
+│       ├── app.ts              # routes
+│       ├── offer-listing.ts    # the walk over findbolig's offers: cursor and failure rule
+│       ├── offers.ts / appointments.ts / waiting-lists.ts
 │       ├── lib/
 │       └── types/
 ├── shared/                     # Shared types/utilities used by both client and server

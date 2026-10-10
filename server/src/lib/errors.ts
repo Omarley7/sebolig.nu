@@ -3,8 +3,7 @@ import type { ConnectionEndedReason } from "@/types";
 /**
  * The outcomes of talking to findbolig.nu, in domain terms. The findbolig client
  * turns status codes and transport failures into these; routes only ever see them.
- * Kept apart from the client so the app and its tests can refer to them without
- * importing the findbolig service (which pulls in dotenv and the LLM client).
+ * Kept apart from the client so the app and its tests can refer to them on their own.
  */
 
 /** findbolig.nu is down or not responding. The Connection is kept. */
@@ -49,6 +48,15 @@ export class CredentialsRejected extends Error {
     super("Invalid email or password");
     this.name = "CredentialsRejected";
   }
+}
+
+/**
+ * For an optional part of an enrichment (a position): a failure leaves it null, except an ended
+ * Connection, which has to reach the route so the Connection cookie is cleared.
+ */
+export function nullUnlessConnectionEnded(error: unknown): null {
+  if (error instanceof ConnectionEnded) throw error;
+  return null;
 }
 
 /** The Connection can no longer reach findbolig.nu on the user's behalf and must end. */

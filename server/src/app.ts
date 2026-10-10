@@ -4,33 +4,43 @@ import { cors } from "hono/cors";
 import { createMiddleware } from "hono/factory";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
-import type { SyncAppointmentsRequest } from "@/types";
-import * as findbolig from "~/findbolig-service";
+import type { AppointmentDeltaRequest, SyncAppointmentsRequest } from "@/types";
+import { getAppointmentUpdates, getUpcomingAppointments } from "~/appointments";
 import {
   ConnectionEnded,
   CredentialsRejected,
   FindboligUnavailable,
 } from "~/lib/errors";
 import { FindboligClient, type FindboligTransport } from "~/lib/findbolig-client";
+import type { AppointmentExtractor } from "~/lib/llm/appointment-extractor";
+import { getActiveOffers, getOfferUpdates } from "~/offers";
+import { getWaitingLists } from "~/waiting-lists";
 import { setSessionCookie, clearSessionCookie, getSessionFromCookie } from "~/lib/session";
+import type { ListingCursor } from "~/offer-listing";
 
 export interface AppDeps {
   /** How to reach findbolig.nu: the HTTP transport in production, a fake findbolig.nu in tests. */
   transport: FindboligTransport;
+  /** Reads appointment details out of message threads: OpenAI in production, a fake in tests. */
+  extractor: AppointmentExtractor;
 }
 
-/** Reads and validates the `since` query param shared by every delta endpoint. */
-function parseSinceParam(c: Context): string | null {
-  const since = c.req.query("since");
-  if (!since || Number.isNaN(new Date(since).getTime())) return null;
-  return since;
+/** A delta cursor from a request, or null unless `since` is a valid timestamp. See `Delta.latestUpdatedIds`. */
+function parseCursor(since: unknown, sinceIds: unknown): ListingCursor | null {
+  if (typeof since !== "string" || Number.isNaN(new Date(since).getTime())) return null;
+  return { since, sinceIds: Array.isArray(sinceIds) ? sinceIds.filter((id): id is string => typeof id === "string" && id !== "") : [] };
 }
 
-/** Reads the `sinceIds` query param shared by every delta endpoint — see `Delta.latestUpdatedIds`. */
-function parseSinceIdsParam(c: Context): string[] {
-  const sinceIds = c.req.query("sinceIds");
-  if (!sinceIds) return [];
-  return sinceIds.split(",").filter(Boolean);
+/** The cursor a `GET` delta route takes as `since` and comma-separated `sinceIds` query params. */
+function cursorFromQuery(c: Context): ListingCursor | null {
+  return parseCursor(c.req.query("since"), c.req.query("sinceIds")?.split(","));
+}
+
+const MISSING_SINCE = { error: "'since' (ISO timestamp) is required" };
+
+/** The cached entries a request body carries, or none. */
+function cachedFrom(body: { cached?: unknown } | null): SyncAppointmentsRequest["cached"] {
+  return Array.isArray(body?.cached) ? body.cached : [];
 }
 
 function handleError(error: Error, c: Context) {
@@ -51,7 +61,7 @@ function handleError(error: Error, c: Context) {
  * point, so importing this module has no side effects and tests can call
  * `createApp(...).request(...)` directly.
  */
-export function createApp({ transport }: AppDeps) {
+export function createApp({ transport, extractor }: AppDeps) {
   /**
    * Gives a data route the Connection's findbolig client as `c.var.findbolig`. Afterwards it
    * clears the Connection cookie if the Connection ended, and otherwise always re-seals it, even
@@ -131,36 +141,30 @@ export function createApp({ transport }: AppDeps) {
   // ── Data routes ──────────────────────────────────────────────
 
   appointments.post("/sync", async (c) => {
-    const body = await c.req.json<SyncAppointmentsRequest>();
-    const cached = Array.isArray(body?.cached) ? body.cached : [];
-    const includeAll = body?.includeAll === true;
-    return c.json(await findbolig.getUpcomingAppointments(c.var.findbolig, includeAll, cached));
+    const body = await c.req.json<SyncAppointmentsRequest>().catch(() => null);
+    return c.json(await getUpcomingAppointments(c.var.findbolig, extractor, cachedFrom(body)));
   });
 
-  appointments.get("/delta", async (c) => {
-    const since = parseSinceParam(c);
-    if (!since) {
-      return c.json({ error: "Query param 'since' (ISO timestamp) is required" }, 400);
-    }
-    const includeAll = c.req.query("includeAll") === "true";
-    return c.json(await findbolig.getAppointmentUpdates(c.var.findbolig, since, includeAll, parseSinceIdsParam(c)));
+  appointments.post("/delta", async (c) => {
+    const body = await c.req.json<AppointmentDeltaRequest>().catch(() => null);
+    const cursor = parseCursor(body?.since, body?.sinceIds);
+    if (!cursor) return c.json(MISSING_SINCE, 400);
+    return c.json(await getAppointmentUpdates(c.var.findbolig, extractor, cursor, cachedFrom(body)));
   });
 
-  offers.get("/active", async (c) => c.json(await findbolig.getActiveOffers(c.var.findbolig)));
+  offers.get("/active", async (c) => c.json(await getActiveOffers(c.var.findbolig)));
 
   offers.get("/delta", async (c) => {
-    const since = parseSinceParam(c);
-    if (!since) {
-      return c.json({ error: "Query param 'since' (ISO timestamp) is required" }, 400);
-    }
-    return c.json(await findbolig.getOfferUpdates(c.var.findbolig, since, parseSinceIdsParam(c)));
+    const cursor = cursorFromQuery(c);
+    if (!cursor) return c.json(MISSING_SINCE, 400);
+    return c.json(await getOfferUpdates(c.var.findbolig, cursor));
   });
 
   offers.post("/:offerId/accept", async (c) => c.json(await c.var.findbolig.acceptOffer(c.req.param("offerId"))));
 
   offers.post("/:offerId/decline", async (c) => c.json(await c.var.findbolig.declineOffer(c.req.param("offerId"))));
 
-  waitingLists.get("/", async (c) => c.json(await findbolig.getWaitingLists(c.var.findbolig)));
+  waitingLists.get("/", async (c) => c.json(await getWaitingLists(c.var.findbolig)));
 
   waitingLists.post("/:propertyId/set-active", async (c) => {
     await c.var.findbolig.setWaitingListActive(c.req.param("propertyId"));

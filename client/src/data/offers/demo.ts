@@ -12,7 +12,7 @@ export function demoOffers(): OffersSource {
   return {
     async fetchActive() {
       await demoDelay(800);
-      return { offers, latestUpdated: demoCursor().latestUpdated };
+      return { offers, ...demoCursor() };
     },
     fetchDelta: async () => noChanges<Offer>(),
     async respond(offerId, answer) {

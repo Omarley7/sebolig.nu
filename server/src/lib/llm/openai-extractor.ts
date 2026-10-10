@@ -2,12 +2,9 @@ import { OpenAI } from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import type { ApiMessageThreadFull } from "~/types/threads";
+import { EMPTY_DETAILS, type AppointmentDetails, type AppointmentExtractor } from "./appointment-extractor";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-export const AppointmentDetailsSchema = z.object({
+const AppointmentDetailsSchema = z.object({
   date: z
     .string()
     .describe(
@@ -30,8 +27,6 @@ export const AppointmentDetailsSchema = z.object({
     ),
 });
 
-export type AppointmentDetails = z.infer<typeof AppointmentDetailsSchema>;
-
 const EXTRACTION_PROMPT = `Du er en dansk tekst-analysator. Ekstraher dato og tidspunkt for fremvisning eller åbent hus fra beskeden.
 
 Vigtige regler:
@@ -43,9 +38,8 @@ Vigtige regler:
 - Hvis der er flere beskeder om fremvisning eller åbent hus, skal du bruge den seneste besked
 - Antag at året er {currentYear} hvis det ikke er specificeret`;
 
-const EMPTY_DETAILS: AppointmentDetails = { date: "", startTime: "", endTime: "", cancelled: false };
-
 async function callLLMForAppointmentDetails(
+  openai: OpenAI,
   context: string,
   currentYear: string,
 ): Promise<AppointmentDetails> {
@@ -65,7 +59,8 @@ async function callLLMForAppointmentDetails(
   return response.output_parsed ?? EMPTY_DETAILS;
 }
 
-export async function extractAppointmentDetailsWithLLM(
+async function extractAppointmentDetailsWithLLM(
+  openai: OpenAI,
   thread: ApiMessageThreadFull,
   currentYear: string,
 ) {
@@ -96,7 +91,7 @@ export async function extractAppointmentDetailsWithLLM(
 
   const context = showingMessages.map((message) => message.body).join("\n\n");
 
-  return callLLMForAppointmentDetails(context, currentYear);
+  return callLLMForAppointmentDetails(openai, context, currentYear);
 }
 
 const SHOWING_TEXT_PROMPT = `Du er en dansk tekst-analysator. Ekstraher dato og tidspunkt for en konkret planlagt fremvisning eller åbent hus fra beskeden.
@@ -112,7 +107,8 @@ Vigtige regler:
 - Hvis der ikke er en konkret dato med tilhørende tidspunkt, returner tomme værdier for alle felter
 - Antag at året er {currentYear} hvis det ikke er specificeret`;
 
-export async function extractAppointmentDetailsFromShowingText(
+async function extractAppointmentDetailsFromShowingText(
+  openai: OpenAI,
   showingText: string,
   currentYear: string,
 ): Promise<AppointmentDetails> {
@@ -131,4 +127,13 @@ export async function extractAppointmentDetailsFromShowingText(
   });
 
   return response.output_parsed ?? EMPTY_DETAILS;
+}
+
+/** The extractor production uses: OpenAI, reached with `apiKey`. */
+export function openAIExtractor(apiKey: string | undefined): AppointmentExtractor {
+  const openai = new OpenAI({ apiKey });
+  return {
+    fromThread: (thread, year) => extractAppointmentDetailsWithLLM(openai, thread, year),
+    fromShowingText: (showingText, year) => extractAppointmentDetailsFromShowingText(openai, showingText, year),
+  };
 }

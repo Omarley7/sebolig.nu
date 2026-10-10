@@ -28,7 +28,7 @@ function storedAppointments(
 
 function fakeSource(overrides: Partial<AppointmentsSource> = {}): AppointmentsSource {
   return {
-    sync: async () => ({ appointments: [], latestUpdated: null }),
+    sync: async () => ({ appointments: [], latestUpdated: null, latestUpdatedIds: [] }),
     fetchDelta: async () => ({ items: [], removedIds: [], latestUpdated: null, latestUpdatedIds: [] }),
     ...overrides,
   };
@@ -65,11 +65,34 @@ it("the cheap check merges changed appointments by offer id, drops removed ones 
   expect(readStored("appointments_cache")).toMatchObject({ latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: ["2"] });
 });
 
+it("the cheap check sends what is stored too, so a changed offer with an unchanged thread is not extracted again", async () => {
+  const sent: CachedAppointmentEntry[][] = [];
+  const stored = appointment("1", { messageCount: 4 });
+  const { store } = setup(
+    fakeSource({ fetchDelta: async (_cursor, known) => (sent.push(known), { items: [], removedIds: [], latestUpdated: null, latestUpdatedIds: [] }) }),
+    { stored: { appointments_cache: storedAppointments([stored], { latestUpdated: "2026-10-01T00:00:00Z" }) } },
+  );
+
+  await store.init();
+
+  expect(sent).toEqual([[{ offerId: "1", messageCount: 4, date: "2026-10-10", appointment: stored }]]);
+});
+
+it("a full refresh stores the ids at the cursor it hands out", async () => {
+  const { store, readStored } = setup(
+    fakeSource({ sync: async () => ({ appointments: [appointment("1")], latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: ["1"] }) }),
+  );
+
+  await store.init();
+
+  expect(readStored("appointments_cache")).toMatchObject({ latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: ["1"] });
+});
+
 it("a full refresh sends what is stored, so unchanged appointments are not extracted again", async () => {
   const sent: CachedAppointmentEntry[][] = [];
   const stored = appointment("1", { messageCount: 4 });
   const { store } = setup(
-    fakeSource({ sync: async (known) => (sent.push(known), { appointments: [stored], latestUpdated: "2026-10-02T00:00:00Z" }) }),
+    fakeSource({ sync: async (known) => (sent.push(known), { appointments: [stored], latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: [] }) }),
     { stored: { appointments_cache: storedAppointments([stored], { latestUpdated: "2026-10-01T00:00:00Z" }) } },
   );
   await store.init();

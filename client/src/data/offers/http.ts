@@ -1,4 +1,5 @@
 import type { Offer, OfferDelta, RecipientState } from "@/types";
+import type { FullFetchCursor } from "~/data/cursor";
 import { api, deltaQuery } from "~/data/http";
 import type { OffersSource } from "./source";
 
@@ -8,7 +9,7 @@ const TIMEOUT_DELTA = 30_000;
 
 export const httpOffers: OffersSource = {
   fetchActive: () =>
-    api<{ offers: Offer[]; latestUpdated: string | null }>("/api/offers/active", {
+    api<{ offers: Offer[] } & FullFetchCursor>("/api/offers/active", {
       timeoutMs: TIMEOUT_FETCH,
       failureMessage: "Failed to fetch offers",
     }),
