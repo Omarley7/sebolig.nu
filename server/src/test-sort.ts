@@ -5,9 +5,9 @@ import { createInterface } from "node:readline/promises";
 // session.ts throws at import time unless COOKIE_SECRET is set.
 process.env.COOKIE_SECRET ||= "x".repeat(32);
 
-import { fetchOffers, login } from "./findbolig-service";
-import { UpstreamHttpError } from "./lib/errors";
-import { parseCookies } from "./lib/session";
+import { CredentialsRejected, UpstreamError } from "./lib/errors";
+import { FindboligClient } from "./lib/findbolig-client";
+import { httpTransport } from "./lib/http-transport";
 import "./lib/tls-setup";
 import type { ApiOffer } from "./types/offers";
 
@@ -51,10 +51,10 @@ async function readFromStdin(prompt: string): Promise<string> {
   }
 }
 
-async function testSortOption(cookies: string, orderBy: string, orderDirection: "asc" | "desc") {
+async function testSortOption(client: FindboligClient, orderBy: string, orderDirection: "asc" | "desc") {
   process.stdout.write(`Testing: orderBy="${orderBy}" orderDirection="${orderDirection}" ... `);
   try {
-    const page = await fetchOffers(cookies, {
+    const page = await client.searchOffers({
       orderBy,
       orderDirection,
       pageSize: 10,
@@ -72,7 +72,7 @@ async function testSortOption(cookies: string, orderBy: string, orderDirection: 
     console.log();
     return { orderBy, orderDirection, success: true, count: page.totalResults };
   } catch (err) {
-    if (err instanceof UpstreamHttpError) {
+    if (err instanceof UpstreamError) {
       console.log(`❌ HTTP ${err.status}: ${err.message}`);
     } else if (err instanceof Error) {
       console.log(`❌ Error: ${err.message}`);
@@ -104,6 +104,7 @@ async function main() {
     cookies = await readFromStdin("FINDBOLIG_COOKIES (optional): ");
   }
 
+  let client: FindboligClient;
   if (!cookies) {
     if (!email || !password) {
       console.error("Missing credentials to test FindBolig API sorting.");
@@ -126,21 +127,24 @@ async function main() {
     }
 
     console.log(`Logging in as ${email}...`);
-    const loginResult = await login(email, password);
-    if (!loginResult || !loginResult.cookies || loginResult.cookies.length === 0) {
+    try {
+      client = await FindboligClient.connect(httpTransport, email, password);
+    } catch (err) {
+      if (!(err instanceof CredentialsRejected)) throw err;
       console.error("❌ Login failed. Please check your credentials.");
       process.exit(1);
     }
-    cookies = parseCookies(loginResult.cookies);
     console.log("✅ Authenticated successfully.\n");
   } else {
+    // No credentials: if these cookies have expired, the silent re-authentication is refused and the calls fail.
+    client = FindboligClient.fromSession(httpTransport, { fbCookies: cookies, fbEmail: "", fbPassword: "", fullName: "", email: "" });
     console.log("Using provided cookies.\n");
   }
 
   // If a specific orderBy was passed via CLI:
   if (cliArgs.orderBy) {
     const dir = (cliArgs.orderDirection === "asc" ? "asc" : "desc") as "asc" | "desc";
-    await testSortOption(cookies, cliArgs.orderBy, dir);
+    await testSortOption(client, cliArgs.orderBy, dir);
     return;
   }
 
@@ -148,7 +152,7 @@ async function main() {
 
   for (const field of CANDIDATE_SORT_FIELDS) {
     for (const dir of ["desc", "asc"] as const) {
-      await testSortOption(cookies, field, dir);
+      await testSortOption(client, field, dir);
     }
   }
 

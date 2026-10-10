@@ -1,193 +1,28 @@
 import "dotenv/config";
 
 import type { Appointment, CachedAppointmentEntry } from "@/types";
-import { UserData } from "@/types";
-import {
-  apiResidenceToDomain,
-  apiUserDataToDomain,
-  mapAppointmentToDomain,
-  mapOfferToDomain,
-  mapWaitingListToDomain,
-} from "~/lib/findbolig-domain";
-import type { ApiOffer, ApiOffersPage, ApiUserData } from "~/types/offers";
-import type { ApiResidence } from "~/types/residences";
-import type { ApiMessageThreadFull, ApiMessageThreadsPage } from "~/types/threads";
-import type { ApiPositionForProperty, ApiPropertySearchPage, ApiResidenceApplication } from "~/types/waiting-lists";
+import { ConnectionEnded } from "~/lib/errors";
+import type { FindboligClient } from "~/lib/findbolig-client";
+import { mapAppointmentToDomain, mapOfferToDomain, mapWaitingListToDomain } from "~/lib/findbolig-domain";
+import type { ApiOffer } from "~/types/offers";
+import type { ApiResidenceApplication } from "~/types/waiting-lists";
 import { extractAppointmentDetailsFromShowingText, extractAppointmentDetailsWithLLM } from "./lib/llm/openai-extractor";
-
-const BASE_URL = "https://findbolig.nu";
-
-// Timeout constants (milliseconds)
-const TIMEOUT_LOGIN = 10_000; // 10s – user is waiting on a modal
-const TIMEOUT_REFRESH = 10_000; // 10s – background session check
-const TIMEOUT_DATA = 20_000; // 20s – heavier data fetches
 
 // How many offers to pull per page when walking the updated-desc listing for a delta check.
 const DELTA_PAGE_SIZE = 25;
 
-import { TimeoutError, UnreachableError, UpstreamHttpError } from "~/lib/errors";
-
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw new TimeoutError(url, timeoutMs);
-    }
-    throw new UnreachableError(url, error);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/** Authenticated request to findbolig.nu — sets the JSON + cookie headers every upstream call needs. */
-function upstreamFetch(path: string, cookies: string, init: RequestInit = {}, timeoutMs: number = TIMEOUT_DATA): Promise<Response> {
-  return fetchWithTimeout(
-    `${BASE_URL}${path}`,
-    {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Cookie: cookies,
-        ...init.headers,
-      },
-    },
-    timeoutMs,
-  );
-}
-
 /**
- * Performs initial GET and login to establish a findbolig session.
- * Returns the user data with the Set-Cookie headers of both requests.
- *
- * Failures are thrown, not swallowed, so callers can tell them apart:
- * - UpstreamHttpError with status 403: findbolig.nu rejected the email or
- *   password (observed body: "Invalid username or password", errorCode 105)
- * - UpstreamHttpError with another status: findbolig.nu answered but not with a session
- * - TimeoutError / UnreachableError: findbolig.nu is not responding
+ * Enrichment tolerates a missing extra (a position, one residence), but never an ended Connection:
+ * that has to reach the route so the Connection cookie is cleared.
  */
-export async function login(
-  email: string,
-  password: string,
-): Promise<UserData & { cookies: string[] }> {
-  // Initial GET to receive __Secure-SID cookie
-  const initialRes = await fetchWithTimeout(BASE_URL, { redirect: "follow" }, TIMEOUT_LOGIN);
-  const initialCookies = initialRes.headers.getSetCookie();
-
-  // Perform login with initial cookies
-  const cookieHeader = initialCookies.join("; ");
-  const res = await fetchWithTimeout(`${BASE_URL}/api/authentication/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      ...(cookieHeader && { Cookie: cookieHeader }),
-    },
-    body: JSON.stringify({ email, password }),
-  }, TIMEOUT_LOGIN);
-
-  if (!res.ok) {
-    const detail = (await res.text().catch(() => "")).slice(0, 200);
-    throw new UpstreamHttpError(`Login failed: ${res.status} ${detail}`.trim(), res.status);
-  }
-  // Combine cookies from both requests
-  return apiUserDataToDomain(await res.json() as ApiUserData, [...initialCookies, ...res.headers.getSetCookie()]);
+function rethrowIfConnectionEnded(error: unknown): void {
+  if (error instanceof ConnectionEnded) throw error;
 }
 
-export interface FetchOffersOptions {
-  orderBy?: string;
-  orderDirection?: "asc" | "desc";
-  pageSize?: number;
-  page?: number;
-  filters?: Record<string, unknown>;
-  search?: string | null;
-}
-
-/**
- * Fetches offers from the API (requires prior authentication)
- */
-export async function fetchOffers(cookies: string, options: FetchOffersOptions = {}): Promise<ApiOffersPage> {
-  const { orderBy = "created", orderDirection = "desc", pageSize = 2147483647, page = 0, filters = {}, search = null } = options;
-
-  const res = await upstreamFetch(
-    "/api/search/offers",
-    cookies,
-    {
-      method: "POST",
-      body: JSON.stringify({ search, filters, pageSize, page, orderDirection, orderBy }),
-    },
-    TIMEOUT_DATA,
-  );
-
-  if (!res.ok) {
-    throw new UpstreamHttpError(`Failed to fetch offers: ${res.status}`, res.status);
-  }
-
-  return (await res.json()) as ApiOffersPage;
-}
-
-/**
- * Fetches message threads from the API (requires prior authentication)
- */
-export async function fetchThreads(cookies: string): Promise<ApiMessageThreadsPage> {
-  const res = await upstreamFetch(
-    "/api/communications/threads",
-    cookies,
-    {
-      method: "POST",
-      body: JSON.stringify({ page: 0, pageSize: 100, orderDirection: "DESC" }),
-    },
-    TIMEOUT_DATA,
-  );
-
-  if (!res.ok) {
-    throw new UpstreamHttpError(`Failed to fetch threads: ${res.status}`, res.status);
-  }
-
-  return (await res.json()) as ApiMessageThreadsPage;
-}
-
-/** Fetches the position on an offer */
-export async function getPositionOnOffer(offerId: string, cookies: string) {
-  const res = await upstreamFetch(`/api/search/waiting-lists/applicants/position-on-offer/${offerId}`, cookies, { method: "GET" });
-
-  if (!res.ok) {
-    throw new UpstreamHttpError(`Failed to fetch position on offer: ${res.status}: ${res.statusText}`, res.status);
-  }
-
-  return res.json();
-}
-
-/** Fetches a residence by ID */
-export async function getResidence(residenceId: string, cookies: string) {
-  const res = await upstreamFetch(`/api/models/residence/${residenceId}`, cookies, { method: "GET" });
-
-  if (!res.ok) {
-    throw new UpstreamHttpError(`Failed to fetch residence: ${res.status}: ${res.statusText}`, res.status);
-  }
-  const data = await res.json();
-  return apiResidenceToDomain(data as ApiResidence);
-}
-
-/** Fetches the message thread for an offer */
-export async function getThreadForOffer(offerId: string, cookies: string): Promise<ApiMessageThreadFull | null> {
-  const res = await upstreamFetch(`/api/communications/messages/thread/related-to/${offerId}`, cookies, { method: "GET" });
-
-  if (!res.ok) {
-    throw new UpstreamHttpError(`Failed to fetch thread for offer: ${res.status}: ${res.statusText}`, res.status);
-  }
-
-  const text = await res.text();
-  if (!text) {
-    return null;
-  }
-
-  return JSON.parse(text) as ApiMessageThreadFull;
-}
+const nullUnlessConnectionEnded = (error: unknown): null => {
+  rethrowIfConnectionEnded(error);
+  return null;
+};
 
 function isDateInPast(dateStr: string | null): boolean {
   if (!dateStr) return false;
@@ -219,7 +54,7 @@ function isDateInPast(dateStr: string | null): boolean {
  * *next* call, scoped to whatever `updated` value is now the walk's newest.
  */
 export async function getOffersUpdatedSince(
-  cookies: string,
+  client: FindboligClient,
   since: string,
   sinceIds: string[] = [],
 ): Promise<{ changed: ApiOffer[]; latestUpdated: string | null; latestUpdatedIds: string[] }> {
@@ -232,7 +67,7 @@ export async function getOffersUpdatedSince(
   let page = 0;
 
   while (true) {
-    const { results, totalResults } = await fetchOffers(cookies, {
+    const { results, totalResults } = await client.searchOffers({
       page,
       pageSize: DELTA_PAGE_SIZE,
       orderBy: "updated",
@@ -276,8 +111,8 @@ export async function getOffersUpdatedSince(
  * Returns null if the offer has no residence/thread to build an appointment from.
  */
 async function enrichAppointment(
+  client: FindboligClient,
   offer: ApiOffer,
-  cookies: string,
   currentYear: string,
   cachedEntry?: CachedAppointmentEntry,
 ): Promise<Appointment | null> {
@@ -288,9 +123,9 @@ async function enrichAppointment(
   }
 
   const [residence, thread, position] = await Promise.all([
-    getResidence(offer.residenceId, cookies),
-    getThreadForOffer(offer.id, cookies),
-    getPositionOnOffer(offer.id, cookies).catch(() => null),
+    client.getResidence(offer.residenceId),
+    client.getThreadForOffer(offer.id),
+    client.getPositionOnOffer(offer.id).catch(nullUnlessConnectionEnded),
   ]);
 
   if (!thread) return null;
@@ -326,9 +161,9 @@ const isUpcomingAppointmentState = (offer: ApiOffer) => offer.state === "Finishe
  * @param includeAll - If true, fetches all offers; if false, only fetches active offers (Finished/Published)
  * @param cached - Optional cached appointment entries from the client for incremental sync
  */
-export async function getUpcomingAppointments(cookies: string, includeAll: boolean = false, cached?: CachedAppointmentEntry[]) {
+export async function getUpcomingAppointments(client: FindboligClient, includeAll: boolean = false, cached?: CachedAppointmentEntry[]) {
   try {
-    const offersPage = await fetchOffers(cookies, { orderBy: "updated", orderDirection: "desc" });
+    const offersPage = await client.searchOffers({ orderBy: "updated", orderDirection: "desc" });
     const latestUpdated = offersPage.results[0]?.updated ?? null;
 
     const offers = includeAll ? offersPage.results : offersPage.results.filter(isUpcomingAppointmentState);
@@ -336,7 +171,7 @@ export async function getUpcomingAppointments(cookies: string, includeAll: boole
     const currentYear = new Date().getFullYear().toString();
 
     const results = await Promise.all(
-      offers.map((offer) => enrichAppointment(offer, cookies, currentYear, cacheMap.get(offer.id))),
+      offers.map((offer) => enrichAppointment(client, offer, currentYear, cacheMap.get(offer.id))),
     );
 
     return {
@@ -356,19 +191,19 @@ export async function getUpcomingAppointments(cookies: string, includeAll: boole
  * is ever "removed" from the view, since every offer state is already included.
  */
 export async function getAppointmentUpdates(
-  cookies: string,
+  client: FindboligClient,
   since: string,
   includeAll: boolean = false,
   sinceIds: string[] = [],
 ) {
-  const { changed, latestUpdated, latestUpdatedIds } = await getOffersUpdatedSince(cookies, since, sinceIds);
+  const { changed, latestUpdated, latestUpdatedIds } = await getOffersUpdatedSince(client, since, sinceIds);
 
   const relevant = includeAll ? changed : changed.filter(isUpcomingAppointmentState);
   const removedIds = includeAll ? [] : changed.filter((offer) => !isUpcomingAppointmentState(offer)).map((offer) => offer.id);
 
   const currentYear = new Date().getFullYear().toString();
   const enriched = await Promise.all(
-    relevant.map(async (offer) => ({ offerId: offer.id, appointment: await enrichAppointment(offer, cookies, currentYear) })),
+    relevant.map(async (offer) => ({ offerId: offer.id, appointment: await enrichAppointment(client, offer, currentYear) })),
   );
   const missingIds = enriched.filter(({ appointment }) => !appointment).map(({ offerId }) => offerId);
   return {
@@ -380,29 +215,30 @@ export async function getAppointmentUpdates(
 }
 
 /** Fetches residence + waiting-list position for an offer and maps it to the domain `Offer` shape, or null if either lookup fails. */
-async function enrichOffer(offer: ApiOffer, cookies: string) {
+async function enrichOffer(client: FindboligClient, offer: ApiOffer) {
   if (!offer.residenceId || !offer.id) return null;
   try {
     const [residence, position] = await Promise.all([
-      getResidence(offer.residenceId, cookies),
-      getPositionOnOffer(offer.id, cookies).catch(() => null),
+      client.getResidence(offer.residenceId),
+      client.getPositionOnOffer(offer.id).catch(nullUnlessConnectionEnded),
     ]);
     return mapOfferToDomain({ offer, residence, position });
   } catch (error) {
+    rethrowIfConnectionEnded(error);
     console.error(`Failed to load residence for offer ${offer.id}:`, error);
     return null;
   }
 }
 
 /** Fetches active (Published) offers with residence data eagerly loaded, alongside the current `updated` high-water mark. */
-export async function getActiveOffers(cookies: string) {
+export async function getActiveOffers(client: FindboligClient) {
   // Sorted by updated desc so results[0].updated is cheaply the latest touch on any of this
   // user's offers — the same cursor semantics `getOfferUpdates` below compares against.
-  const offersPage = await fetchOffers(cookies, { orderBy: "updated", orderDirection: "desc" });
+  const offersPage = await client.searchOffers({ orderBy: "updated", orderDirection: "desc" });
   const latestUpdated = offersPage.results[0]?.updated ?? null;
 
   const publishedOffers = offersPage.results.filter((offer) => offer.state === "Published");
-  const enriched = await Promise.all(publishedOffers.map((offer) => enrichOffer(offer, cookies)));
+  const enriched = await Promise.all(publishedOffers.map((offer) => enrichOffer(client, offer)));
 
   return {
     offers: enriched.filter((o): o is NonNullable<typeof o> => o !== null),
@@ -415,13 +251,13 @@ export async function getActiveOffers(cookies: string) {
  * pays the residence/position enrichment cost (2 upstream calls per offer) for those offers,
  * instead of re-enriching every active offer on every navigation.
  */
-export async function getOfferUpdates(cookies: string, since: string, sinceIds: string[] = []) {
-  const { changed, latestUpdated, latestUpdatedIds } = await getOffersUpdatedSince(cookies, since, sinceIds);
+export async function getOfferUpdates(client: FindboligClient, since: string, sinceIds: string[] = []) {
+  const { changed, latestUpdated, latestUpdatedIds } = await getOffersUpdatedSince(client, since, sinceIds);
 
   const stillPublished = changed.filter((offer) => offer.state === "Published");
   const removedIds = changed.filter((offer) => offer.state !== "Published").map((offer) => offer.id);
 
-  const enriched = await Promise.all(stillPublished.map((offer) => enrichOffer(offer, cookies)));
+  const enriched = await Promise.all(stillPublished.map((offer) => enrichOffer(client, offer)));
   const successful = enriched.every((offer) => offer !== null);
 
   return {
@@ -430,110 +266,6 @@ export async function getOfferUpdates(cookies: string, since: string, sinceIds: 
     latestUpdated: successful ? latestUpdated : null,
     latestUpdatedIds: successful ? latestUpdatedIds : [],
   };
-}
-
-/** Accepts an offer on findbolig.nu */
-export async function acceptOffer(offerId: string, cookies: string) {
-  const res = await upstreamFetch(`/api/data/offers/${offerId}/accept`, cookies, { method: "POST" });
-  if (!res.ok) {
-    throw new UpstreamHttpError(`Failed to accept offer: ${res.status}`, res.status);
-  }
-  return (await res.json()) as ApiOffer;
-}
-
-/** Declines an offer on findbolig.nu */
-export async function declineOffer(offerId: string, cookies: string) {
-  const res = await upstreamFetch(`/api/data/offers/${offerId}/decline`, cookies, { method: "POST" });
-  if (!res.ok) {
-    throw new UpstreamHttpError(`Failed to decline offer: ${res.status}`, res.status);
-  }
-  return (await res.json()) as ApiOffer;
-}
-
-/** Fetches the user data */
-export async function getUserData(cookies: string) {
-  const res = await upstreamFetch("/api/users/me", cookies, { method: "GET" });
-
-  if (!res.ok) {
-    throw new UpstreamHttpError(`Failed to fetch user data: ${res.status}`, res.status);
-  }
-
-  return res.json();
-}
-
-/**
- * Refreshes the session by calling an authenticated endpoint. If the upstream
- * returns new Set-Cookie headers they will be returned alongside the user data
- * so the client can update its stored cookie header.
- */
-export async function refreshSession(cookies: string) {
-  const res = await upstreamFetch("/api/users/me", cookies, { method: "GET" }, TIMEOUT_REFRESH);
-
-  if (!res.ok) {
-    return null;
-  }
-
-  // Return the mapped user data together with any Set-Cookie headers
-  return apiUserDataToDomain((await res.json()) as ApiUserData, res.headers.getSetCookie() ?? []);
-}
-
-/** Fetches raw residence-application rows (one per applied residence) for the current user. */
-export async function fetchResidenceApplications(cookies: string): Promise<ApiResidenceApplication[]> {
-  const res = await upstreamFetch("/api/data/residence-applications", cookies, { method: "GET" });
-
-  if (!res.ok) {
-    throw new UpstreamHttpError(`Failed to fetch residence applications: ${res.status}`, res.status);
-  }
-
-  return (await res.json()) as ApiResidenceApplication[];
-}
-
-/** Fetches property metadata for a batch of propertyIds using the search endpoint. */
-export async function searchPropertiesByIds(propertyIds: string[], cookies: string): Promise<ApiPropertySearchPage["results"]> {
-  if (propertyIds.length === 0) return [];
-
-  const res = await upstreamFetch("/api/search", cookies, {
-    method: "POST",
-    body: JSON.stringify({ filters: { propertyId: propertyIds }, mixedResults: true, pageSize: propertyIds.length }),
-  });
-
-  if (!res.ok) {
-    throw new UpstreamHttpError(`Failed to search properties: ${res.status}`, res.status);
-  }
-
-  const data = (await res.json()) as ApiPropertySearchPage;
-  return data.results ?? [];
-}
-
-/** Fetches the user's waiting-list position info for a property. Shape varies; see extractBestPosition. */
-export async function getPositionForProperty(propertyId: string, cookies: string): Promise<ApiPositionForProperty | null> {
-  const res = await upstreamFetch(`/api/search/waiting-lists/applicants/position-for-property/${propertyId}`, cookies, { method: "GET" });
-
-  if (!res.ok) {
-    throw new UpstreamHttpError(`Failed to fetch position for property ${propertyId}: ${res.status}`, res.status);
-  }
-
-  const text = await res.text();
-  if (!text) return null;
-  return JSON.parse(text) as ApiPositionForProperty;
-}
-
-/** Reactivates a waiting list (property-level). Upstream uses PUT and returns 204. */
-export async function setWaitingListActive(propertyId: string, cookies: string): Promise<void> {
-  const res = await upstreamFetch(`/api/data/residence-applications/property/${propertyId}/set-active`, cookies, { method: "PUT" });
-
-  if (!res.ok) {
-    throw new UpstreamHttpError(`Failed to set waiting list active for property ${propertyId}: ${res.status}`, res.status);
-  }
-}
-
-/** Unsubscribes the user from a waiting list (property-level). Upstream returns 204. */
-export async function unsubscribeFromWaitingList(propertyId: string, cookies: string): Promise<void> {
-  const res = await upstreamFetch(`/api/data/residence-applications/property/${propertyId}`, cookies, { method: "DELETE" });
-
-  if (!res.ok) {
-    throw new UpstreamHttpError(`Failed to unsubscribe from waiting list for property ${propertyId}: ${res.status}`, res.status);
-  }
 }
 
 /** Minimal concurrency limiter — runs at most `limit` tasks in parallel, preserving input order. */
@@ -558,8 +290,8 @@ async function pLimit<T, R>(items: T[], limit: number, fn: (item: T, index: numb
  * Aggregates per-residence application rows into per-property WaitingList objects,
  * enriching with property metadata (from /api/search) and best-position info.
  */
-export async function getWaitingLists(cookies: string) {
-  const applications = await fetchResidenceApplications(cookies);
+export async function getWaitingLists(client: FindboligClient) {
+  const applications = await client.getResidenceApplications();
 
   // Group by propertyId
   const byProperty = new Map<string, ApiResidenceApplication[]>();
@@ -573,14 +305,15 @@ export async function getWaitingLists(cookies: string) {
   if (propertyIds.length === 0) return [];
 
   // One batched search for all properties
-  const properties = await searchPropertiesByIds(propertyIds, cookies);
+  const properties = await client.searchPropertiesByIds(propertyIds);
   const propertyById = new Map(properties.map((p) => [p.id, p]));
 
   // Per-property position fetches with concurrency cap 5
   const positions = await pLimit(propertyIds, 5, async (propertyId) => {
     try {
-      return await getPositionForProperty(propertyId, cookies);
+      return await client.getPositionForProperty(propertyId);
     } catch (err) {
+      rethrowIfConnectionEnded(err);
       console.warn(`Position fetch failed for ${propertyId}:`, err);
       return null;
     }

@@ -3,9 +3,9 @@ import "dotenv/config";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { createApp } from "~/app";
-import * as findboligService from "~/findbolig-service";
+import { httpTransport } from "~/lib/http-transport";
 
-const app = createApp({ findbolig: findboligService });
+const app = createApp({ transport: httpTransport });
 
 // Static client build, then SPA fallback for anything the API did not answer
 app.get("/*", serveStatic({ root: "../client/dist" }));
