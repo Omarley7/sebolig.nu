@@ -1,24 +1,22 @@
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { createMiddleware } from "hono/factory";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import type { SyncAppointmentsRequest } from "@/types";
-import { AuthError, createReauthenticate, createWithReauth } from "~/lib/auth-helpers";
-import { TimeoutError, UnreachableError, isUpstreamStatus } from "~/lib/errors";
+import * as findbolig from "~/findbolig-service";
 import {
-  setSessionCookie,
-  clearSessionCookie,
-  getSessionFromCookie,
-  parseCookies,
-  type SealedSession,
-} from "~/lib/session";
-
-/** Everything the app needs from findbolig.nu; the real module in production, a fake in tests. */
-export type FindboligService = typeof import("~/findbolig-service");
+  ConnectionEnded,
+  CredentialsRejected,
+  FindboligUnavailable,
+} from "~/lib/errors";
+import { FindboligClient, type FindboligTransport } from "~/lib/findbolig-client";
+import { setSessionCookie, clearSessionCookie, getSessionFromCookie } from "~/lib/session";
 
 export interface AppDeps {
-  findbolig: FindboligService;
+  /** How to reach findbolig.nu: the HTTP transport in production, a fake findbolig.nu in tests. */
+  transport: FindboligTransport;
 }
 
 /** Reads and validates the `since` query param shared by every delta endpoint. */
@@ -35,19 +33,15 @@ function parseSinceIdsParam(c: Context): string[] {
   return sinceIds.split(",").filter(Boolean);
 }
 
-function handleError(c: Context, error: unknown) {
-  if (error instanceof AuthError) {
-    return c.json(
-      error.reason ? { error: error.message, reason: error.reason } : { error: error.message },
-      401
-    );
+function handleError(error: Error, c: Context) {
+  if (error instanceof ConnectionEnded) {
+    return c.json({ error: error.message, reason: error.reason }, 401);
   }
   console.error(error);
-  if (error instanceof TimeoutError || error instanceof UnreachableError) {
-    return c.json(
-      { error: "timeout", message: "findbolig.nu is not responding" },
-      504
-    );
+  if (error instanceof FindboligUnavailable) {
+    return error.status
+      ? c.json({ error: "upstream_unavailable", message: "findbolig.nu is not working right now" }, 502)
+      : c.json({ error: "timeout", message: "findbolig.nu is not responding" }, 504);
   }
   return c.json({ error: "Internal server error" }, 500);
 }
@@ -57,23 +51,36 @@ function handleError(c: Context, error: unknown) {
  * point, so importing this module has no side effects and tests can call
  * `createApp(...).request(...)` directly.
  */
-export function createApp({ findbolig: findboligService }: AppDeps) {
-  const withReauth = createWithReauth(findboligService);
-  const reauthenticate = createReauthenticate(findboligService);
+export function createApp({ transport }: AppDeps) {
+  /**
+   * Gives a data route the Connection's findbolig client as `c.var.findbolig`. Afterwards it
+   * clears the Connection cookie if the Connection ended, and otherwise always re-seals it, even
+   * when the route failed: that renews the 30-day expiry and keeps any findbolig session renewed
+   * on the way.
+   */
+  const withConnection = createMiddleware<{ Variables: { findbolig: FindboligClient } }>(async (c, next) => {
+    const sealed = await getSessionFromCookie(c);
+    if (!sealed) return c.json({ error: "Authentication required" }, 401);
+
+    const client = FindboligClient.fromSession(transport, sealed);
+    c.set("findbolig", client);
+    await next();
+
+    if (c.error instanceof ConnectionEnded) await clearSessionCookie(c);
+    else await setSessionCookie(c, client.session);
+  });
 
   const app = new Hono();
 
   app.notFound((c) => c.json({ error: "Not found", ok: false }, 404));
+  app.onError(handleError);
 
   const api = new Hono();
 
   const auth = new Hono().basePath("/auth");
-  const offers = new Hono().basePath("/offers");
-  const threads = new Hono().basePath("/threads");
-  const users = new Hono().basePath("/users");
-  const residences = new Hono().basePath("/residence");
-  const appointments = new Hono().basePath("/appointments");
-  const waitingLists = new Hono().basePath("/waiting-lists");
+  const offers = new Hono().basePath("/offers").use(withConnection);
+  const appointments = new Hono().basePath("/appointments").use(withConnection);
+  const waitingLists = new Hono().basePath("/waiting-lists").use(withConnection);
 
   const ALLOWED_ORIGINS =
     process.env.NODE_ENV === "production"
@@ -98,34 +105,20 @@ export function createApp({ findbolig: findboligService }: AppDeps) {
   // ── Auth routes ──────────────────────────────────────────────
 
   auth.post("/login", async (c) => {
-    try {
-      const { email, password } = await c.req.json();
-      if (!email || !password) {
-        return c.json({ error: "Email and password are required" }, 400);
-      }
-
-      const result = await findboligService.login(email, password).catch((error) => {
-        // findbolig.nu answers a wrong email or password with 403
-        if (isUpstreamStatus(error, 403)) return null;
-        throw error;
-      });
-      if (!result?.cookies.length) {
-        return c.json({ error: "Invalid email or password" }, 401);
-      }
-
-      const session: SealedSession = {
-        fbCookies: parseCookies(result.cookies),
-        fbEmail: email,
-        fbPassword: password,
-        fullName: result.fullName,
-        email: result.email,
-      };
-
-      await setSessionCookie(c, session);
-      return c.json({ fullName: result.fullName, email: result.email });
-    } catch (error) {
-      return handleError(c, error);
+    const { email, password } = await c.req.json();
+    if (!email || !password) {
+      return c.json({ error: "Email and password are required" }, 400);
     }
+
+    const client = await FindboligClient.connect(transport, email, password).catch((error) => {
+      // Nothing to end yet: a refused login and a login that grants no findbolig session read the same.
+      if (error instanceof CredentialsRejected || error instanceof ConnectionEnded) return null;
+      throw error;
+    });
+    if (!client) return c.json({ error: "Invalid email or password" }, 401);
+
+    await setSessionCookie(c, client.session);
+    return c.json({ fullName: client.session.fullName, email: client.session.email });
   });
 
   auth.post("/logout", async (c) => {
@@ -133,57 +126,15 @@ export function createApp({ findbolig: findboligService }: AppDeps) {
     return c.json({ ok: true });
   });
 
-  auth.get("/refresh", async (c) => {
-    try {
-      const session = await getSessionFromCookie(c);
-      if (!session) return c.json({ error: "Not authenticated" }, 401);
+  auth.get("/refresh", withConnection, async (c) => c.json(await c.var.findbolig.whoAmI()));
 
-      const result = await findboligService.refreshSession(session.fbCookies);
-      if (result) {
-        // Update cookies if findbolig sent new ones
-        if (result.cookies?.length) {
-          session.fbCookies = parseCookies(result.cookies);
-        }
-        session.fullName = result.fullName;
-        session.email = result.email;
-        await setSessionCookie(c, session);
-        return c.json({ fullName: result.fullName, email: result.email });
-      }
-
-      // findbolig session expired: silent re-authentication with the stored credentials
-      const renewed = await reauthenticate(c, session);
-      return c.json({ fullName: renewed.fullName, email: renewed.email });
-    } catch (error) {
-      return handleError(c, error);
-    }
-  });
-
-  // ── Data routes (all use withReauth) ─────────────────────────
-
-  appointments.get("/upcoming", async (c) => {
-    try {
-      const includeAll = c.req.query("includeAll") === "true";
-      const result = await withReauth(c, (cookies) =>
-        findboligService.getUpcomingAppointments(cookies, includeAll)
-      );
-      return c.json(result);
-    } catch (error) {
-      return handleError(c, error);
-    }
-  });
+  // ── Data routes ──────────────────────────────────────────────
 
   appointments.post("/sync", async (c) => {
-    try {
-      const body = await c.req.json<SyncAppointmentsRequest>();
-      const cached = Array.isArray(body?.cached) ? body.cached : [];
-      const includeAll = body?.includeAll === true;
-      const result = await withReauth(c, (cookies) =>
-        findboligService.getUpcomingAppointments(cookies, includeAll, cached)
-      );
-      return c.json(result);
-    } catch (error) {
-      return handleError(c, error);
-    }
+    const body = await c.req.json<SyncAppointmentsRequest>();
+    const cached = Array.isArray(body?.cached) ? body.cached : [];
+    const includeAll = body?.includeAll === true;
+    return c.json(await findbolig.getUpcomingAppointments(c.var.findbolig, includeAll, cached));
   });
 
   appointments.get("/delta", async (c) => {
@@ -191,173 +142,38 @@ export function createApp({ findbolig: findboligService }: AppDeps) {
     if (!since) {
       return c.json({ error: "Query param 'since' (ISO timestamp) is required" }, 400);
     }
-    try {
-      const includeAll = c.req.query("includeAll") === "true";
-      const sinceIds = parseSinceIdsParam(c);
-      const result = await withReauth(c, (cookies) =>
-        findboligService.getAppointmentUpdates(cookies, since, includeAll, sinceIds)
-      );
-      return c.json(result);
-    } catch (error) {
-      return handleError(c, error);
-    }
+    const includeAll = c.req.query("includeAll") === "true";
+    return c.json(await findbolig.getAppointmentUpdates(c.var.findbolig, since, includeAll, parseSinceIdsParam(c)));
   });
 
-  offers.get("/", async (c) => {
-    try {
-      const result = await withReauth(c, (cookies) =>
-        findboligService.fetchOffers(cookies)
-      );
-      return c.json(result.results);
-    } catch (error) {
-      return handleError(c, error);
-    }
-  });
-
-  offers.get("/active", async (c) => {
-    try {
-      const result = await withReauth(c, (cookies) =>
-        findboligService.getActiveOffers(cookies)
-      );
-      return c.json(result);
-    } catch (error) {
-      return handleError(c, error);
-    }
-  });
+  offers.get("/active", async (c) => c.json(await findbolig.getActiveOffers(c.var.findbolig)));
 
   offers.get("/delta", async (c) => {
     const since = parseSinceParam(c);
     if (!since) {
       return c.json({ error: "Query param 'since' (ISO timestamp) is required" }, 400);
     }
-    try {
-      const sinceIds = parseSinceIdsParam(c);
-      const result = await withReauth(c, (cookies) =>
-        findboligService.getOfferUpdates(cookies, since, sinceIds)
-      );
-      return c.json(result);
-    } catch (error) {
-      return handleError(c, error);
-    }
+    return c.json(await findbolig.getOfferUpdates(c.var.findbolig, since, parseSinceIdsParam(c)));
   });
 
-  offers.post("/:offerId/accept", async (c) => {
-    try {
-      const offerId = c.req.param("offerId");
-      if (!offerId) return c.json({ error: "Offer ID is required" }, 400);
-      const result = await withReauth(c, (cookies) =>
-        findboligService.acceptOffer(offerId, cookies)
-      );
-      const recipientState = result.recipients?.[0]?.state ?? "OfferAccepted";
-      return c.json({ recipientState });
-    } catch (error) {
-      return handleError(c, error);
-    }
-  });
+  offers.post("/:offerId/accept", async (c) => c.json(await c.var.findbolig.acceptOffer(c.req.param("offerId"))));
 
-  offers.post("/:offerId/decline", async (c) => {
-    try {
-      const offerId = c.req.param("offerId");
-      if (!offerId) return c.json({ error: "Offer ID is required" }, 400);
-      const result = await withReauth(c, (cookies) =>
-        findboligService.declineOffer(offerId, cookies)
-      );
-      const recipientState = result.recipients?.[0]?.state ?? "OfferDeclined";
-      return c.json({ recipientState });
-    } catch (error) {
-      return handleError(c, error);
-    }
-  });
+  offers.post("/:offerId/decline", async (c) => c.json(await c.var.findbolig.declineOffer(c.req.param("offerId"))));
 
-  offers.get("/:offerId/position", async (c) => {
-    try {
-      const offerId = c.req.param("offerId");
-      if (!offerId) return c.json({ error: "Offer ID is required" }, 400);
-      const result = await withReauth(c, (cookies) =>
-        findboligService.getPositionOnOffer(offerId, cookies)
-      );
-      return c.json(result);
-    } catch (error) {
-      return handleError(c, error);
-    }
-  });
-
-  threads.get("/", async (c) => {
-    try {
-      const result = await withReauth(c, (cookies) =>
-        findboligService.fetchThreads(cookies)
-      );
-      return c.json(result.results);
-    } catch (error) {
-      return handleError(c, error);
-    }
-  });
-
-  users.get("/me", async (c) => {
-    try {
-      const result = await withReauth(c, (cookies) =>
-        findboligService.getUserData(cookies)
-      );
-      return c.json(result);
-    } catch (error) {
-      return handleError(c, error);
-    }
-  });
-
-  residences.get("/:residenceId", async (c) => {
-    try {
-      const residenceId = c.req.param("residenceId");
-      const result = await withReauth(c, (cookies) =>
-        findboligService.getResidence(residenceId, cookies)
-      );
-      return c.json(result);
-    } catch (error) {
-      return handleError(c, error);
-    }
-  });
-
-  waitingLists.get("/", async (c) => {
-    try {
-      const result = await withReauth(c, (cookies) =>
-        findboligService.getWaitingLists(cookies)
-      );
-      return c.json(result);
-    } catch (error) {
-      return handleError(c, error);
-    }
-  });
+  waitingLists.get("/", async (c) => c.json(await findbolig.getWaitingLists(c.var.findbolig)));
 
   waitingLists.post("/:propertyId/set-active", async (c) => {
-    try {
-      const propertyId = c.req.param("propertyId");
-      if (!propertyId) return c.json({ error: "Property ID is required" }, 400);
-      await withReauth(c, (cookies) =>
-        findboligService.setWaitingListActive(propertyId, cookies)
-      );
-      return c.json({ ok: true });
-    } catch (error) {
-      return handleError(c, error);
-    }
+    await c.var.findbolig.setWaitingListActive(c.req.param("propertyId"));
+    return c.json({ ok: true });
   });
 
   waitingLists.delete("/:propertyId", async (c) => {
-    try {
-      const propertyId = c.req.param("propertyId");
-      if (!propertyId) return c.json({ error: "Property ID is required" }, 400);
-      await withReauth(c, (cookies) =>
-        findboligService.unsubscribeFromWaitingList(propertyId, cookies)
-      );
-      return c.json({ ok: true });
-    } catch (error) {
-      return handleError(c, error);
-    }
+    await c.var.findbolig.unsubscribeFromWaitingList(c.req.param("propertyId"));
+    return c.json({ ok: true });
   });
 
   api.route("/", auth);
   api.route("/", offers);
-  api.route("/", threads);
-  api.route("/", users);
-  api.route("/", residences);
   api.route("/", appointments);
   api.route("/", waitingLists);
 

@@ -198,10 +198,9 @@ export function apiResidenceToDomain(apiResidence: ApiResidence): Residence {
   };
 }
 
-export function apiUserDataToDomain(apiUserData: ApiUserData, cookies?: string[]): UserData & { cookies: string[] } {
+export function apiUserDataToDomain(apiUserData: ApiUserData): UserData {
   return {
     email: apiUserData.email,
     fullName: apiUserData.notifications.fullName,
-    cookies: cookies || [],
   };
 }
