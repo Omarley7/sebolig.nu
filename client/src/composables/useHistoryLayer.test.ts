@@ -23,7 +23,7 @@ const Detail = defineComponent({
 
 const Root = defineComponent({
   setup: () => () => [
-    showMap.value ? h(MapModal, { appointments: [], onClose: () => (showMap.value = false) }) : null,
+    showMap.value ? h(MapModal, { pins: [], onClose: () => (showMap.value = false) }) : null,
     showSheet.value ? h(Detail, { onClose: () => (showSheet.value = false) }) : null,
   ],
 });

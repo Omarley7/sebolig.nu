@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import type { Appointment } from "@/types";
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import CompactCard from "./card/CompactCard.vue";
 import BaseCollapse from "~/components/Base/BaseCollapse.vue";
 import MapModal from "~/components/shared/MapModal.vue";
 import { useI18n } from "vue-i18n";
+import { useOpenDetail } from "~/composables/useDetailSheet";
+import type { MapPin } from "~/lib/mapPin";
 
 const { t } = useI18n();
+const openDetail = useOpenDetail();
 
 const props = defineProps<{
   groupKey: string;
@@ -28,6 +31,14 @@ watch(expanded, (val) => {
 function toggleExpanded() {
   expanded.value = !expanded.value;
 }
+
+const pins = computed<MapPin[]>(() =>
+  props.appointments.flatMap(({ id, title, residence }) =>
+    residence.location
+      ? [{ id, lat: residence.location.latitude, lng: residence.location.longitude, label: residence.addressLine1 ?? title }]
+      : [],
+  ),
+);
 </script>
 
 <template>
@@ -64,6 +75,6 @@ function toggleExpanded() {
       </ul>
     </BaseCollapse>
 
-    <MapModal v-if="showMap" :appointments="props.appointments" @close="showMap = false" />
+    <MapModal v-if="showMap" :pins="pins" @select="openDetail" @close="showMap = false" />
   </li>
 </template>

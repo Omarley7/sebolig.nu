@@ -27,7 +27,7 @@ const rows = [
 
 <template>
     <Teleport to="body">
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80" @click.self="emit('close')">
+        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/80" @click.self="emit('close')">
             <div class="relative w-[90vw] max-w-md rounded-xl bg-white dark:bg-neutral-900 p-6 shadow-xl text-neutral-900 dark:text-neutral-100">
                 <!-- Close button -->
                 <button class="absolute top-3 right-3 p-1 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"

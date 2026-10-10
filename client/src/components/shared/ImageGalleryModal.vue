@@ -71,7 +71,7 @@ function resolveUrl(path: string): string {
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm overscroll-contain"
+    <div class="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm overscroll-contain"
       @click.self="emit('close')">
       <!-- Close -->
       <button

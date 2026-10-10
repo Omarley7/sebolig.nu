@@ -90,8 +90,9 @@ onUnmounted(() => clearTimeout(afterLeaveTimer));
 
 <template>
   <Teleport to="body">
+    <!-- Above the map (z-50), below popups opened from the sheet (z-[70]) -->
     <div
-      class="fixed inset-0 z-50 flex items-end justify-center"
+      class="fixed inset-0 z-[60] flex items-end justify-center"
       :class="{ 'pointer-events-none': !sheet.visible }"
     >
       <!-- Backdrop -->
