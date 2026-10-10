@@ -2,6 +2,8 @@
 import type { Appointment } from "@/types";
 import { ref, onMounted, onUnmounted, nextTick, computed } from "vue";
 import L from "leaflet";
+import { useHistoryLayer } from "~/composables/useHistoryLayer";
+import { useScrollLock } from "~/composables/useScrollLock";
 
 const props = defineProps<{
   appointments: Appointment[];
@@ -10,6 +12,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
 }>();
+
+useScrollLock();
+
+// Back and Esc close the map without leaving the route
+const layer = useHistoryLayer({ onClose: () => emit("close") });
 
 const mapContainer = ref<HTMLDivElement>();
 let map: L.Map | null = null;
@@ -60,20 +67,13 @@ function initMap() {
   }
 }
 
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === "Escape") emit("close");
-}
-
 onMounted(async () => {
-  window.addEventListener("keydown", onKeydown);
-  document.body.style.overflow = "hidden";
+  layer.open();
   await nextTick();
   initMap();
 });
 
 onUnmounted(() => {
-  window.removeEventListener("keydown", onKeydown);
-  document.body.style.overflow = "";
   if (map) {
     map.remove();
     map = null;
@@ -83,13 +83,13 @@ onUnmounted(() => {
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80" @click.self="emit('close')">
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80" @click.self="layer.close()">
       <div
         class="relative w-[92vw] max-w-2xl h-[70vh] rounded-xl bg-white dark:bg-neutral-900 shadow-xl flex flex-col overflow-hidden">
         <!-- Header -->
         <div class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700/50">
           <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{{ $t("common.map") }}</h2>
-          <button class="p-1 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors" @click="emit('close')">
+          <button class="p-1 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors" @click="layer.close()">
             <img src="/icons/x.svg" alt="Close" class="size-5 dark:invert" />
           </button>
         </div>
