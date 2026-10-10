@@ -2,7 +2,7 @@
 import { Keyboard, Navigation, Pagination, Zoom } from "swiper/modules";
 import type { Swiper as SwiperClass } from "swiper/types";
 import { Swiper, SwiperSlide } from "swiper/vue";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { blueprintImage, galleryImage } from "~/lib/imageTransform";
 import { useScrollLock } from "~/composables/useScrollLock";
 
@@ -66,17 +66,7 @@ function resolveUrl(path: string): string {
   return transform(props.getImageUrl(path));
 }
 
-// Escape to close — arrow keys handled by Swiper Keyboard module
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === "Escape") emit("close");
-}
-
-onMounted(() => {
-  window.addEventListener("keydown", onKeydown);
-});
-onUnmounted(() => {
-  window.removeEventListener("keydown", onKeydown);
-});
+// Esc and back are handled by the sheet that opened the gallery; arrow keys by Swiper's Keyboard module
 </script>
 
 <template>
