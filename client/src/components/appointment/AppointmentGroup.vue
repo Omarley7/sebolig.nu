@@ -3,7 +3,7 @@ import type { Appointment } from "@/types";
 import { ref, watch } from "vue";
 import CompactCard from "./card/CompactCard.vue";
 import BaseCollapse from "~/components/Base/BaseCollapse.vue";
-import MapModal from "./MapModal.vue";
+import MapModal from "~/components/shared/MapModal.vue";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();

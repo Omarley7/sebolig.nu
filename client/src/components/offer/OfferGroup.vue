@@ -3,7 +3,7 @@ import type { Offer } from "@/types";
 import { computed, ref, watch } from "vue";
 import OfferCard from "./card/OfferCard.vue";
 import BaseCollapse from "~/components/Base/BaseCollapse.vue";
-import MapModal from "~/components/appointment/MapModal.vue";
+import MapModal from "~/components/shared/MapModal.vue";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();

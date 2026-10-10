@@ -12,7 +12,7 @@ import { useScrollLock } from "~/composables/useScrollLock";
 import { formatCurrency } from "~/lib/formatters";
 import { galleryImage } from "~/lib/imageTransform";
 import { useWaitingListsStore } from "~/stores/waitingLists";
-import ImageGalleryModal from "~/components/appointment/gallery/ImageGalleryModal.vue";
+import ImageGalleryModal from "~/components/shared/ImageGalleryModal.vue";
 import ConfirmUnsubscribeDialog from "./ConfirmUnsubscribeDialog.vue";
 
 const { t } = useI18n();

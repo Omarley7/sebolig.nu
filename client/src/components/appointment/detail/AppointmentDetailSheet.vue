@@ -13,8 +13,8 @@ import { useDarkMode } from "~/composables/useDarkMode";
 import { useScrollLock } from "~/composables/useScrollLock";
 import { formatCurrency, formatTimeSlot } from "~/lib/formatters";
 import { galleryImage } from "~/lib/imageTransform";
-import ImageGalleryModal from "../gallery/ImageGalleryModal.vue";
-import FinancialsModal from "../card/FinancialsModal.vue";
+import ImageGalleryModal from "~/components/shared/ImageGalleryModal.vue";
+import FinancialsModal from "~/components/shared/FinancialsModal.vue";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

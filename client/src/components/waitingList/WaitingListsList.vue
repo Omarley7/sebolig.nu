@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
-import CompactCardSkeleton from "~/components/appointment/card/CompactCardSkeleton.vue";
+import CompactCardSkeleton from "~/components/shared/CompactCardSkeleton.vue";
 import { useGroupWaitingLists } from "~/composables/useGroupWaitingLists";
 import { useWaitingListsStore } from "~/stores/waitingLists";
 import WaitingListGroup from "./WaitingListGroup.vue";

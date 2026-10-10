@@ -13,8 +13,8 @@ import { getDeadlineUrgency, urgencyColors } from "~/lib/deadlineUrgency";
 import { galleryImage } from "~/lib/imageTransform";
 import { imageUrl } from "~/lib/imageUrl";
 import { useOffersStore } from "~/stores/offers";
-import ImageGalleryModal from "~/components/appointment/gallery/ImageGalleryModal.vue";
-import FinancialsModal from "~/components/appointment/card/FinancialsModal.vue";
+import ImageGalleryModal from "~/components/shared/ImageGalleryModal.vue";
+import FinancialsModal from "~/components/shared/FinancialsModal.vue";
 import ConfirmActionDialog from "./ConfirmActionDialog.vue";
 
 const { t } = useI18n();
