@@ -32,7 +32,7 @@ function toggleExpanded() {
 const mapItems = computed(() => props.offers.map((o) => ({
   id: o.id,
   residence: o.residence,
-  title: o.residence.adressLine1 ?? "",
+  title: o.residence.addressLine1 ?? "",
 })));
 </script>
 

@@ -6,7 +6,7 @@ export type Appointment = {
   start: string | null; // Appointment start time
   end: string | null; // Appointment end time
   cancelled: boolean;
-  residence: Pick<Residence, "adressLine1" | "adressLine2" | "location">; // Provider spelled it wrong.
+  residence: Residence;
   financials: Financials;
   imageUrl: string;
   images: string[];
@@ -27,12 +27,11 @@ export type Financials = {
   firstPayment: number;
 };
 
+/** Where an offer's or appointment's residence is: what the client shows of it. */
 export type Residence = {
-  id: string; // DEAS-R-{address-with-dashes} -or- // DEAS-{residenceId}
-  adressLine1: string | null;
-  adressLine2: string | null;
-  location: { latitude: number; longitude: number } | null; // Latitude/Longitude
-  blueprintUrl: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  location: { latitude: number; longitude: number } | null;
 };
 
 export type UserData = {
@@ -44,7 +43,7 @@ export type RecipientState = "OfferReceived" | "OfferAccepted" | "OfferDeclined"
 
 export type Offer = {
   id: string;
-  residence: Pick<Residence, "adressLine1" | "adressLine2" | "location">;
+  residence: Residence;
   deadline: string | null;
   availableFrom: string | null;
   rooms: number | null;

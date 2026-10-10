@@ -1,7 +1,7 @@
 import type { Appointment, Offer, RecipientState, UserData, WaitingList, WaitingListStatus } from "@/types";
 import type { AppointmentDetails } from "~/lib/llm/appointment-extractor";
 import type { ApiOffer, ApiUserData } from "~/types/offers";
-import type { ApiResidence, Residence } from "~/types/residences";
+import type { ApiResidence, ResidenceDetails } from "~/types/residences";
 import type { ApiPositionForProperty, ApiPropertySearchResult, ApiResidenceApplication } from "~/types/waiting-lists";
 
 export function mapAppointmentToDomain({
@@ -12,7 +12,7 @@ export function mapAppointmentToDomain({
   messageCount,
 }: {
   offer: ApiOffer;
-  residence: Residence;
+  residence: ResidenceDetails;
   details: AppointmentDetails;
   position: number | null;
   messageCount: number;
@@ -27,8 +27,8 @@ export function mapAppointmentToDomain({
     end: details.endTime || null,
     cancelled: details.cancelled,
     residence: {
-      adressLine1: residence.addressLine1,
-      adressLine2: residence.addressLine2,
+      addressLine1: residence.addressLine1,
+      addressLine2: residence.addressLine2,
       location: residence.location,
     },
     financials: {
@@ -56,7 +56,7 @@ export function mapOfferToDomain({
   position,
 }: {
   offer: ApiOffer;
-  residence: Residence;
+  residence: ResidenceDetails;
   position: number | null;
 }): Offer {
   const recipientState: RecipientState =
@@ -65,8 +65,8 @@ export function mapOfferToDomain({
   return {
     id: offer.id,
     residence: {
-      adressLine1: residence.addressLine1,
-      adressLine2: residence.addressLine2,
+      addressLine1: residence.addressLine1,
+      addressLine2: residence.addressLine2,
       location: residence.location,
     },
     deadline: offer.deadline ?? null,
@@ -169,10 +169,8 @@ export function mapWaitingListToDomain({
   };
 }
 
-export function apiResidenceToDomain(apiResidence: ApiResidence): Residence {
+export function apiResidenceToDomain(apiResidence: ApiResidence): ResidenceDetails {
   return {
-    id: apiResidence.entityInfo.id,
-    propertyId: apiResidence.entityInfo.propertyId,
     title: apiResidence.entityInfo.title,
     addressLine1: apiResidence.entityInfo.addressLine1,
     addressLine2: apiResidence.entityInfo.addressLine2,
@@ -192,9 +190,6 @@ export function apiResidenceToDomain(apiResidence: ApiResidence): Residence {
     blueprints: apiResidence.entityInfo.media.blueprints.map(
       (blueprint) => blueprint.path
     ),
-    petsAllowed: apiResidence.factsModel.petsAllowed,
-    createdAt: new Date(apiResidence.factsModel.residence.created),
-    updatedAt: new Date(apiResidence.factsModel.residence.updated),
   };
 }
 

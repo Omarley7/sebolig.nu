@@ -147,7 +147,7 @@ function onFinancialsClose() {
 }
 
 function handleMapClick() {
-  const address = `${props.offer.residence.adressLine1}, ${props.offer.residence.adressLine2}`;
+  const address = `${props.offer.residence.addressLine1}, ${props.offer.residence.addressLine2}`;
   window.open(
     `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
     "_blank",
@@ -321,7 +321,7 @@ onUnmounted(() => {
             <!-- Address -->
             <div>
               <h2 class="text-lg font-bold text-neutral-900 dark:text-white leading-snug">
-                {{ offer.residence.adressLine1 }}
+                {{ offer.residence.addressLine1 }}
               </h2>
               <p v-if="facts" class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mt-0.5 tabular-nums">
                 {{ facts }}
@@ -329,7 +329,7 @@ onUnmounted(() => {
               <button class="flex items-center gap-1.5 mt-1.5 group" @click="handleMapClick">
                 <p class="text-sm text-neutral-500 dark:text-neutral-400
                            group-hover:text-neutral-700 dark:group-hover:text-neutral-300 transition-colors">
-                  {{ offer.residence.adressLine2 }}
+                  {{ offer.residence.addressLine2 }}
                 </p>
                 <img src="/icons/map.svg" alt="" class="size-4 opacity-40 group-hover:opacity-70 transition-opacity dark:invert" />
               </button>
@@ -508,7 +508,7 @@ onUnmounted(() => {
     <ConfirmActionDialog
       v-if="confirmAction"
       :action="confirmAction"
-      :address="`${offer.residence.adressLine1}, ${offer.residence.adressLine2}`"
+      :address="`${offer.residence.addressLine1}, ${offer.residence.addressLine2}`"
       :is-loading="store.isActioning"
       @confirm="handleConfirm"
       @cancel="confirmAction = null"

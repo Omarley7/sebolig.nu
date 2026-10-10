@@ -9,7 +9,7 @@ import { localDataHarness, type HarnessOptions } from "~/test/localDataHarness";
 function offer(id: string, overrides: Partial<Offer> = {}): Offer {
   return {
     id,
-    residence: { adressLine1: `Street ${id}`, adressLine2: "2100 København Ø", location: null as never },
+    residence: { addressLine1: `Street ${id}`, addressLine2: "2100 København Ø", location: null as never },
     deadline: null,
     availableFrom: null,
     rooms: 2,
@@ -153,4 +153,20 @@ it("a refused answer to an offer changes nothing and says so", async () => {
 
   expect(store.offers[0].recipientState).toBe("OfferReceived");
   expect(notices).toEqual([{ level: "error", key: "offers.actionFailed", cause: expect.any(Error) }]);
+});
+
+it("offers stored with the misspelled address fields still show their address", async () => {
+  const location = { latitude: 55.7, longitude: 12.5 };
+  const { store } = setup(fakeSource(), {
+    connected: false,
+    stored: {
+      offers_cache: storedOffers([
+        { ...offer("a"), residence: { adressLine1: "Ålekistevej 59", adressLine2: "2720 Vanløse", location } } as never,
+      ]),
+    },
+  });
+
+  await store.init();
+
+  expect(store.offers[0].residence).toEqual({ addressLine1: "Ålekistevej 59", addressLine2: "2720 Vanløse", location });
 });

@@ -3,6 +3,7 @@ import { computed } from "vue";
 import type { AppointmentsSource } from "~/data/appointments/source";
 import type { LocalDataContext, LocalDataDefinition, Mode } from "~/lib/localData";
 import { cursorKind, type CursorData } from "./delta";
+import { reviveResidence } from "./residence";
 
 type Appointments = CursorData<Appointment>;
 
@@ -12,6 +13,7 @@ function reviveAppointment(stored: Appointment): Appointment {
     ...stored,
     offerId: stored.offerId ?? stored.id?.replace(/^DEAS-O-/, "") ?? "",
     messageCount: stored.messageCount ?? 0,
+    residence: stored.residence && reviveResidence(stored.residence),
   };
 }
 

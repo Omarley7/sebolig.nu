@@ -2,8 +2,8 @@
   {
     "id": "cc687d34-4ed5-4beb-b3b8-08de747fab9e",
     "residence": {
-      "adressLine1": "Philip Schous Vej 21, 3. TH.",
-      "adressLine2": "2000 Frederiksberg",
+      "addressLine1": "Philip Schous Vej 21, 3. TH.",
+      "addressLine2": "2000 Frederiksberg",
       "location": { "latitude": 55.68095, "longitude": 12.52475 }
     },
     "deadline": "",
@@ -34,8 +34,8 @@
   {
     "id": "dd787e45-5fe6-5cfc-c4c9-19ef858gbc0f",
     "residence": {
-      "adressLine1": "Nitivej 13, 1 th",
-      "adressLine2": "2000 Frederiksberg",
+      "addressLine1": "Nitivej 13, 1 th",
+      "addressLine2": "2000 Frederiksberg",
       "location": { "latitude": 55.67892, "longitude": 12.51234 }
     },
     "deadline": "",
@@ -63,8 +63,8 @@
   {
     "id": "ee898f56-6gf7-6dgd-d5da-20fg969hcd1g",
     "residence": {
-      "adressLine1": "Mariendalsvej 52G, 2. TV",
-      "adressLine2": "2000 Frederiksberg",
+      "addressLine1": "Mariendalsvej 52G, 2. TV",
+      "addressLine2": "2000 Frederiksberg",
       "location": { "latitude": 55.69138, "longitude": 12.5318 }
     },
     "deadline": "",

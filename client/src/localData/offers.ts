@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import type { OfferAnswer, OffersSource } from "~/data/offers/source";
 import type { LocalDataContext, LocalDataDefinition, Mode } from "~/lib/localData";
 import { cursorKind, type CursorData } from "./delta";
+import { reviveResidence } from "./residence";
 
 type Offers = CursorData<Offer>;
 
@@ -15,6 +16,7 @@ export function offersKind(sources: Record<Mode, OffersSource>) {
     ...cursorKind<Offer, "offers", OffersSource>({
       itemsKey: "offers",
       keyOf: (offer) => offer.id,
+      reviveItem: (offer) => ({ ...offer, residence: offer.residence && reviveResidence(offer.residence) }),
       async fetchEverything(_current, source) {
         const { offers, ...cursor } = await source.fetchActive();
         return { items: offers, ...cursor };

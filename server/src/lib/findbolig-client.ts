@@ -3,7 +3,7 @@ import { apiResidenceToDomain, apiUserDataToDomain } from "./findbolig-domain";
 import { ConnectionEnded, CredentialsRejected, FindboligUnavailable, UpstreamError } from "./errors";
 import type { SealedSession } from "./session";
 import type { ApiOffer, ApiOffersPage, ApiUserData } from "~/types/offers";
-import type { ApiResidence, Residence } from "~/types/residences";
+import type { ApiResidence, ResidenceDetails } from "~/types/residences";
 import type { ApiMessageThreadFull } from "~/types/threads";
 import type { ApiPositionForProperty, ApiPropertySearchPage, ApiResidenceApplication } from "~/types/waiting-lists";
 
@@ -55,7 +55,7 @@ export interface SearchOffersOptions {
  * with findbolig's ASP.NET Set-Cookie quirks), renews it by silent re-authentication, and
  * turns findbolig's status codes into domain outcomes. Callers never see a status code or a
  * Set-Cookie header; the listings the delta walk and enrichment work over (offers, threads,
- * waiting-list rows) come back in findbolig's own shape for `findbolig-service.ts` to map.
+ * waiting-list rows) come back in findbolig's own shape for `findbolig-domain.ts` to map.
  */
 export class FindboligClient {
   /** How many times this client has renewed the findbolig session. */
@@ -116,7 +116,7 @@ export class FindboligClient {
     return json as ApiOffersPage;
   }
 
-  async getResidence(residenceId: string): Promise<Residence> {
+  async getResidence(residenceId: string): Promise<ResidenceDetails> {
     const json = await this.call({ method: "GET", path: `/api/models/residence/${residenceId}` }, "Failed to fetch residence");
     return apiResidenceToDomain(json as ApiResidence);
   }

@@ -20,7 +20,7 @@ const locations = computed(() =>
     .map((a) => ({
       lat: a.residence.location!.latitude,
       lng: a.residence.location!.longitude,
-      label: a.residence.adressLine1 ?? a.title,
+      label: a.residence.addressLine1 ?? a.title,
     }))
 );
 

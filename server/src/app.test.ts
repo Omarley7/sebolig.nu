@@ -297,7 +297,7 @@ test("the appointments delta takes its cursor and the cached appointments in the
     }))
     // A thread that was already extracted: it still has its 2 messages.
     .on("GET /api/communications/messages/thread/related-to/o1", () => ({ json: { messages: [{}, {}] } }))
-    .on("GET /api/models/residence/r1", () => ({ json: apiResidence("r1") }))
+    .on("GET /api/models/residence/r1", () => ({ json: apiResidence() }))
     .on("GET /api/search/waiting-lists/applicants/position-on-offer/o1", () => ({ json: 1 }));
   const extractor = new FakeExtractor();
   const app = createApp({ transport: fake, extractor });

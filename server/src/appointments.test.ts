@@ -31,7 +31,7 @@ function clientWithOneOffer(messageCount: number, offers: Partial<ApiOffer>[] = 
   const fake = new FakeFindbolig()
     .addAccount("tenant@example.com", "pw", "Test Tenant")
     .on("POST /api/search/offers", () => ({ json: { facets: {}, totalResults: offers.length, page: 0, pageSize: 25, results: offers } }))
-    .on("GET /api/models/residence/r1", () => ({ json: apiResidence("r1") }))
+    .on("GET /api/models/residence/r1", () => ({ json: apiResidence() }))
     .on("GET /api/communications/messages/thread/related-to/o1", () => ({ json: thread(messageCount) }))
     .on("GET /api/search/waiting-lists/applicants/position-on-offer/o1", () => ({ json: 4 }));
   return FindboligClient.connect(fake, "tenant@example.com", "pw");

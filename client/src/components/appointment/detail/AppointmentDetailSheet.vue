@@ -135,7 +135,7 @@ function onFinancialsClose() {
 }
 
 function handleMapClick() {
-  const address = `${props.appointment.residence.adressLine1}, ${props.appointment.residence.adressLine2}`;
+  const address = `${props.appointment.residence.addressLine1}, ${props.appointment.residence.addressLine2}`;
   window.open(
     `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
     "_blank",
@@ -317,7 +317,7 @@ onUnmounted(() => {
                   class="text-sm text-neutral-500 dark:text-neutral-400
                          group-hover:text-neutral-700 dark:group-hover:text-neutral-300 transition-colors"
                 >
-                  {{ appointment.residence.adressLine1 }}, {{ appointment.residence.adressLine2 }}
+                  {{ appointment.residence.addressLine1 }}, {{ appointment.residence.addressLine2 }}
                 </p>
                 <img
                   src="/icons/map.svg"
@@ -353,7 +353,7 @@ onUnmounted(() => {
                     :name="appointment.title"
                     options="'Apple','Google','Microsoft365','Outlook.com'"
                     :lightMode="isDark ? 'dark' : 'light'"
-                    :location="`${appointment.residence.adressLine1}, ${appointment.residence.adressLine2}`"
+                    :location="`${appointment.residence.addressLine1}, ${appointment.residence.addressLine2}`"
                     :startDate="appointment.date"
                     :endDate="appointment.date"
                     :startTime="hasTimeSlot ? appointment.start : undefined"

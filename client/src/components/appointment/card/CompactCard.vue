@@ -63,7 +63,7 @@ const timeLabel = computed(() => formatTimeSlot(props.appointment, t, props.incl
         <img
           v-if="thumbUrl"
           :src="thumbUrl"
-          :alt="appointment.residence.adressLine1 ?? appointment.title"
+          :alt="appointment.residence.addressLine1 ?? appointment.title"
           class="absolute inset-0 w-full h-full object-cover"
           loading="lazy"
         />
@@ -82,10 +82,10 @@ const timeLabel = computed(() => formatTimeSlot(props.appointment, t, props.incl
       <div class="flex flex-col justify-between min-w-0 flex-1 py-0.5">
         <div class="min-w-0">
           <p class="font-semibold text-[0.8125rem] leading-snug truncate dark:text-neutral-100">
-            {{ appointment.residence.adressLine1 }}
+            {{ appointment.residence.addressLine1 }}
           </p>
           <p class="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-            {{ appointment.residence.adressLine2 }}
+            {{ appointment.residence.addressLine2 }}
           </p>
         </div>
 

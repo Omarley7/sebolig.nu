@@ -1,95 +1,75 @@
-import { z } from "zod";
+// findbolig.nu's own shapes, as the findbolig client reads them. Plain types: nothing checks them at runtime.
 
-const ApiOfferRecipient = z.object({
-  created: z.string(),
-  updated: z.string(),
-  accepted: z.string().nullable(),
-  declined: z.string().nullable(),
-  received: z.string().nullable(),
-  offerId: z.string(),
-  userId: z.string(),
-  state: z.enum(["OfferReceived", "OfferAccepted", "OfferDeclined"]),
-  internalState: z.string().nullable(),
-  note: z.string().nullable(),
-});
+export type ApiOfferRecipient = {
+  created: string;
+  updated: string;
+  accepted: string | null;
+  declined: string | null;
+  received: string | null;
+  offerId: string;
+  userId: string;
+  state: "OfferReceived" | "OfferAccepted" | "OfferDeclined";
+  internalState: string | null;
+  note: string | null;
+};
 
-export type ApiOfferRecipient = z.infer<typeof ApiOfferRecipient>;
+export type ApiOffer = {
+  id: string;
+  created: string; // ISO date string
+  updated: string; // ISO date string
+  number: number;
+  offerText: string;
+  showingText: string | null;
+  internalNote: string | null;
+  deadline: string | null;
+  recipients?: ApiOfferRecipient[];
+  recipientsCount?: number;
+  winnerId: string | null;
+  /** 'Draft', 'Published', 'Changed', 'Finished', 'Awarded', 'AwardedExternally', 'Released', 'RetiredFromAwarded' */
+  state: string;
+  organizationId: string;
+  organization?: string;
+  companyId: string;
+  company?: string;
+  residenceId?: string;
+  propertyId?: string;
+  residenceAddress?: string;
+  residencePostalCode?: number;
+  hasUnreadMessages?: boolean;
+  unreadMessagesCount?: number;
+  onlyForStudents?: boolean;
+};
 
-// API schema from findbolig.nu
-const ApiOffer = z.object({
-  id: z.string(),
-  created: z.string(), // ISO date string
-  updated: z.string(), // ISO date string
-  number: z.number(),
-  offerText: z.string(),
-  showingText: z.string().nullable(),
-  internalNote: z.string().nullable(),
-  deadline: z.string().nullable(),
-  recipients: z.array(ApiOfferRecipient).optional(),
-  recipientsCount: z.number().optional(),
-  winnerId: z.string().nullable(),
-  state: z.string(), // 'Awarded', 'AwardedFromExternal', 'RetiredFromAwarded', 'Finished', 'Published', 'Released', 'Changed'
-  organizationId: z.string(),
-  organization: z.string().optional(),
-  companyId: z.string(),
-  company: z.string().optional(),
-  residenceId: z.string().optional(),
-  propertyId: z.string().optional(),
-  residenceAddress: z.string().optional(),
-  residencePostalCode: z.number().optional(),
-  hasUnreadMessages: z.boolean().optional(),
-  unreadMessagesCount: z.number().optional(),
-  onlyForStudents: z.boolean().optional(),
-});
+export type ApiOffersPage = {
+  facets: unknown;
+  totalResults: number;
+  page: number;
+  pageSize: number;
+  results: ApiOffer[];
+};
 
-/**
- * Offer states from Findbolig API
- * { name: this.Dictionary.OfferStates.Draft, value: 'Draft' },
-          { name: this.Dictionary.OfferStates.Published, value: 'Published' },
-          { name: this.Dictionary.OfferStates.Changed, value: 'Changed' },
-          { name: this.Dictionary.OfferStates.Finished, value: 'Finished' },
-          { name: this.Dictionary.OfferStates.Awarded, value: 'Awarded' },
-          { name: this.Dictionary.OfferStates.AwardedExternally, value: 'AwardedExternally' },
-          { name: this.Dictionary.OfferStates.Released, value: 'Released' },
-          { name: this.Dictionary.OfferStates.RetiredFromAwarded, value: 'RetiredFromAwarded' }
- */
-
-export type ApiOffer = z.infer<typeof ApiOffer>;
-
-const ApiOffersPage = z.object({
-  facets: z.any(),
-  totalResults: z.number(),
-  page: z.number(),
-  pageSize: z.number(),
-  results: z.array(ApiOffer),
-});
-
-export type ApiOffersPage = z.infer<typeof ApiOffersPage>;
-
-const ApiUserData = z.object({
-  id: z.string(),
-  impersonator: z.string().nullable(),
-  email: z.string(),
-  roles: z.array(z.string()),
-  landingPage: z.string().nullable(),
-  pensionFunds: z.array(z.unknown()),
-  favorites: z.object({
-    properties: z.array(z.unknown()),
-    residences: z.array(z.unknown()),
-    projects: z.array(z.unknown()),
-  }),
-  notifications: z.object({
-    locale: z.string(),
-    newItemsInInbox: z.boolean(),
-    newItemsInSearchAgent: z.boolean(),
-    changesToFavorites: z.boolean(),
-    sendEmail: z.boolean(),
-    sendSms: z.boolean(),
-    phoneNoForSms: z.string(),
-    email: z.string(),
-    fullName: z.string(),
-    frequency: z.number(),
-  }),
-});
-
-export type ApiUserData = z.infer<typeof ApiUserData>;
+export type ApiUserData = {
+  id: string;
+  impersonator: string | null;
+  email: string;
+  roles: string[];
+  landingPage: string | null;
+  pensionFunds: unknown[];
+  favorites: {
+    properties: unknown[];
+    residences: unknown[];
+    projects: unknown[];
+  };
+  notifications: {
+    locale: string;
+    newItemsInInbox: boolean;
+    newItemsInSearchAgent: boolean;
+    changesToFavorites: boolean;
+    sendEmail: boolean;
+    sendSms: boolean;
+    phoneNoForSms: string;
+    email: string;
+    fullName: string;
+    frequency: number;
+  };
+};

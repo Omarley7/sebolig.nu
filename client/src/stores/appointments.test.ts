@@ -114,3 +114,19 @@ it("appointments stored before offerId and messageCount existed still load", asy
   expect(store.appointments[0]).toMatchObject({ offerId: "77", messageCount: 0 });
   expect(store.updatedAt).toEqual(new Date("2026-10-01T08:00:00.000Z"));
 });
+
+it("appointments stored with the misspelled address fields still show their address", async () => {
+  const location = { latitude: 55.7, longitude: 12.5 };
+  const { store } = setup(fakeSource(), {
+    connected: false,
+    stored: {
+      appointments_cache: storedAppointments([
+        { ...appointment("77"), residence: { adressLine1: "Ålekistevej 59", adressLine2: "2720 Vanløse", location } },
+      ]),
+    },
+  });
+
+  await store.init();
+
+  expect(store.appointments[0].residence).toEqual({ addressLine1: "Ålekistevej 59", addressLine2: "2720 Vanløse", location });
+});

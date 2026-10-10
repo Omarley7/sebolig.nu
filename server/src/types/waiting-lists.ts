@@ -1,63 +1,51 @@
-import { z } from "zod";
+// findbolig.nu's own shapes, as the findbolig client reads them. Plain types: nothing checks them at runtime.
 
-const ApiResidenceApplication = z.object({
-  residenceId: z.string(),
-  propertyId: z.string(),
-  companyId: z.string(),
-  userId: z.string(),
-  inactiveDate: z.string().nullable(),
-  status: z.enum(["Active", "Passive"]),
-  created: z.string(),
-});
+export type ApiResidenceApplication = {
+  residenceId: string;
+  propertyId: string;
+  companyId: string;
+  userId: string;
+  inactiveDate: string | null;
+  status: "Active" | "Passive";
+  created: string;
+};
 
-export type ApiResidenceApplication = z.infer<typeof ApiResidenceApplication>;
+/** Property search results carry many more fields; only the ones we consume are typed. */
+export type ApiPropertySearchResult = {
+  id: string; // propertyId
+  shortId: number;
+  name: string;
+  street: string;
+  number?: number | string | null;
+  postalCode: number;
+  postalCodeName: string;
+  city: string;
+  propertyAddress: string;
+  latitude: number;
+  longitude: number;
+  media: { images: string[]; blueprints: string[] };
+  companyLogo?: string | null;
+  organizationLogo?: string | null;
+  propertyOrganizationId: string;
+  propertyOrganizationName: string;
+  propertyCompanyId: string;
+  propertyCompanyName: string;
+  residencesCount: number;
+  minRooms: number;
+  maxRooms: number;
+  minArea: number;
+  maxArea: number;
+  minRent: number;
+  maxRent: number;
+};
 
-// Property search results return many fields; only the ones we actually consume are typed strictly.
-// The rest are kept as `passthrough` to avoid breaking on upstream additions.
-const ApiPropertySearchResult = z.object({
-  id: z.string(),                       // propertyId
-  shortId: z.number(),
-  name: z.string(),
-  street: z.string(),
-  number: z.union([z.number(), z.string()]).nullable().optional(),
-  postalCode: z.number(),
-  postalCodeName: z.string(),
-  city: z.string(),
-  propertyAddress: z.string(),
-  latitude: z.number(),
-  longitude: z.number(),
-  media: z
-    .object({
-      images: z.array(z.string()),
-      blueprints: z.array(z.string()),
-    })
-    .passthrough(),
-  companyLogo: z.string().nullable().optional(),
-  organizationLogo: z.string().nullable().optional(),
-  propertyOrganizationId: z.string(),
-  propertyOrganizationName: z.string(),
-  propertyCompanyId: z.string(),
-  propertyCompanyName: z.string(),
-  residencesCount: z.number(),
-  minRooms: z.number(),
-  maxRooms: z.number(),
-  minArea: z.number(),
-  maxArea: z.number(),
-  minRent: z.number(),
-  maxRent: z.number(),
-}).passthrough();
-
-export type ApiPropertySearchResult = z.infer<typeof ApiPropertySearchResult>;
-
-const ApiPropertySearchPage = z.object({
-  facets: z.any(),
-  totalResults: z.number(),
-  page: z.number(),
-  pageSize: z.number(),
-  results: z.array(ApiPropertySearchResult),
-});
-
-export type ApiPropertySearchPage = z.infer<typeof ApiPropertySearchPage>;
+export type ApiPropertySearchPage = {
+  facets: unknown;
+  totalResults: number;
+  page: number;
+  pageSize: number;
+  results: ApiPropertySearchResult[];
+};
 
 // Position-for-property — exact shape unknown until first call.
 // The mapper handles either a bare number, or an array of {residenceId, position}.

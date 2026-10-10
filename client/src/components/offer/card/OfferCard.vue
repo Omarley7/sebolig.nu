@@ -61,7 +61,7 @@ const urgency = computed(() => getDeadlineUrgency(props.offer.deadline, t));
         <img
           v-if="thumbUrl"
           :src="thumbUrl"
-          :alt="offer.residence.adressLine1 ?? ''"
+          :alt="offer.residence.addressLine1 ?? ''"
           class="absolute inset-0 w-full h-full object-cover"
           loading="lazy"
         />
@@ -72,10 +72,10 @@ const urgency = computed(() => getDeadlineUrgency(props.offer.deadline, t));
       <div class="flex flex-col justify-between min-w-0 flex-1 py-0.5">
         <div class="min-w-0">
           <p class="font-semibold text-[0.8125rem] leading-snug truncate dark:text-neutral-100">
-            {{ offer.residence.adressLine1 }}
+            {{ offer.residence.addressLine1 }}
           </p>
           <p class="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-            {{ offer.residence.adressLine2 }}
+            {{ offer.residence.addressLine2 }}
           </p>
         </div>
 

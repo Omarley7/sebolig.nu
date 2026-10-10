@@ -8,8 +8,8 @@
     "end": "16:20",
     "cancelled": false,
     "residence": {
-      "adressLine1": "Nitivej 13, 1. th",
-      "adressLine2": "2000 Frederiksberg",
+      "addressLine1": "Nitivej 13, 1. th",
+      "addressLine2": "2000 Frederiksberg",
       "location": {
         "latitude": 55.69215,
         "longitude": 12.53398
@@ -45,8 +45,8 @@
     "end": "15:20",
     "cancelled": false,
     "residence": {
-      "adressLine1": "Philip Schous Vej 21, 3. TH.",
-      "adressLine2": "2000 Frederiksberg",
+      "addressLine1": "Philip Schous Vej 21, 3. TH.",
+      "addressLine2": "2000 Frederiksberg",
       "location": {
         "latitude": 55.68127,
         "longitude": 12.50502
@@ -93,8 +93,8 @@
     "end": null,
     "cancelled": false,
     "residence": {
-      "adressLine1": "Mariendalsvej 52A, 1. MF",
-      "adressLine2": "2000 Frederiksberg",
+      "addressLine1": "Mariendalsvej 52A, 1. MF",
+      "addressLine2": "2000 Frederiksberg",
       "location": {
         "latitude": 55.69101,
         "longitude": 12.53216
@@ -139,8 +139,8 @@
     "end": "15:50",
     "cancelled": false,
     "residence": {
-      "adressLine1": "Ved Kløvermarken 6, 4. tv.",
-      "adressLine2": "2300 København S",
+      "addressLine1": "Ved Kløvermarken 6, 4. tv.",
+      "addressLine2": "2300 København S",
       "location": {
         "latitude": 55.66749,
         "longitude": 12.59881
@@ -182,8 +182,8 @@
     "end": null,
     "cancelled": false,
     "residence": {
-      "adressLine1": "Mariendalsvej 52G, 2. TV",
-      "adressLine2": "2000 Frederiksberg",
+      "addressLine1": "Mariendalsvej 52G, 2. TV",
+      "addressLine2": "2000 Frederiksberg",
       "location": {
         "latitude": 55.69138,
         "longitude": 12.5318
