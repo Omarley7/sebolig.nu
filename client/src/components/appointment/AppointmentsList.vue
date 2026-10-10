@@ -2,7 +2,7 @@
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import AppointmentGroup from "~/components/appointment/AppointmentGroup.vue";
-import CompactCardSkeleton from "~/components/appointment/card/CompactCardSkeleton.vue";
+import CompactCardSkeleton from "~/components/shared/CompactCardSkeleton.vue";
 import EmptyAppointments from "~/components/appointment/EmptyAppointments.vue";
 import GroupBySelector from "~/components/appointment/GroupBySelector.vue";
 import {

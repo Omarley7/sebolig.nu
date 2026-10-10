@@ -2,7 +2,7 @@
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 import OfferGroup from "~/components/offer/OfferGroup.vue";
-import CompactCardSkeleton from "~/components/appointment/card/CompactCardSkeleton.vue";
+import CompactCardSkeleton from "~/components/shared/CompactCardSkeleton.vue";
 import { useGroupOffers } from "~/composables/useGroupOffers";
 import { useOffersStore } from "~/stores/offers";
 

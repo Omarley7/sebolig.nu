@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Financials } from "@/types";
-import { onMounted, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { formatCurrency } from "~/lib/formatters";
 import { useScrollLock } from "~/composables/useScrollLock";
@@ -24,17 +23,6 @@ const rows = [
     { key: "prepaidRent" as const },
     { key: "firstPayment" as const },
 ];
-
-function onKeydown(e: KeyboardEvent) {
-    if (e.key === "Escape") emit("close");
-}
-
-onMounted(() => {
-    window.addEventListener("keydown", onKeydown);
-});
-onUnmounted(() => {
-    window.removeEventListener("keydown", onKeydown);
-});
 </script>
 
 <template>
