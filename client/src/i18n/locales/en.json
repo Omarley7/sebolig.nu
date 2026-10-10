@@ -21,6 +21,7 @@
     "count": "{count} viewing | {count} viewings",
     "openHouse": "Open House",
     "noDate": "Awaiting date",
+    "until": "until {time}",
     "mapOfLocations": "Map of {count} locations",
     "openOnFindbolig": "Open on findbolig.nu",
     "addToCalendar": "Add to calendar",

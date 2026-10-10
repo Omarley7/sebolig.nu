@@ -21,6 +21,7 @@
     "count": "{count} fremvisning | {count} fremvisninger",
     "openHouse": "Åbent hus",
     "noDate": "Afventer dato",
+    "until": "til {time}",
     "mapOfLocations": "Kort over {count} lokationer",
     "openOnFindbolig": "Åbn på findbolig.nu",
     "addToCalendar": "Tilføj til kalender",
