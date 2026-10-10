@@ -53,7 +53,7 @@ watch(activeTab, () => {
   }
 });
 
-// Reset tab when images prop changes (different appointment)
+// Reset tab when images prop changes (a different residence)
 watch(
   () => props.images,
   () => {

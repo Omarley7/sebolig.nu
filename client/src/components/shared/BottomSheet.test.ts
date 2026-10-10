@@ -101,6 +101,21 @@ describe("BottomSheet with useSheet", () => {
     expect(panel().querySelector(".content")?.textContent).toBe("Content");
   });
 
+  it("back before the slide-in finishes still closes the sheet", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const app = createApp(Detail, {
+      onClose: () => events.push("close"),
+      ref: (r: unknown) => { if (r) harness = r as Harness; },
+    }).use(router);
+    const vm = app.mount(host) as unknown as Harness;
+    unmount = () => { app.unmount(); host.remove(); };
+    await back();
+    await frame();
+    expect(vm.sheet.visible).toBe(false);
+    expect(events).toEqual(["close"]);
+  });
+
   it("back closes popups one layer at a time, then the sheet, without leaving the route", async () => {
     await mountSheet();
     harness.gallery.open();

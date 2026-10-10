@@ -64,9 +64,9 @@ function onDragEnd(e: PointerEvent) {
 let afterLeaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 watch(
-  () => props.sheet.visible,
-  (visible, wasVisible) => {
-    if (visible || !wasVisible) return;
+  () => props.sheet.closed,
+  (closed) => {
+    if (!closed) return;
 
     // Notify parent immediately so logical state stays in sync with touches
     emit("close");

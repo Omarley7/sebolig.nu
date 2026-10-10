@@ -15,6 +15,8 @@ export interface PopupOptions {
 export interface Sheet {
   /** False before the slide-in and from the moment the sheet starts closing. */
   readonly visible: boolean;
+  /** True from the moment the sheet starts closing, even if it never finished sliding in. */
+  readonly closed: boolean;
   popup(options?: PopupOptions): SheetPopup;
   /** Closes every open popup and the sheet, removing all history entries they added. */
   close(): void;
@@ -46,6 +48,7 @@ export function useSheet(): Sheet {
 
   const sheet = reactive({
     visible: false,
+    closed: false,
     popup,
     close,
   });
@@ -60,7 +63,7 @@ export function useSheet(): Sheet {
       state: reactive({
         isOpen: false,
         open() {
-          if (layer.state.isOpen || !sheet.visible) return;
+          if (layer.state.isOpen || sheet.closed) return;
           layer.state.isOpen = true;
           stack.push(layer);
           pushLayer();
@@ -85,7 +88,8 @@ export function useSheet(): Sheet {
   }
 
   function finish(viaPopState: boolean) {
-    if (!sheet.visible) return;
+    if (sheet.closed) return;
+    sheet.closed = true;
     sheet.visible = false;
     window.removeEventListener("popstate", onPopState);
     window.removeEventListener("keydown", onKeydown);
@@ -112,7 +116,7 @@ export function useSheet(): Sheet {
     window.addEventListener("keydown", onKeydown);
     pushLayer();
     requestAnimationFrame(() => {
-      sheet.visible = true;
+      if (!sheet.closed) sheet.visible = true;
     });
   });
 
