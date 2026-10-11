@@ -7,13 +7,17 @@ import { gone, walkOfferListing, type ListingCursor, type ListingView } from "~/
 /** Offers the user can still answer: only Published ones belong in the offers view. */
 function offersView(client: FindboligClient): ListingView<Offer> {
   return {
+    name: "offers",
     belongs: (offer) => offer.state === "Published",
-    async enrich(offer) {
-      if (!offer.residenceId) return gone;
-      const [residence, position] = await Promise.all([
-        client.getResidence(offer.residenceId),
-        client.getPositionOnOffer(offer.id).catch(nullUnlessConnectionEnded),
-      ]);
+    async enrich(offer, { findbolig }) {
+      const { residenceId } = offer;
+      if (!residenceId) return gone;
+      const [residence, position] = await findbolig(() =>
+        Promise.all([
+          client.getResidence(residenceId),
+          client.getPositionOnOffer(offer.id).catch(nullUnlessConnectionEnded),
+        ]),
+      );
       return mapOfferToDomain({ offer, residence, position });
     },
   };

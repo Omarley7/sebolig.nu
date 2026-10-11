@@ -26,9 +26,18 @@ import type { ApiOffer } from "~/types/offers";
  *   part, or the LLM erroring. The offer is left out and the cursor is **withheld**
  *   (`latestUpdated: null`), so the client keeps what it has and asks for the same changes again.
  *
- * Enrichment runs under the Connection's limit on calls in flight (see `limitedFor`).
- * An ended Connection fails the whole walk, so the route can clear the Connection cookie.
- * Changed offers that don't belong in the view are reported in `removedIds` without enrichment.
+ * An enricher makes its findbolig.nu calls through `findbolig`, which runs them under the
+ * Connection's limit on calls in flight (see `limitedFor`). Anything else it waits on, like the
+ * LLM, runs outside that limit (through `llm`, to be counted), so it holds no slot another offer
+ * could be fetching with. An ended Connection fails the whole walk, so the route can clear the
+ * Connection cookie. Changed offers that don't belong in the view are reported in `removedIds`
+ * without enrichment.
+ *
+ * ## The summary line
+ * Each walk logs one line: offers walked (changed since the cursor), offers enriched (that fetched
+ * from findbolig.nu), LLM calls, and total, summed LLM (including any wait for the server's LLM
+ * cap) and summed findbolig.nu milliseconds. Counts and timings only, never anything about the
+ * offers themselves.
  */
 
 /** Page size for walking the listing. */
@@ -40,10 +49,20 @@ export type ListingCursor = { since: string; sinceIds: string[] };
 /** What an enricher returns when findbolig.nu answered but there is nothing to build. */
 export const gone = Symbol("gone");
 
+/** What a walk hands its enricher; see the limit rule above. */
+export type EnrichTools = {
+  /** Runs findbolig.nu calls under the Connection's limit, timed. */
+  findbolig<R>(task: () => Promise<R>): Promise<R>;
+  /** Runs one LLM call, timed and counted. */
+  llm<R>(task: () => Promise<R>): Promise<R>;
+};
+
 /** Turns a changed offer into an item, or `gone`. Throwing counts as failed, unless it is an `UpstreamError`. */
-export type Enrich<T> = (offer: ApiOffer) => Promise<T | typeof gone>;
+export type Enrich<T> = (offer: ApiOffer, tools: EnrichTools) => Promise<T | typeof gone>;
 
 export type ListingView<T> = {
+  /** What the summary line calls this view. */
+  name: string;
   /** Whether a changed offer belongs in this view at all. */
   belongs(offer: ApiOffer): boolean;
   enrich: Enrich<T>;
@@ -57,42 +76,76 @@ export async function walkOfferListing<T>(
   cursor: ListingCursor | null,
   view: ListingView<T>,
 ): Promise<Delta<T>> {
-  const { changed, latestUpdated, latestUpdatedIds } = await collectChanged(client, cursor);
-
-  const belonging = changed.filter((offer) => view.belongs(offer));
-  const removedIds = changed.filter((offer) => !view.belongs(offer)).map((offer) => offer.id);
-
-  let ended: ConnectionEnded | null = null;
-  const enrich = async (offer: ApiOffer): Promise<Outcome<T>> => {
-    // Once the Connection has ended, the rest is not worth asking findbolig.nu for.
-    if (ended) return { kind: "failed" };
+  const startedAt = performance.now();
+  const stats = { walked: 0, enriched: 0, llmCalls: 0, llmMs: 0, findboligMs: 0 };
+  const timed = async <R>(task: () => Promise<R>, add: (ms: number) => void): Promise<R> => {
+    const start = performance.now();
     try {
-      const item = await view.enrich(offer);
-      return item === gone ? { kind: "gone" } : { kind: "ok", item };
-    } catch (error) {
-      if (error instanceof ConnectionEnded) {
-        ended = error;
-        return { kind: "failed" };
-      }
-      if (error instanceof UpstreamError) return { kind: "gone" };
-      console.error(`Failed to enrich offer ${offer.id}:`, error);
-      return { kind: "failed" };
+      return await task();
+    } finally {
+      add(performance.now() - start);
     }
   };
-  const outcomes = await Promise.all(belonging.map((offer) => limitedFor(client, () => enrich(offer))));
-  if (ended) throw ended;
 
-  const items: T[] = [];
-  let failed = false;
-  for (const [i, outcome] of outcomes.entries()) {
-    if (outcome.kind === "ok") items.push(outcome.item);
-    else if (outcome.kind === "gone") removedIds.push(belonging[i].id);
-    else failed = true;
+  let ended: ConnectionEnded | null = null;
+  const tools: EnrichTools = {
+    findbolig: (task) =>
+      limitedFor(client, () => {
+        // Once the Connection has ended, the rest is not worth asking findbolig.nu for.
+        if (ended) throw ended;
+        stats.enriched++;
+        return timed(task, (ms) => (stats.findboligMs += ms));
+      }),
+    llm: (task) => (stats.llmCalls++, timed(task, (ms) => (stats.llmMs += ms))),
+  };
+
+  try {
+    const { changed, latestUpdated, latestUpdatedIds } = await timed(
+      () => collectChanged(client, cursor),
+      (ms) => (stats.findboligMs += ms),
+    );
+
+    const belonging = changed.filter((offer) => view.belongs(offer));
+    const removedIds = changed.filter((offer) => !view.belongs(offer)).map((offer) => offer.id);
+    stats.walked = changed.length;
+
+    const enrich = async (offer: ApiOffer): Promise<Outcome<T>> => {
+      if (ended) return { kind: "failed" };
+      try {
+        const item = await view.enrich(offer, tools);
+        return item === gone ? { kind: "gone" } : { kind: "ok", item };
+      } catch (error) {
+        if (error instanceof ConnectionEnded) {
+          ended = error;
+          return { kind: "failed" };
+        }
+        if (error instanceof UpstreamError) return { kind: "gone" };
+        console.error(`Failed to enrich offer ${offer.id}:`, error);
+        return { kind: "failed" };
+      }
+    };
+    const outcomes = await Promise.all(belonging.map(enrich));
+    if (ended) throw ended;
+
+    const items: T[] = [];
+    let failed = false;
+    for (const [i, outcome] of outcomes.entries()) {
+      if (outcome.kind === "ok") items.push(outcome.item);
+      else if (outcome.kind === "gone") removedIds.push(belonging[i].id);
+      else failed = true;
+    }
+
+    return failed
+      ? { items, removedIds, latestUpdated: null, latestUpdatedIds: [] }
+      : { items, removedIds, latestUpdated, latestUpdatedIds };
+  } finally {
+    const ms = (n: number) => Math.round(n);
+    console.info(
+      `[walk] ${view.name} ${cursor ? "delta" : "sync"} walked=${stats.walked} enriched=${stats.enriched} ` +
+        `llmCalls=${stats.llmCalls} totalMs=${ms(performance.now() - startedAt)} ` +
+        `llmMs=${ms(stats.llmMs)} findboligMs=${ms(stats.findboligMs)}`,
+    );
   }
-
-  return failed
-    ? { items, removedIds, latestUpdated: null, latestUpdatedIds: [] }
-    : { items, removedIds, latestUpdated, latestUpdatedIds };
 }
 
 /**

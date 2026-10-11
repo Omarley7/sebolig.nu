@@ -1,15 +1,16 @@
 import type { FindboligClient } from "./findbolig-client";
 
 /**
- * How many offers one Connection may have being enriched at once (each enrichment makes a few
- * findbolig.nu calls of its own).
+ * How many offers one Connection may have fetching from findbolig.nu at once (each makes a few
+ * findbolig.nu calls of its own). Only those calls hold a slot, not the LLM work that follows them.
+ * A deliberate ceiling, out of caution towards findbolig.nu.
  * Shared by every request on that Connection (offers, appointments and waiting lists load
  * together), not per request.
  */
 export const ENRICHMENT_CONCURRENCY = 5;
 
 /** Runs tasks with at most `limit` in flight, starting queued ones in arrival order. */
-class Limiter {
+export class Limiter {
   private active = 0;
   private readonly queue: (() => void)[] = [];
 
@@ -36,7 +37,7 @@ class Limiter {
 /** One limiter per findbolig account with work in flight; dropped again once it is idle. */
 const byConnection = new Map<string, Limiter>();
 
-/** Runs `task` under the enrichment limit of `client`'s Connection. */
+/** Runs `task` (findbolig.nu calls) under the limit of `client`'s Connection. */
 export async function limitedFor<T>(client: FindboligClient, task: () => Promise<T>): Promise<T> {
   const key = client.session.fbEmail.toLowerCase();
   let limiter = byConnection.get(key);

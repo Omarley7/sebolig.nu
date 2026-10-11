@@ -5,6 +5,8 @@ import type { CachedAppointmentEntry } from "@/types";
 import { getAppointmentUpdates, getUpcomingAppointments } from "./appointments";
 import { FindboligClient } from "./lib/findbolig-client";
 import { FakeFindbolig } from "./lib/fake-findbolig";
+import { ENRICHMENT_CONCURRENCY } from "./lib/limiter";
+import type { ShowingContext } from "./lib/llm/appointment-extractor";
 import { FakeExtractor } from "./lib/llm/fake-extractor";
 import { apiResidence } from "./lib/test-fixtures";
 import type { ApiOffer } from "./types/offers";
@@ -105,4 +107,84 @@ test("a full sync leaves out offers that are not upcoming and hands out latestUp
   assert.deepEqual(sync.appointments.map((a) => a.offerId), ["o1"]);
   assert.equal(sync.latestUpdated, T);
   assert.deepEqual(sync.latestUpdatedIds, ["o1", "o2"]);
+});
+
+/** A client on a fake findbolig.nu with `count` Published offers, each with a showing thread; `allThreadsFetched` settles once every thread has been fetched. */
+async function clientWithOffers(count: number) {
+  const offers = Array.from({ length: count }, (_, i) => ({ ...OFFER, id: `o${i}`, residenceId: `r${i}` }));
+  const fake = new FakeFindbolig()
+    .addAccount("tenant@example.com", "pw", "Test Tenant")
+    .on("POST /api/search/offers", () => ({ json: { facets: {}, totalResults: count, page: 0, pageSize: 25, results: offers } }));
+  let fetched = 0;
+  let allFetched!: () => void;
+  const allThreadsFetched = new Promise<void>((resolve) => (allFetched = resolve));
+  for (const { id, residenceId } of offers) {
+    fake
+      .on(`GET /api/models/residence/${residenceId}`, () => ({ json: apiResidence() }))
+      .on(`GET /api/communications/messages/thread/related-to/${id}`, () => {
+        if (++fetched === count) allFetched();
+        return { json: thread(1) };
+      })
+      .on(`GET /api/search/waiting-lists/applicants/position-on-offer/${id}`, () => ({ json: 4 }));
+  }
+  return { client: await FindboligClient.connect(fake, "tenant@example.com", "pw"), allThreadsFetched };
+}
+
+test("a slow extractor doesn't hold back findbolig.nu fetches for other offers", { timeout: 2000 }, async () => {
+  const { client, allThreadsFetched } = await clientWithOffers(ENRICHMENT_CONCURRENCY + 3);
+  // Each extraction waits until every offer's thread has been fetched. Were the LLM inside the
+  // Connection's limit, the offers past the limit would never get fetched.
+  const extractor = new FakeExtractor(async () => (await allThreadsFetched, extracted()));
+
+  const sync = await getUpcomingAppointments(client, extractor, []);
+
+  assert.equal(sync.appointments.length, ENRICHMENT_CONCURRENCY + 3);
+  assert.equal(extractor.calls, ENRICHMENT_CONCURRENCY + 3);
+});
+
+test("with showing messages in the thread, only the thread goes to the extractor, in one call", async () => {
+  const client = await clientWithOneOffer(2, [{ ...OFFER, showingText: "<p>Åbent hus 5/6 kl. 12-13</p>" }]);
+  const seen: ShowingContext[] = [];
+  const extractor = new FakeExtractor((context) => (seen.push(context), extracted()));
+
+  await getAppointmentUpdates(client, extractor, BEFORE, []);
+
+  assert.equal(extractor.calls, 1);
+  assert.deepEqual(seen, [{ source: "thread", messages: ["Åbent hus 1/6 kl. 16-17", "Åbent hus 1/6 kl. 16-17"] }]);
+});
+
+for (const [what, answer, date] of [
+  ["a date and a time is kept", { date: "2099-07-01", startTime: "10:00", endTime: "", cancelled: false }, "2099-07-01"],
+  // A svarfrist or move-in date read as a showing: no time, so not a showing.
+  ["a date without a time is dropped", { date: "2099-07-01", startTime: "", endTime: "", cancelled: false }, null],
+  ["a cancellation without a date is dropped", { date: "", startTime: "", endTime: "", cancelled: true }, null],
+] as const) {
+  test(`from the showing text alone, ${what}`, async () => {
+    const client = await clientWithOneOffer(0, [{ ...OFFER, showingText: "Svarfrist for deltagelse i det åbne hus er: 12/10" }]);
+
+    const delta = await getAppointmentUpdates(client, new FakeExtractor(() => answer), BEFORE, []);
+
+    assert.equal(delta.items[0].date, date);
+    assert.equal(delta.items[0].cancelled, false);
+  });
+}
+
+test("from the thread, a date without a time is kept", async () => {
+  const client = await clientWithOneOffer(1);
+  const extractor = new FakeExtractor(() => ({ date: "2099-07-01", startTime: "", endTime: "", cancelled: false }));
+
+  const delta = await getAppointmentUpdates(client, extractor, BEFORE, []);
+
+  assert.equal(delta.items[0].date, "2099-07-01");
+});
+
+test("with no showing text and nothing about a showing in the thread, the extractor is not called", async () => {
+  const client = await clientWithOneOffer(0);
+  const extractor = new FakeExtractor(extracted);
+
+  const delta = await getAppointmentUpdates(client, extractor, BEFORE, []);
+
+  assert.equal(extractor.calls, 0);
+  assert.equal(delta.items.length, 1);
+  assert.equal(delta.items[0].date, null);
 });

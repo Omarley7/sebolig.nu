@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { ConnectionEnded, FindboligUnavailable, UpstreamError } from "./lib/errors";
 import { FindboligClient } from "./lib/findbolig-client";
 import { FakeFindbolig } from "./lib/fake-findbolig";
-import { DELTA_PAGE_SIZE, gone, walkOfferListing, type Enrich } from "./offer-listing";
+import { DELTA_PAGE_SIZE, gone, walkOfferListing, type Enrich, type ListingView } from "./offer-listing";
 import type { ApiOffer } from "./types/offers";
 
 type MinimalOffer = Pick<ApiOffer, "id" | "updated"> & Partial<ApiOffer>;
@@ -30,7 +30,7 @@ function offer(id: string, updated: string, overrides: Partial<ApiOffer> = {}): 
 }
 
 /** Every offer belongs and enriches to its own id. */
-const byId = { belongs: () => true, enrich: async (o: ApiOffer) => o.id };
+const byId: ListingView<string> = { name: "test", belongs: () => true, enrich: async (o) => o.id };
 
 const ids = (items: string[]) => [...items].sort();
 
@@ -109,6 +109,7 @@ test("changed offers that don't belong in the view are reported as removed, with
   const enriched: string[] = [];
 
   const delta = await walkOfferListing(client, null, {
+    name: "test",
     belongs: (o) => o.state === "Published",
     enrich: async (o) => (enriched.push(o.id), o.id),
   });
@@ -127,7 +128,7 @@ test("an offer whose enrichment is gone is reported as removed, and the cursor s
     return o.id;
   };
 
-  const delta = await walkOfferListing(client, { since: "2026-01-01T00:00:00.000Z", sinceIds: [] }, { belongs: () => true, enrich });
+  const delta = await walkOfferListing(client, { since: "2026-01-01T00:00:00.000Z", sinceIds: [] }, { name: "test", belongs: () => true, enrich });
 
   assert.deepEqual(delta.items, ["ok"]);
   assert.deepEqual(ids(delta.removedIds), ["no-residence", "refused"]);
@@ -147,7 +148,7 @@ for (const [what, error] of [
       return o.id;
     };
 
-    const delta = await walkOfferListing(client, { since: "2026-01-01T00:00:00.000Z", sinceIds: [] }, { belongs: () => true, enrich });
+    const delta = await walkOfferListing(client, { since: "2026-01-01T00:00:00.000Z", sinceIds: [] }, { name: "test", belongs: () => true, enrich });
 
     assert.deepEqual(delta.items, ["ok"]);
     assert.deepEqual(delta.removedIds, [], "a failed offer is not removed: the client keeps what it has");
@@ -164,7 +165,7 @@ test("an ended Connection during enrichment fails the whole walk", async () => {
     return o.id;
   };
 
-  await assert.rejects(walkOfferListing(client, null, { belongs: () => true, enrich }), ConnectionEnded);
+  await assert.rejects(walkOfferListing(client, null, { name: "test", belongs: () => true, enrich }), ConnectionEnded);
 });
 
 test("no more than five enrichments per Connection are in flight at once, even across concurrent walks", async () => {
@@ -172,14 +173,16 @@ test("no more than five enrichments per Connection are in flight at once, even a
   const client = await clientWithOffers(Array.from({ length: 12 }, (_, i) => offer(`o-${i}`, T)));
   let inFlight = 0;
   let peak = 0;
-  const view = {
+  const view: ListingView<string> = {
+    name: "test",
     belongs: () => true,
-    enrich: async (o: ApiOffer) => {
-      peak = Math.max(peak, ++inFlight);
-      await new Promise((resolve) => setTimeout(resolve, 1));
-      inFlight--;
-      return o.id;
-    },
+    enrich: (o, { findbolig }) =>
+      findbolig(async () => {
+        peak = Math.max(peak, ++inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        inFlight--;
+        return o.id;
+      }),
   };
 
   // The dashboard loads offers and appointments at the same moment: two walks for one Connection.
@@ -187,4 +190,53 @@ test("no more than five enrichments per Connection are in flight at once, even a
 
   assert.equal(peak, 5);
   assert.equal(offers.items.length + appointments.items.length, 24);
+});
+
+test("work outside the findbolig.nu calls, like the LLM, holds no slot of the Connection's limit", { timeout: 2000 }, async () => {
+  const T = "2026-01-10T00:00:00.000Z";
+  const client = await clientWithOffers(Array.from({ length: 12 }, (_, i) => offer(`o-${i}`, T)));
+  // Every slow LLM call waits until all twelve have fetched from findbolig.nu: under the
+  // Connection's limit of five, that would never happen.
+  let fetched = 0;
+  let allFetched!: () => void;
+  const everyOfferFetched = new Promise<void>((resolve) => (allFetched = resolve));
+  const view: ListingView<string> = {
+    name: "test",
+    belongs: () => true,
+    async enrich(o, { findbolig, llm }) {
+      await findbolig(async () => {
+        if (++fetched === 12) allFetched();
+      });
+      return llm(async () => (await everyOfferFetched, o.id));
+    },
+  };
+
+  const delta = await walkOfferListing(client, null, view);
+
+  assert.equal(delta.items.length, 12);
+});
+
+test("each walk logs one summary line of counts and timings", async (t) => {
+  const T = "2026-01-10T00:00:00.000Z";
+  const client = await clientWithOffers([offer("a", T), offer("b", T), offer("expired", T, { state: "Expired" })]);
+  const info = t.mock.method(console, "info", () => {});
+  const view: ListingView<string> = {
+    name: "appointments",
+    belongs: (o) => o.state !== "Expired",
+    async enrich(o, { findbolig, llm }) {
+      await findbolig(async () => {});
+      if (o.id === "a") await llm(async () => {});
+      return o.id;
+    },
+  };
+
+  await walkOfferListing(client, { since: "2026-01-01T00:00:00.000Z", sinceIds: [] }, view);
+
+  assert.equal(info.mock.callCount(), 1);
+  const line = String(info.mock.calls[0].arguments[0]);
+  assert.match(line, /^\[walk\] appointments delta /);
+  assert.match(line, / walked=3 /);
+  assert.match(line, / enriched=2 /);
+  assert.match(line, / llmCalls=1 /);
+  assert.match(line, / totalMs=\d+ llmMs=\d+ findboligMs=\d+$/);
 });
