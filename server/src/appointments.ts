@@ -2,7 +2,7 @@ import type { Appointment, AppointmentDelta, CachedAppointmentEntry } from "@/ty
 import { nullUnlessConnectionEnded } from "~/lib/errors";
 import type { FindboligClient } from "~/lib/findbolig-client";
 import { mapAppointmentToDomain } from "~/lib/findbolig-domain";
-import type { AppointmentExtractor } from "~/lib/llm/appointment-extractor";
+import { EMPTY_DETAILS, showingContext, type AppointmentExtractor } from "~/lib/llm/appointment-extractor";
 import { gone, walkOfferListing, type ListingCursor, type ListingView } from "~/offer-listing";
 
 function isDateInPast(dateStr: string | null): boolean {
@@ -16,7 +16,8 @@ function isDateInPast(dateStr: string | null): boolean {
  * already has (`cached`) where possible:
  *  - a past appointment it has is echoed back as-is, with no upstream calls;
  *  - a thread with the same message count reuses the cached details, skipping the LLM;
- *  - anything else is extracted from the thread, falling back to the offer's showing text.
+ *  - anything else is extracted from the thread and the offer's showing text, in one LLM call
+ *    (none when neither says anything about a showing).
  * An offer with no residence or no thread is gone.
  */
 function appointmentsView(
@@ -28,17 +29,21 @@ function appointmentsView(
   const year = new Date().getFullYear().toString();
 
   return {
+    name: "appointments",
     belongs: (offer) => offer.state === "Finished" || offer.state === "Published",
-    async enrich(offer) {
-      if (!offer.residenceId) return gone;
+    async enrich(offer, { findbolig, llm }) {
+      const { residenceId } = offer;
+      if (!residenceId) return gone;
       const cachedEntry = cacheByOfferId.get(offer.id);
       if (cachedEntry && isDateInPast(cachedEntry.date)) return cachedEntry.appointment;
 
-      const [residence, thread, position] = await Promise.all([
-        client.getResidence(offer.residenceId),
-        client.getThreadForOffer(offer.id),
-        client.getPositionOnOffer(offer.id).catch(nullUnlessConnectionEnded),
-      ]);
+      const [residence, thread, position] = await findbolig(() =>
+        Promise.all([
+          client.getResidence(residenceId),
+          client.getThreadForOffer(offer.id),
+          client.getPositionOnOffer(offer.id).catch(nullUnlessConnectionEnded),
+        ]),
+      );
       if (!thread) return gone;
       const messageCount = thread.messages.length;
 
@@ -52,13 +57,8 @@ function appointmentsView(
         return mapAppointmentToDomain({ offer, residence, details, position, messageCount });
       }
 
-      let details = await extractor.fromThread(thread, year);
-      if (!details.date && offer.showingText) {
-        const showingDetails = await extractor.fromShowingText(offer.showingText, year);
-        if (showingDetails.date && (showingDetails.startTime || showingDetails.endTime)) {
-          details = showingDetails;
-        }
-      }
+      const context = showingContext(thread, offer.showingText);
+      const details = context ? await llm(() => extractor.extract(context, year)) : EMPTY_DETAILS;
       return mapAppointmentToDomain({ offer, residence, details, position, messageCount });
     },
   };

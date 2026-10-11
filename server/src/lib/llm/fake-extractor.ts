@@ -1,5 +1,4 @@
-import type { ApiMessageThreadFull } from "~/types/threads";
-import { EMPTY_DETAILS, type AppointmentDetails, type AppointmentExtractor } from "./appointment-extractor";
+import { EMPTY_DETAILS, type AppointmentDetails, type AppointmentExtractor, type ShowingContext } from "./appointment-extractor";
 
 /**
  * An extractor for tests: answers whatever `answer` returns (no details by default) and counts its
@@ -9,17 +8,11 @@ export class FakeExtractor implements AppointmentExtractor {
   calls = 0;
 
   constructor(
-    private readonly answer: (input: { thread?: ApiMessageThreadFull; showingText?: string }) => AppointmentDetails | Promise<AppointmentDetails> =
-      () => EMPTY_DETAILS,
+    private readonly answer: (context: ShowingContext) => AppointmentDetails | Promise<AppointmentDetails> = () => EMPTY_DETAILS,
   ) {}
 
-  async fromThread(thread: ApiMessageThreadFull): Promise<AppointmentDetails> {
+  async extract(context: ShowingContext): Promise<AppointmentDetails> {
     this.calls++;
-    return this.answer({ thread });
-  }
-
-  async fromShowingText(showingText: string): Promise<AppointmentDetails> {
-    this.calls++;
-    return this.answer({ showingText });
+    return this.answer(context);
   }
 }

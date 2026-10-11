@@ -1,8 +1,8 @@
 import { OpenAI } from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
-import type { ApiMessageThreadFull } from "~/types/threads";
-import { EMPTY_DETAILS, type AppointmentDetails, type AppointmentExtractor } from "./appointment-extractor";
+import { Limiter } from "~/lib/limiter";
+import { EMPTY_DETAILS, type AppointmentExtractor, type ShowingContext } from "./appointment-extractor";
 
 const AppointmentDetailsSchema = z.object({
   date: z
@@ -27,113 +27,59 @@ const AppointmentDetailsSchema = z.object({
     ),
 });
 
-const EXTRACTION_PROMPT = `Du er en dansk tekst-analysator. Ekstraher dato og tidspunkt for fremvisning eller åbent hus fra beskeden.
+/**
+ * How many LLM calls this server makes at once, across every Connection. Well above the
+ * per-Connection findbolig.nu limit so the LLM never becomes the bottleneck of a sync, yet capped
+ * so a full sync (or several at once) stays clear of the provider's rate limits.
+ */
+const LLM_CONCURRENCY = 16;
+const llmLimiter = new Limiter(LLM_CONCURRENCY);
+
+const EXTRACTION_PROMPT = `Du er en dansk tekst-analysator. Ekstraher dato og tidspunkt for en konkret planlagt fremvisning eller åbent hus.
+
+Du får to kilder:
+1. Beskeder fra udlejer om fremvisning eller åbent hus, ældste først
+2. Annoncens fremvisningstekst
 
 Vigtige regler:
-- Datoen SKAL formateres som YYYY-MM-DD (f.eks. 2025-12-15)
-- Starttiden SKAL formateres som HH:mm (f.eks. 16:00)
-- Sluttiden SKAL formateres som HH:mm (f.eks. 16:00)
-- Hvis der ikke findes nogen dato eller start- eller sluttid, returner en tom dato og tidspunkt
-- Hvis fremvisningen eller åbent hus er aflyst, returner cancelled som true, og date, startTime og endTime som tomme dato og tidspunkt
+- Beskederne vinder: brug kun fremvisningsteksten hvis beskederne ikke giver nogen dato, og fremvisningsteksten giver en konkret dato OG et tidspunkt
 - Hvis der er flere beskeder om fremvisning eller åbent hus, skal du bruge den seneste besked
-- Antag at året er {currentYear} hvis det ikke er specificeret`;
-
-async function callLLMForAppointmentDetails(
-  openai: OpenAI,
-  context: string,
-  currentYear: string,
-): Promise<AppointmentDetails> {
-  if (!context.trim()) {
-    return EMPTY_DETAILS;
-  }
-
-  const response = await openai.responses.parse({
-    model: "gpt-5-nano-2025-08-07",
-    instructions: EXTRACTION_PROMPT.replace("{currentYear}", currentYear),
-    input: `Ekstraher dato og tidspunkt fra følgende besked(er) om fremvisning/åbent hus:\n\n${context}`,
-    text: {
-      format: zodTextFormat(AppointmentDetailsSchema, "appointment_details"),
-    },
-  });
-
-  return response.output_parsed ?? EMPTY_DETAILS;
-}
-
-async function extractAppointmentDetailsWithLLM(
-  openai: OpenAI,
-  thread: ApiMessageThreadFull,
-  currentYear: string,
-) {
-  const messages = thread.messages.sort(
-    (a, b) => new Date(a.created).getTime() - new Date(b.created).getTime(),
-  );
-
-  // Remove all HTML tags from messages
-  const cleanMessages = messages.map((message) => ({
-    ...message,
-    body: message.body.replace(/<[^>]*>?/g, ""),
-  }));
-
-  // Filter out messages where sender.name is findbolig
-  const agentMessages = cleanMessages.filter(
-    (message) => message.sender?.name?.toLowerCase() !== "findbolig",
-  );
-
-  // Filter to messages about showings (åbent hus or fremvisning)
-  const showingMessages = agentMessages.filter((message) => {
-    const body = message.body.toLowerCase();
-    return body.includes("åbent hus") || body.includes("fremvisning");
-  });
-
-  if (showingMessages.length === 0) {
-    return EMPTY_DETAILS;
-  }
-
-  const context = showingMessages.map((message) => message.body).join("\n\n");
-
-  return callLLMForAppointmentDetails(openai, context, currentYear);
-}
-
-const SHOWING_TEXT_PROMPT = `Du er en dansk tekst-analysator. Ekstraher dato og tidspunkt for en konkret planlagt fremvisning eller åbent hus fra beskeden.
-
-Vigtige regler:
-- Du skal KUN returnere dato/tid hvis der er en konkret planlagt fremvisning med dato OG tidspunkt
+- Hvis fremvisningen eller åbent hus er aflyst, returner cancelled som true, og date, startTime og endTime som tomme værdier
 - Svarfrister (f.eks. "svarfrist for deltagelse er...") er IKKE fremvisningsdatoer - ignorer dem
-- Udlejningsdatoer (f.eks. "klar til udlejning pr...") er IKKE fremvisningsdatoer - ignorer dem
-- Hvis beskeden kun nævner at der VIL BLIVE indkaldt til åbent hus (fremtid/ubestemt), men ingen konkret dato og tid er fastsat, returner tomme værdier
+- Udlejnings- og indflytningsdatoer (f.eks. "klar til udlejning pr...") er IKKE fremvisningsdatoer - ignorer dem
+- Hvis der kun står at der VIL BLIVE indkaldt til åbent hus (fremtid/ubestemt), men ingen konkret dato og tid er fastsat, returner tomme værdier
 - Datoen SKAL formateres som YYYY-MM-DD (f.eks. 2025-12-15)
 - Starttiden SKAL formateres som HH:mm (f.eks. 16:00)
 - Sluttiden SKAL formateres som HH:mm (f.eks. 16:00)
-- Hvis der ikke er en konkret dato med tilhørende tidspunkt, returner tomme værdier for alle felter
+- Hvis der ikke findes nogen dato eller start- eller sluttid, returner tomme værdier for alle felter
 - Antag at året er {currentYear} hvis det ikke er specificeret`;
 
-async function extractAppointmentDetailsFromShowingText(
-  openai: OpenAI,
-  showingText: string,
-  currentYear: string,
-): Promise<AppointmentDetails> {
-  const cleanText = showingText.replace(/<[^>]*>?/g, "").trim();
-  if (!cleanText) {
-    return EMPTY_DETAILS;
-  }
-
-  const response = await openai.responses.parse({
-    model: "gpt-5-nano-2025-08-07",
-    instructions: SHOWING_TEXT_PROMPT.replace("{currentYear}", currentYear),
-    input: `Ekstraher dato og tidspunkt for en konkret planlagt fremvisning/åbent hus fra følgende tekst:\n\n${cleanText}`,
-    text: {
-      format: zodTextFormat(AppointmentDetailsSchema, "appointment_details"),
-    },
-  });
-
-  return response.output_parsed ?? EMPTY_DETAILS;
+function extractionInput({ messages, showingText }: ShowingContext): string {
+  return [
+    "Beskeder om fremvisning/åbent hus (ældste først):",
+    messages.length ? messages.join("\n\n") : "(ingen)",
+    "",
+    "Annoncens fremvisningstekst:",
+    showingText || "(ingen)",
+  ].join("\n");
 }
 
 /** The extractor production uses: OpenAI, reached with `apiKey`. */
 export function openAIExtractor(apiKey: string | undefined): AppointmentExtractor {
   const openai = new OpenAI({ apiKey });
   return {
-    fromThread: (thread, year) => extractAppointmentDetailsWithLLM(openai, thread, year),
-    fromShowingText: (showingText, year) => extractAppointmentDetailsFromShowingText(openai, showingText, year),
+    extract: (context, year) =>
+      llmLimiter.run(async () => {
+        const response = await openai.responses.parse({
+          model: "gpt-5-nano-2025-08-07",
+          reasoning: { effort: "minimal" },
+          instructions: EXTRACTION_PROMPT.replace("{currentYear}", year),
+          input: extractionInput(context),
+          text: {
+            format: zodTextFormat(AppointmentDetailsSchema, "appointment_details"),
+          },
+        });
+        return response.output_parsed ?? EMPTY_DETAILS;
+      }),
   };
 }
