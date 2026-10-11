@@ -14,17 +14,19 @@ export type AppointmentDetails = {
 export const EMPTY_DETAILS: AppointmentDetails = { date: "", startTime: "", endTime: "", cancelled: false };
 
 /**
- * The text a showing is read from: the thread's messages about a showing, oldest first, and the
- * offer's `showingText`. HTML is stripped from both; empty strings mean there was none.
+ * The one source a showing is read from, HTML stripped: the thread's messages about a showing,
+ * oldest first, or, when there are none, the offer's `showingText`. Never both: next to the
+ * thread, the showing text's generic wording ("indkaldes der til et åbent hus") made the LLM miss
+ * clear invitations in the thread.
  */
-export type ShowingContext = { messages: string[]; showingText: string };
+export type ShowingContext = { source: "thread"; messages: string[] } | { source: "showingText"; text: string };
 
 const stripHtml = (text: string) => text.replace(/<[^>]*>?/g, "").trim();
 
 /**
  * Picks out of `thread` and `showingText` what an extractor needs: the landlord's messages that
- * mention "åbent hus" or "fremvisning" (findbolig.nu's own notices left out), and the showing
- * text. Null when there is neither, so no LLM call is paid for.
+ * mention "åbent hus" or "fremvisning" (findbolig.nu's own notices left out) or, failing those,
+ * the showing text. Null when there is neither, so no LLM call is paid for.
  */
 export function showingContext(thread: ApiMessageThreadFull, showingText: string | null): ShowingContext | null {
   const messages = thread.messages
@@ -32,8 +34,9 @@ export function showingContext(thread: ApiMessageThreadFull, showingText: string
     .filter((message) => message.sender?.name?.toLowerCase() !== "findbolig")
     .map((message) => stripHtml(message.body))
     .filter((body) => body.toLowerCase().includes("åbent hus") || body.toLowerCase().includes("fremvisning"));
+  if (messages.length > 0) return { source: "thread", messages };
   const text = stripHtml(showingText ?? "");
-  return messages.length === 0 && !text ? null : { messages, showingText: text };
+  return text ? { source: "showingText", text } : null;
 }
 
 /**
@@ -42,10 +45,6 @@ export function showingContext(thread: ApiMessageThreadFull, showingText: string
  * listing walk counts as a failed enrichment (the cursor is withheld and the client asks again).
  */
 export interface AppointmentExtractor {
-  /**
-   * From the thread's showing messages and the offer's showing text together. The thread wins;
-   * the showing text counts only when the thread names no date and it gives a concrete date and
-   * time. `year` is assumed where the text leaves it out.
-   */
+  /** From the thread's showing messages or the offer's showing text. `year` is assumed where the text leaves it out. */
   extract(context: ShowingContext, year: string): Promise<AppointmentDetails>;
 }

@@ -142,7 +142,7 @@ test("a slow extractor doesn't hold back findbolig.nu fetches for other offers",
   assert.equal(extractor.calls, ENRICHMENT_CONCURRENCY + 3);
 });
 
-test("the thread and the showing text go to the extractor in one call", async () => {
+test("with showing messages in the thread, only the thread goes to the extractor, in one call", async () => {
   const client = await clientWithOneOffer(2, [{ ...OFFER, showingText: "<p>Åbent hus 5/6 kl. 12-13</p>" }]);
   const seen: ShowingContext[] = [];
   const extractor = new FakeExtractor((context) => (seen.push(context), extracted()));
@@ -150,7 +150,32 @@ test("the thread and the showing text go to the extractor in one call", async ()
   await getAppointmentUpdates(client, extractor, BEFORE, []);
 
   assert.equal(extractor.calls, 1);
-  assert.deepEqual(seen, [{ messages: ["Åbent hus 1/6 kl. 16-17", "Åbent hus 1/6 kl. 16-17"], showingText: "Åbent hus 5/6 kl. 12-13" }]);
+  assert.deepEqual(seen, [{ source: "thread", messages: ["Åbent hus 1/6 kl. 16-17", "Åbent hus 1/6 kl. 16-17"] }]);
+});
+
+for (const [what, answer, date] of [
+  ["a date and a time is kept", { date: "2099-07-01", startTime: "10:00", endTime: "", cancelled: false }, "2099-07-01"],
+  // A svarfrist or move-in date read as a showing: no time, so not a showing.
+  ["a date without a time is dropped", { date: "2099-07-01", startTime: "", endTime: "", cancelled: false }, null],
+  ["a cancellation without a date is dropped", { date: "", startTime: "", endTime: "", cancelled: true }, null],
+] as const) {
+  test(`from the showing text alone, ${what}`, async () => {
+    const client = await clientWithOneOffer(0, [{ ...OFFER, showingText: "Svarfrist for deltagelse i det åbne hus er: 12/10" }]);
+
+    const delta = await getAppointmentUpdates(client, new FakeExtractor(() => answer), BEFORE, []);
+
+    assert.equal(delta.items[0].date, date);
+    assert.equal(delta.items[0].cancelled, false);
+  });
+}
+
+test("from the thread, a date without a time is kept", async () => {
+  const client = await clientWithOneOffer(1);
+  const extractor = new FakeExtractor(() => ({ date: "2099-07-01", startTime: "", endTime: "", cancelled: false }));
+
+  const delta = await getAppointmentUpdates(client, extractor, BEFORE, []);
+
+  assert.equal(delta.items[0].date, "2099-07-01");
 });
 
 test("with no showing text and nothing about a showing in the thread, the extractor is not called", async () => {

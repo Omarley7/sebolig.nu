@@ -16,8 +16,9 @@ function isDateInPast(dateStr: string | null): boolean {
  * already has (`cached`) where possible:
  *  - a past appointment it has is echoed back as-is, with no upstream calls;
  *  - a thread with the same message count reuses the cached details, skipping the LLM;
- *  - anything else is extracted from the thread and the offer's showing text, in one LLM call
- *    (none when neither says anything about a showing).
+ *  - anything else is extracted in one LLM call from the thread or, when no message is about a
+ *    showing, the offer's showing text (no call when neither is). From the showing text, only a
+ *    date with a time counts: its svarfrist and move-in dates are never showings.
  * An offer with no residence or no thread is gone.
  */
 function appointmentsView(
@@ -58,7 +59,10 @@ function appointmentsView(
       }
 
       const context = showingContext(thread, offer.showingText);
-      const details = context ? await llm(() => extractor.extract(context, year)) : EMPTY_DETAILS;
+      let details = context ? await llm(() => extractor.extract(context, year)) : EMPTY_DETAILS;
+      if (context?.source === "showingText" && !(details.date && (details.startTime || details.endTime))) {
+        details = EMPTY_DETAILS;
+      }
       return mapAppointmentToDomain({ offer, residence, details, position, messageCount });
     },
   };

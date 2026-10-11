@@ -37,12 +37,12 @@ const llmLimiter = new Limiter(LLM_CONCURRENCY);
 
 const EXTRACTION_PROMPT = `Du er en dansk tekst-analysator. Ekstraher dato og tidspunkt for en konkret planlagt fremvisning eller åbent hus.
 
-Du får to kilder:
+Du får én af to kilder:
 1. Beskeder fra udlejer om fremvisning eller åbent hus, ældste først
 2. Annoncens fremvisningstekst
 
 Vigtige regler:
-- Beskederne vinder: brug kun fremvisningsteksten hvis beskederne ikke giver nogen dato, og fremvisningsteksten giver en konkret dato OG et tidspunkt
+- Fremvisningsteksten tæller kun hvis den giver en konkret dato OG et tidspunkt
 - Hvis der er flere beskeder om fremvisning eller åbent hus, skal du bruge den seneste besked
 - Hvis fremvisningen eller åbent hus er aflyst, returner cancelled som true, og date, startTime og endTime som tomme værdier
 - Svarfrister (f.eks. "svarfrist for deltagelse er...") er IKKE fremvisningsdatoer - ignorer dem
@@ -54,13 +54,13 @@ Vigtige regler:
 - Hvis der ikke findes nogen dato eller start- eller sluttid, returner tomme værdier for alle felter
 - Antag at året er {currentYear} hvis det ikke er specificeret`;
 
-function extractionInput({ messages, showingText }: ShowingContext): string {
+function extractionInput(context: ShowingContext): string {
   return [
     "Beskeder om fremvisning/åbent hus (ældste først):",
-    messages.length ? messages.join("\n\n") : "(ingen)",
+    context.source === "thread" ? context.messages.join("\n\n") : "(ingen)",
     "",
     "Annoncens fremvisningstekst:",
-    showingText || "(ingen)",
+    context.source === "showingText" ? context.text : "(ingen)",
   ].join("\n");
 }
 
@@ -72,7 +72,9 @@ export function openAIExtractor(apiKey: string | undefined): AppointmentExtracto
       llmLimiter.run(async () => {
         const response = await openai.responses.parse({
           model: "gpt-5-nano-2025-08-07",
-          reasoning: { effort: "minimal" },
+          // Not "minimal": on real listings it read svarfrist and move-in dates as showings and
+          // made up times (00:00-23:59), where "low" got them right. See #77.
+          reasoning: { effort: "low" },
           instructions: EXTRACTION_PROMPT.replace("{currentYear}", year),
           input: extractionInput(context),
           text: {

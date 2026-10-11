@@ -26,7 +26,7 @@ test("keeps only showing-related messages from the landlord, oldest first, with 
     null,
   );
 
-  assert.deepEqual(context, { messages: ["Åbent hus 1/6 kl. 16-17", "Ny tid: fremvisning 3/6 kl. 10"], showingText: "" });
+  assert.deepEqual(context, { source: "thread", messages: ["Åbent hus 1/6 kl. 16-17", "Ny tid: fremvisning 3/6 kl. 10"] });
 });
 
 test("does not reorder the thread it was given", () => {
@@ -40,10 +40,16 @@ test("does not reorder the thread it was given", () => {
   assert.deepEqual(given.messages.map((m) => m.id), ["late", "early"]);
 });
 
-test("carries the offer's showing text, HTML stripped, next to the thread", () => {
+test("falls back to the offer's showing text, HTML stripped, when no message is about a showing", () => {
   const context = showingContext(thread([{ body: "Tak for din ansøgning" }]), "<p>Åbent hus 5/6 kl. 12-13</p>");
 
-  assert.deepEqual(context, { messages: [], showingText: "Åbent hus 5/6 kl. 12-13" });
+  assert.deepEqual(context, { source: "showingText", text: "Åbent hus 5/6 kl. 12-13" });
+});
+
+test("leaves the showing text out when the thread has messages about a showing: the thread wins", () => {
+  const context = showingContext(thread([{ body: "Åbent hus 1/6 kl. 16-17" }]), "Svarfrist for deltagelse i det åbne hus er: 12/10");
+
+  assert.deepEqual(context, { source: "thread", messages: ["Åbent hus 1/6 kl. 16-17"] });
 });
 
 test("is null when there is neither relevant thread text nor showing text, so the LLM is not called", () => {
