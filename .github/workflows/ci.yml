@@ -1,0 +1,51 @@
+# Runs on every PR and push to main. Merging to main deploys (Cloud Build trigger),
+# so `checks` is meant to be a required status check on main.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # The same Node as production: Cloud Run's buildpack reads engines.node too.
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: package.json
+          cache: npm
+
+      - name: Only npm's lockfile
+        run: |
+          if [ -e pnpm-lock.yaml ] || [ -e yarn.lock ]; then
+            echo "::error::This repo uses npm; commit package-lock.json only."
+            exit 1
+          fi
+
+      - name: No local-only patches
+        run: |
+          # Real-account runs mark throwaway patches LOCAL-ONLY; they may hold personal data.
+          if git grep -n "LOCAL-ONLY" -- . ':!.github/workflows/ci.yml'; then
+            echo "::error::A LOCAL-ONLY patch was committed."
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - name: Server typecheck
+        run: npm run typecheck --workspace=server
+      - name: Server tests
+        run: npm test --workspace=server
+
+      - name: Client typecheck
+        run: npx vue-tsc --noEmit
+        working-directory: client
+      - name: Client tests
+        run: npm test --workspace=client
+      - name: Client build
+        run: npx vite build
+        working-directory: client
