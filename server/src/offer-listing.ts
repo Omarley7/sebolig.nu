@@ -2,7 +2,7 @@ import type { Delta } from "@/types";
 import { ConnectionEnded, UpstreamError } from "~/lib/errors";
 import type { FindboligClient } from "~/lib/findbolig-client";
 import { limitedFor } from "~/lib/limiter";
-import type { ApiOffer } from "~/types/offers";
+import type { ApiOffer, ApiOffersPage } from "~/types/offers";
 
 /**
  * Walking findbolig.nu's offer listing, the one source of both offers and appointments.
@@ -14,7 +14,13 @@ import type { ApiOffer } from "~/types/offers";
  * in `sinceIds`, so offers sharing one timestamp are told apart by id, not by fetch order, which
  * findbolig.nu does not keep stable. The walk hands out the next cursor as `latestUpdated` (the
  * newest `updated` in the listing) and `latestUpdatedIds` (every offer at that value). A walk
- * with no cursor is a full fetch: it walks the whole listing and hands out a cursor the same way.
+ * with no cursor is a full sync: it walks the whole listing and hands out a cursor the same way.
+ *
+ * ## Paging
+ * Both page by `totalResults`, so no change is silently lost. A delta fetches one page at a time
+ * and stops at the cursor. A full sync fetches page 0 for `totalResults`, then every other page
+ * at once. Listing pages are findbolig.nu calls, so they run under the Connection's limit too,
+ * and a failing page fails the walk.
  *
  * ## The failure rule
  * Each changed offer that belongs in the view is enriched, with one of three outcomes:
@@ -35,9 +41,11 @@ import type { ApiOffer } from "~/types/offers";
  *
  * ## The summary line
  * Each walk logs one line: offers walked (changed since the cursor), offers enriched (that fetched
- * from findbolig.nu), LLM calls, and total, summed LLM (including any wait for the server's LLM
- * cap) and summed findbolig.nu milliseconds. Counts and timings only, never anything about the
- * offers themselves.
+ * from findbolig.nu), LLM calls, listing pages fetched, then milliseconds: the listing phase (wall
+ * time), the enrichment phase (wall time from the end of the listing until the last enrichment
+ * settles, the critical path through findbolig.nu and the slowest LLM call), the total, summed LLM
+ * (including any wait for the server's LLM cap) and summed findbolig.nu. Counts and timings only,
+ * never anything about the offers themselves.
  */
 
 /** Page size for walking the listing. */
@@ -77,15 +85,32 @@ export async function walkOfferListing<T>(
   view: ListingView<T>,
 ): Promise<Delta<T>> {
   const startedAt = performance.now();
-  const stats = { walked: 0, enriched: 0, llmCalls: 0, llmMs: 0, findboligMs: 0 };
-  const timed = async <R>(task: () => Promise<R>, add: (ms: number) => void): Promise<R> => {
+  const stats = {
+    walked: 0,
+    enriched: 0,
+    llmCalls: 0,
+    listingPages: 0,
+    listingMs: 0,
+    enrichMs: 0,
+    llmMs: 0,
+    findboligMs: 0,
+  };
+  const timed = async <R>(task: () => Promise<R>, record: (ms: number) => void): Promise<R> => {
     const start = performance.now();
     try {
       return await task();
     } finally {
-      add(performance.now() - start);
+      record(performance.now() - start);
     }
   };
+  const fetchListingPage = (page: number) =>
+    limitedFor(client, () => {
+      stats.listingPages++;
+      return timed(
+        () => client.searchOffers({ page, pageSize: DELTA_PAGE_SIZE, orderBy: "updated", orderDirection: "desc" }),
+        (ms) => (stats.findboligMs += ms),
+      );
+    });
 
   let ended: ConnectionEnded | null = null;
   const tools: EnrichTools = {
@@ -101,8 +126,8 @@ export async function walkOfferListing<T>(
 
   try {
     const { changed, latestUpdated, latestUpdatedIds } = await timed(
-      () => collectChanged(client, cursor),
-      (ms) => (stats.findboligMs += ms),
+      () => collectChanged(cursor, fetchListingPage),
+      (ms) => (stats.listingMs = ms),
     );
 
     const belonging = changed.filter((offer) => view.belongs(offer));
@@ -124,7 +149,10 @@ export async function walkOfferListing<T>(
         return { kind: "failed" };
       }
     };
-    const outcomes = await Promise.all(belonging.map(enrich));
+    const outcomes = await timed(
+      () => Promise.all(belonging.map(enrich)),
+      (ms) => (stats.enrichMs = ms),
+    );
     if (ended) throw ended;
 
     const items: T[] = [];
@@ -142,39 +170,32 @@ export async function walkOfferListing<T>(
     const ms = (n: number) => Math.round(n);
     console.info(
       `[walk] ${view.name} ${cursor ? "delta" : "sync"} walked=${stats.walked} enriched=${stats.enriched} ` +
-        `llmCalls=${stats.llmCalls} totalMs=${ms(performance.now() - startedAt)} ` +
+        `llmCalls=${stats.llmCalls} listingPages=${stats.listingPages} listingMs=${ms(stats.listingMs)} ` +
+        `enrichMs=${ms(stats.enrichMs)} totalMs=${ms(performance.now() - startedAt)} ` +
         `llmMs=${ms(stats.llmMs)} findboligMs=${ms(stats.findboligMs)}`,
     );
   }
 }
 
-/**
- * Pages through the listing until it reaches offers older than the cursor, or its end. Pages by
- * `totalResults` rather than trusting one page, so a busy account (or one not checked in a while)
- * doesn't silently lose changes.
- */
-async function collectChanged(client: FindboligClient, cursor: ListingCursor | null) {
+/** Collects what changed in the listing since the cursor, paging by the paging rule above. */
+async function collectChanged(cursor: ListingCursor | null, fetchPage: (page: number) => Promise<ApiOffersPage>) {
   const sinceMs = cursor ? new Date(cursor.since).getTime() : -Infinity;
   const sinceIds = new Set(cursor?.sinceIds ?? []);
   const changed: ApiOffer[] = [];
   const seen = new Set<string>();
-  let latestUpdated: string | null = null;
   const latestUpdatedIds: string[] = [];
+  const pageCount = ({ totalResults }: ApiOffersPage) => Math.ceil(totalResults / DELTA_PAGE_SIZE);
+
+  const first = await fetchPage(0);
+  const latestUpdated = first.results[0]?.updated ?? null;
   const done = () => ({ changed, latestUpdated, latestUpdatedIds });
 
-  for (let page = 0; ; page++) {
-    const { results, totalResults } = await client.searchOffers({
-      page,
-      pageSize: DELTA_PAGE_SIZE,
-      orderBy: "updated",
-      orderDirection: "desc",
-    });
-    if (page === 0) latestUpdated = results[0]?.updated ?? null;
-
+  /** Collects one page's changed offers; false once it reaches an offer older than the cursor. */
+  const collectPage = ({ results }: ApiOffersPage): boolean => {
     for (const offer of results) {
       const offerMs = new Date(offer.updated).getTime();
       // Sorted desc: once one is this old, everything after it is too.
-      if (offerMs < sinceMs) return done();
+      if (offerMs < sinceMs) return false;
 
       if (offer.updated === latestUpdated) latestUpdatedIds.push(offer.id);
 
@@ -184,7 +205,19 @@ async function collectChanged(client: FindboligClient, cursor: ListingCursor | n
         changed.push(offer);
       }
     }
+    return true;
+  };
 
-    if (results.length === 0 || (page + 1) * DELTA_PAGE_SIZE >= totalResults) return done();
+  if (!cursor) {
+    // No cursor, so no offer is older than it: every page is collected in full.
+    const rest = await Promise.all(Array.from({ length: pageCount(first) - 1 }, (_, i) => fetchPage(i + 1)));
+    [first, ...rest].forEach(collectPage);
+    return done();
   }
+
+  let page = first;
+  for (let next = 1; collectPage(page) && page.results.length > 0 && next < pageCount(page); next++) {
+    page = await fetchPage(next);
+  }
+  return done();
 }

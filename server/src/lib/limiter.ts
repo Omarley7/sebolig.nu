@@ -2,7 +2,8 @@ import type { FindboligClient } from "./findbolig-client";
 
 /**
  * How many offers one Connection may have fetching from findbolig.nu at once (each makes a few
- * findbolig.nu calls of its own). Only those calls hold a slot, not the LLM work that follows them.
+ * findbolig.nu calls of its own), counting listing pages as one each. Only findbolig.nu calls hold
+ * a slot, not the LLM work that follows them.
  * A deliberate ceiling, out of caution towards findbolig.nu.
  * Shared by every request on that Connection (offers, appointments and waiting lists load
  * together), not per request.
