@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "description": "SeBolig monorepo",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "build": "npm run build:client",
     "build:client": "npm run build --workspace=client",
