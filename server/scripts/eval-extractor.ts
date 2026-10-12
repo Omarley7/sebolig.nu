@@ -19,8 +19,10 @@
  *   }
  *
  * `expected` is filled in by hand; fixtures where it is still null are skipped. Every answer goes
- * through `acceptedDetails`, as in production, and for the current prompt it is also graded with
- * the quote check off, to show what the check removes.
+ * through `acceptedDetails`, as in production. To measure each fix on its own there are three
+ * prompts: `baseline` (#77's), `year` (production's without the quote rule; graded with the quote
+ * check off) and `current` (production's), also graded with the quote check off to show what the
+ * check removes.
  *
  * Keys come from `server/.env`: OPENAI_API_KEY, and OPENROUTER_API_KEY for `--openrouter`
  * candidates. OpenRouter is for this eval only: paid models, providers that neither keep nor train
@@ -41,7 +43,7 @@ import {
   type ExtractedDetails,
   type ShowingContext,
 } from "~/lib/llm/appointment-extractor";
-import { extractionRequest, ExtractedDetailsSchema, PRODUCTION_MODEL } from "~/lib/llm/openai-extractor";
+import { extractionRequest, ExtractedDetailsSchema, PRODUCTION_MODEL, QUOTE_RULE } from "~/lib/llm/openai-extractor";
 import { grade, summarize, type Grade, type Run } from "./eval-scoring";
 
 type Fixture = {
@@ -57,8 +59,8 @@ type Request = { instructions: string; input: string };
 type Answer = { answer: ExtractedDetails; inputTokens: number; outputTokens: number };
 type Candidate = {
   name: string;
-  /** `baseline` is the #77 prompt, frozen below; `current` is production's. */
-  prompt: "baseline" | "current";
+  /** `baseline` is the #77 prompt, frozen below; `year` is production's without the quote rule; `current` is production's. */
+  prompt: "baseline" | "year" | "current";
   openrouter?: boolean;
   call: (request: Request) => Promise<Answer>;
 };
@@ -94,6 +96,12 @@ function baselineRequest(context: ShowingContext, today: string): Request {
       context.source === "showingText" ? context.text : "(ingen)",
     ].join("\n"),
   };
+}
+
+function request(prompt: Candidate["prompt"], context: ShowingContext, today: string): Request {
+  if (prompt === "baseline") return baselineRequest(context, today);
+  const current = extractionRequest(context, today);
+  return prompt === "current" ? current : { ...current, instructions: current.instructions.replace(`\n${QUOTE_RULE}`, "") };
 }
 
 function openAICandidate(name: string, prompt: Candidate["prompt"], model: string, effort: OpenAI.ReasoningEffort): Candidate {
@@ -145,7 +153,8 @@ function openRouterCandidate(name: string, model: string, provider: string, effo
       };
       const response = await openrouter.chat.completions.parse(body as Parameters<typeof openrouter.chat.completions.parse>[0]);
       const parsed = response.choices[0]?.message.parsed;
-      if (!parsed) throw new Error(`no parsed output: ${response.choices[0]?.message.content?.slice(0, 80) ?? "empty"}`);
+      // Not the content itself: it may quote the message.
+      if (!parsed) throw new Error(`no parsed output (finish_reason ${response.choices[0]?.finish_reason ?? "none"})`);
       return {
         answer: parsed as ExtractedDetails,
         inputTokens: response.usage?.prompt_tokens ?? 0,
@@ -158,6 +167,7 @@ function openRouterCandidate(name: string, model: string, provider: string, effo
 // Model ids for OpenRouter: check https://openrouter.ai/models before a run.
 const CANDIDATES: Candidate[] = [
   openAICandidate("baseline: gpt-5-nano low", "baseline", PRODUCTION_MODEL.model, "low"),
+  openAICandidate("year: gpt-5-nano low", "year", PRODUCTION_MODEL.model, "low"),
   openAICandidate("gpt-5-nano low", "current", PRODUCTION_MODEL.model, "low"),
   openAICandidate("gpt-6-luna none", "current", "gpt-6-luna", "none"),
   openAICandidate("gpt-6-luna low", "current", "gpt-6-luna", "low"),
@@ -205,20 +215,17 @@ async function main() {
     const lines = await Promise.all(
       fixtures.map(async (fixture) => {
         const expected = fixture.expected!;
-        const request =
-          candidate.prompt === "baseline"
-            ? baselineRequest(fixture.context, fixture.collected)
-            : extractionRequest(fixture.context, fixture.collected);
+        const req = request(candidate.prompt, fixture.context, fixture.collected);
         const results = await Promise.all(
           Array.from({ length: runs }, () =>
             limiter.run(async () => {
               const started = performance.now();
               try {
-                const { answer, inputTokens, outputTokens } = await candidate.call(request);
+                const { answer, inputTokens, outputTokens } = await candidate.call(req);
                 const ms = Math.round(performance.now() - started);
-                // The baseline has no quote; for the current prompt, also grade with the check off.
+                // Only the current prompt asks for a quote; it is also graded with the check off.
                 const unchecked = acceptedDetails(fixture.context, { ...answer, quote: contextText(fixture.context) });
-                const got = candidate.prompt === "baseline" ? unchecked : acceptedDetails(fixture.context, answer);
+                const got = candidate.prompt === "current" ? acceptedDetails(fixture.context, answer) : unchecked;
                 const g = grade(expected, got);
                 const gUnchecked = grade(expected, unchecked);
                 if (g !== gUnchecked && (gUnchecked === "correct" || gUnchecked === "wrong")) quoteDropped[gUnchecked]++;
@@ -243,11 +250,10 @@ async function main() {
     const s = summarize(checked);
     console.log(`${candidate.name}: ${s.correct}/${s.runs} correct, ${s.wrong} wrong, ${s.miss} miss, ${s.error} error`);
     if (candidate.prompt === "current") {
-      console.log(`  quote check dropped ${quoteDropped.wrong} wrong and ${quoteDropped.correct} correct answers`);
+      console.log(`  quote check turned ${quoteDropped.wrong} wrong answers into misses and dropped ${quoteDropped.correct} correct ones`);
     }
-    if (values.cases) console.log(lines.join("\n"));
-    else console.log(lines.filter((line) => !/^ {2}✓+ /.test(line)).join("\n"));
-    console.log();
+    const shown = values.cases ? lines : lines.filter((line) => !/^ {2}✓+ /.test(line));
+    console.log([...shown, ""].join("\n"));
     table.push(
       `| ${candidate.name} | ${s.correct}/${s.runs} | ${s.wrong} | ${s.miss} | ${s.error} | ${s.p50Ms} | ${s.p95Ms} | ${s.meanInputTokens} / ${s.meanOutputTokens} |`,
     );
@@ -256,6 +262,7 @@ async function main() {
   console.log("| candidate | correct | wrong | miss | error | p50 ms | p95 ms | tokens in / out |");
   console.log("|---|---|---|---|---|---|---|---|");
   console.log(table.join("\n"));
+  console.log(`\nLatency with up to ${CONCURRENCY} calls in flight per candidate: for ranking, not absolute.`);
 }
 
 await main();

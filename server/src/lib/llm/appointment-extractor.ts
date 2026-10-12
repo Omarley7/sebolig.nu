@@ -16,6 +16,8 @@ export const EMPTY_DETAILS: AppointmentDetails = { date: "", startTime: "", endT
 /** An extractor's answer: the details plus `quote`, the exact text of the input the date was read from. */
 export type ExtractedDetails = AppointmentDetails & { quote: string };
 
+export const EMPTY_ANSWER: ExtractedDetails = { ...EMPTY_DETAILS, quote: "" };
+
 /** A landlord's message, HTML stripped. `sent` (YYYY-MM-DD, Danish time) settles the year of "3/1" or "i morgen". */
 export type ShowingMessage = { sent: string; text: string };
 
@@ -27,9 +29,23 @@ export type ShowingMessage = { sent: string; text: string };
  */
 export type ShowingContext = { source: "thread"; messages: ShowingMessage[] } | { source: "showingText"; text: string };
 
-const stripHtml = (text: string) => text.replace(/<[^>]*>?/g, "").trim();
+// The named entities findbolig.nu's messages use; anything else numeric is decoded by number.
+const ENTITIES: Record<string, string> = {
+  nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
+  aelig: "æ", oslash: "ø", aring: "å", AElig: "Æ", Oslash: "Ø", Aring: "Å",
+};
 
-/** The date in Denmark, YYYY-MM-DD, of an ISO timestamp. */
+const stripHtml = (text: string) =>
+  text
+    .replace(/<[^>]*>?/g, "")
+    .replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (entity, name: string) => {
+      if (name[0] !== "#") return ENTITIES[name] ?? entity;
+      const code = name[1].toLowerCase() === "x" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+      return code <= 0x10ffff ? String.fromCodePoint(code) : entity;
+    })
+    .trim();
+
+/** The date in Denmark, YYYY-MM-DD, of a moment: a `Date` or an ISO timestamp. */
 export const danishDate = (iso: string | Date) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Europe/Copenhagen" });
 
 /**
@@ -57,14 +73,16 @@ export const contextText = (context: ShowingContext) =>
 /**
  * What of an extractor's answer is trusted, for production and the eval harness alike:
  *  - a date counts only when its `quote` appears in the input (case and whitespace aside), so a
- *    date the model made up is dropped. It can only remove answers, never add one;
+ *    date the model made up is dropped (a cancellation stands). It can only remove, never add;
  *  - from the showing text, only a date with a time counts: its svarfrist and move-in dates are
  *    never showings, and it never cancels anything.
  */
 export function acceptedDetails(context: ShowingContext, answer: ExtractedDetails): AppointmentDetails {
   const { quote, ...details } = answer;
   const input = normalized(contextText(context));
-  if (details.date && !(normalized(quote) && input.includes(normalized(quote)))) return EMPTY_DETAILS;
+  if (details.date && !(normalized(quote) && input.includes(normalized(quote)))) {
+    return { ...EMPTY_DETAILS, cancelled: context.source === "thread" && details.cancelled };
+  }
   if (context.source === "showingText" && !(details.date && (details.startTime || details.endTime))) return EMPTY_DETAILS;
   return details;
 }

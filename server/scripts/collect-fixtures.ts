@@ -15,6 +15,7 @@ import "~/lib/tls-setup";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
+import { Writable } from "node:stream";
 import { isDeepStrictEqual } from "node:util";
 import { FindboligClient } from "~/lib/findbolig-client";
 import { httpTransport } from "~/lib/http-transport";
@@ -23,13 +24,21 @@ import { danishDate, showingContext } from "~/lib/llm/appointment-extractor";
 
 const DIR = join(import.meta.dirname, "../../.scratch/extractor-fixtures");
 
+/** Reads a line from the terminal; `hidden` keeps what is typed off the screen. */
+async function ask(question: string, hidden = false) {
+  process.stdout.write(question);
+  const output = hidden ? new Writable({ write: (_chunk, _encoding, done) => done() }) : process.stdout;
+  const rl = createInterface({ input: process.stdin, output, terminal: true });
+  const answer = await rl.question("");
+  rl.close();
+  if (hidden) process.stdout.write("\n");
+  return answer;
+}
+
 async function credentials() {
   let { FINDBOLIG_EMAIL: email, FINDBOLIG_PASSWORD: password } = process.env;
-  if (email && password) return { email, password };
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  email ||= await rl.question("findbolig.nu email: ");
-  password ||= await rl.question("findbolig.nu password (shown as typed): ");
-  rl.close();
+  email ||= await ask("findbolig.nu email: ");
+  password ||= await ask("findbolig.nu password: ", true);
   return { email, password };
 }
 

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import type { ApiMessage, ApiMessageThreadFull } from "~/types/threads";
-import { acceptedDetails, EMPTY_DETAILS, showingContext, type ShowingContext } from "./appointment-extractor";
+import { acceptedDetails, EMPTY_ANSWER, EMPTY_DETAILS, showingContext, type ShowingContext } from "./appointment-extractor";
 
 function thread(messages: Partial<ApiMessage>[]): ApiMessageThreadFull {
   return {
@@ -41,6 +41,12 @@ test("a message's sent date is the date in Denmark, not in UTC", () => {
   assert.deepEqual(context, { source: "thread", messages: [{ sent: "2027-01-01", text: "Åbent hus 3/1 kl. 12" }] });
 });
 
+test("decodes HTML entities, so a quote copied from the decoded text still matches", () => {
+  const context = showingContext(thread([{ body: "<p>&Aring;bent&nbsp;hus 3/6 kl. 10 &amp; 11 &#8211; &quot;vel m&oslash;dt&quot;</p>" }]), null);
+
+  assert.deepEqual(context, { source: "thread", messages: [{ sent: "2026-01-01", text: "Åbent hus 3/6 kl. 10 & 11 – \"vel mødt\"" }] });
+});
+
 test("does not reorder the thread it was given", () => {
   const given = thread([
     { id: "late", body: "fremvisning", created: "2026-01-02T00:00:00.000Z" },
@@ -71,7 +77,7 @@ test("is null when there is neither relevant thread text nor showing text, so th
 
 const THREAD: ShowingContext = { source: "thread", messages: [{ sent: "2026-05-20", text: "Der er åbent hus d. 1/6 kl. 16-17.\nVel mødt" }] };
 const SHOWING_TEXT: ShowingContext = { source: "showingText", text: "Åbent hus 5/6 kl. 12-13. Svarfrist 1/6" };
-const answer = (fields: Partial<Parameters<typeof acceptedDetails>[1]>) => ({ ...EMPTY_DETAILS, quote: "", ...fields });
+const answer = (fields: Partial<typeof EMPTY_ANSWER>) => ({ ...EMPTY_ANSWER, ...fields });
 
 test("an answer whose quote appears in the thread is accepted, without the quote", () => {
   const details = acceptedDetails(THREAD, answer({ date: "2026-06-01", startTime: "16:00", endTime: "17:00", quote: "åbent hus d. 1/6 kl. 16-17" }));
@@ -88,6 +94,10 @@ test("the quote check ignores case and differences in whitespace", () => {
 test("a date whose quote is not in the input is dropped: the model made it up", () => {
   assert.deepEqual(acceptedDetails(THREAD, answer({ date: "2026-06-02", startTime: "10:00", quote: "åbent hus 2/6 kl. 10" })), EMPTY_DETAILS);
   assert.deepEqual(acceptedDetails(THREAD, answer({ date: "2026-06-01", startTime: "16:00", quote: "" })), EMPTY_DETAILS);
+});
+
+test("a cancellation from the thread stands even when its date is dropped for want of a quote", () => {
+  assert.deepEqual(acceptedDetails(THREAD, answer({ date: "2026-06-02", cancelled: true, quote: "aflyst 2/6" })), { ...EMPTY_DETAILS, cancelled: true });
 });
 
 test("a cancellation without a date from the thread needs no quote", () => {

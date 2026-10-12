@@ -192,10 +192,13 @@ test("the extractor is told today's date in Denmark", async () => {
   const client = await clientWithOneOffer(1);
   let told = "";
   const extractor = { extract: async (_: ShowingContext, today: string) => ((told = today), extracted()) };
+  const dayInDenmark = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Copenhagen" });
 
+  const before = dayInDenmark();
   await getAppointmentUpdates(client, extractor, BEFORE, []);
 
-  assert.equal(told, new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Copenhagen" }));
+  // Either side of midnight, should the test run across it.
+  assert.ok([before, dayInDenmark()].includes(told), told);
 });
 
 test("with no showing text and nothing about a showing in the thread, the extractor is not called", async () => {
