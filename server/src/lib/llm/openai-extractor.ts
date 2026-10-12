@@ -60,7 +60,8 @@ Vigtige regler:
 - Hvis året ikke står, så vælg det år der lægger fremvisningen på eller efter den dag beskeden blev sendt (for fremvisningsteksten: i dag). En besked sendt 2026-12-28 om "åbent hus d. 3/1" betyder 2027-01-03. Det samme gælder "i morgen", "på tirsdag" o.l.`;
 
 /** The rule asking for `quote`; the eval harness leaves it out to measure the year fix on its own. */
-export const QUOTE_RULE = "- Kopier i quote den nøjagtige tekst som datoen står i, tegn for tegn som i kilden";
+export const QUOTE_RULE =
+  '- Kopier i quote den nøjagtige tekst fra beskeden eller fremvisningsteksten som datoen står i (eller "i morgen", "på tirsdag" o.l.), tegn for tegn. Aldrig "Sendt"-linjen';
 
 /** The instructions and input one extraction sends, for production and the eval harness alike. */
 export function extractionRequest(context: ShowingContext, today: string) {
@@ -72,8 +73,13 @@ export function extractionRequest(context: ShowingContext, today: string) {
   return { instructions, input };
 }
 
-/** What production runs. Not "minimal": on real listings it read svarfrist and move-in dates as showings (#77). */
-export const PRODUCTION_MODEL = { model: "gpt-5-nano-2025-08-07", effort: "low" } satisfies { model: string; effort: OpenAI.ReasoningEffort };
+/**
+ * What production runs: the fastest candidate correct on every eval fixture (#78), at about half
+ * gpt-5-nano's latency. No dated snapshot exists, so the alias may move: re-run the eval when it
+ * does. (gpt-5-nano needed "low", not "minimal", which read svarfrist and move-in dates as
+ * showings; see #77.)
+ */
+export const PRODUCTION_MODEL = { model: "gpt-6-luna", effort: "none" } satisfies { model: string; effort: OpenAI.ReasoningEffort };
 
 /** The extractor production uses: OpenAI, reached with `apiKey`. */
 export function openAIExtractor(apiKey: string | undefined): AppointmentExtractor {

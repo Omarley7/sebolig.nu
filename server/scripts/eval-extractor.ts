@@ -43,7 +43,7 @@ import {
   type ExtractedDetails,
   type ShowingContext,
 } from "~/lib/llm/appointment-extractor";
-import { extractionRequest, ExtractedDetailsSchema, PRODUCTION_MODEL, QUOTE_RULE } from "~/lib/llm/openai-extractor";
+import { extractionRequest, ExtractedDetailsSchema, QUOTE_RULE } from "~/lib/llm/openai-extractor";
 import { grade, summarize, type Grade, type Run } from "./eval-scoring";
 
 type Fixture = {
@@ -166,9 +166,9 @@ function openRouterCandidate(name: string, model: string, provider: string, effo
 
 // Model ids for OpenRouter: check https://openrouter.ai/models before a run.
 const CANDIDATES: Candidate[] = [
-  openAICandidate("baseline: gpt-5-nano low", "baseline", PRODUCTION_MODEL.model, "low"),
-  openAICandidate("year: gpt-5-nano low", "year", PRODUCTION_MODEL.model, "low"),
-  openAICandidate("gpt-5-nano low", "current", PRODUCTION_MODEL.model, "low"),
+  openAICandidate("baseline: gpt-5-nano low", "baseline", "gpt-5-nano-2025-08-07", "low"),
+  openAICandidate("year: gpt-5-nano low", "year", "gpt-5-nano-2025-08-07", "low"),
+  openAICandidate("gpt-5-nano low", "current", "gpt-5-nano-2025-08-07", "low"),
   openAICandidate("gpt-6-luna none", "current", "gpt-6-luna", "none"),
   openAICandidate("gpt-6-luna low", "current", "gpt-6-luna", "low"),
   openRouterCandidate("haiku-5.5 (OR)", "anthropic/claude-haiku-5.5", "anthropic"),
