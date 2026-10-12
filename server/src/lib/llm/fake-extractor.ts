@@ -1,4 +1,4 @@
-import { EMPTY_DETAILS, type AppointmentDetails, type AppointmentExtractor, type ShowingContext } from "./appointment-extractor";
+import { EMPTY_DETAILS, type AppointmentExtractor, type ExtractedDetails, type ShowingContext } from "./appointment-extractor";
 
 /**
  * An extractor for tests: answers whatever `answer` returns (no details by default) and counts its
@@ -8,10 +8,10 @@ export class FakeExtractor implements AppointmentExtractor {
   calls = 0;
 
   constructor(
-    private readonly answer: (context: ShowingContext) => AppointmentDetails | Promise<AppointmentDetails> = () => EMPTY_DETAILS,
+    private readonly answer: (context: ShowingContext) => ExtractedDetails | Promise<ExtractedDetails> = () => ({ ...EMPTY_DETAILS, quote: "" }),
   ) {}
 
-  async extract(context: ShowingContext): Promise<AppointmentDetails> {
+  async extract(context: ShowingContext): Promise<ExtractedDetails> {
     this.calls++;
     return this.answer(context);
   }

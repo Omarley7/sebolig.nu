@@ -48,7 +48,7 @@ function cachedEntry(messageCount: number): CachedAppointmentEntry {
   };
 }
 
-const extracted = () => ({ date: "2099-07-01", startTime: "10:00", endTime: "11:00", cancelled: false });
+const extracted = () => ({ date: "2099-07-01", startTime: "10:00", endTime: "11:00", cancelled: false, quote: "Åbent hus 1/6 kl. 16-17" });
 
 test("a delta reuses the cached extraction when the thread's message count is unchanged", async () => {
   const client = await clientWithOneOffer(3);
@@ -150,14 +150,15 @@ test("with showing messages in the thread, only the thread goes to the extractor
   await getAppointmentUpdates(client, extractor, BEFORE, []);
 
   assert.equal(extractor.calls, 1);
-  assert.deepEqual(seen, [{ source: "thread", messages: ["Åbent hus 1/6 kl. 16-17", "Åbent hus 1/6 kl. 16-17"] }]);
+  const message = { sent: "2026-01-10", text: "Åbent hus 1/6 kl. 16-17" };
+  assert.deepEqual(seen, [{ source: "thread", messages: [message, message] }]);
 });
 
 for (const [what, answer, date] of [
-  ["a date and a time is kept", { date: "2099-07-01", startTime: "10:00", endTime: "", cancelled: false }, "2099-07-01"],
+  ["a date and a time is kept", { date: "2099-07-01", startTime: "10:00", endTime: "", cancelled: false, quote: "Svarfrist" }, "2099-07-01"],
   // A svarfrist or move-in date read as a showing: no time, so not a showing.
-  ["a date without a time is dropped", { date: "2099-07-01", startTime: "", endTime: "", cancelled: false }, null],
-  ["a cancellation without a date is dropped", { date: "", startTime: "", endTime: "", cancelled: true }, null],
+  ["a date without a time is dropped", { date: "2099-07-01", startTime: "", endTime: "", cancelled: false, quote: "Svarfrist" }, null],
+  ["a cancellation without a date is dropped", { date: "", startTime: "", endTime: "", cancelled: true, quote: "" }, null],
 ] as const) {
   test(`from the showing text alone, ${what}`, async () => {
     const client = await clientWithOneOffer(0, [{ ...OFFER, showingText: "Svarfrist for deltagelse i det åbne hus er: 12/10" }]);
@@ -171,11 +172,30 @@ for (const [what, answer, date] of [
 
 test("from the thread, a date without a time is kept", async () => {
   const client = await clientWithOneOffer(1);
-  const extractor = new FakeExtractor(() => ({ date: "2099-07-01", startTime: "", endTime: "", cancelled: false }));
+  const extractor = new FakeExtractor(() => ({ ...extracted(), startTime: "", endTime: "" }));
 
   const delta = await getAppointmentUpdates(client, extractor, BEFORE, []);
 
   assert.equal(delta.items[0].date, "2099-07-01");
+});
+
+test("a date whose quote is not in the thread is dropped: the model made it up", async () => {
+  const client = await clientWithOneOffer(1);
+  const extractor = new FakeExtractor(() => ({ ...extracted(), quote: "Åbent hus 1/7 kl. 10-11" }));
+
+  const delta = await getAppointmentUpdates(client, extractor, BEFORE, []);
+
+  assert.equal(delta.items[0].date, null);
+});
+
+test("the extractor is told today's date in Denmark", async () => {
+  const client = await clientWithOneOffer(1);
+  let told = "";
+  const extractor = { extract: async (_: ShowingContext, today: string) => ((told = today), extracted()) };
+
+  await getAppointmentUpdates(client, extractor, BEFORE, []);
+
+  assert.equal(told, new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Copenhagen" }));
 });
 
 test("with no showing text and nothing about a showing in the thread, the extractor is not called", async () => {

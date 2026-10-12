@@ -13,15 +13,24 @@ export type AppointmentDetails = {
 
 export const EMPTY_DETAILS: AppointmentDetails = { date: "", startTime: "", endTime: "", cancelled: false };
 
+/** An extractor's answer: the details plus `quote`, the exact text of the input the date was read from. */
+export type ExtractedDetails = AppointmentDetails & { quote: string };
+
+/** A landlord's message, HTML stripped. `sent` (YYYY-MM-DD, Danish time) settles the year of "3/1" or "i morgen". */
+export type ShowingMessage = { sent: string; text: string };
+
 /**
  * The one source a showing is read from, HTML stripped: the thread's messages about a showing,
  * oldest first, or, when there are none, the offer's `showingText`. Never both: next to the
  * thread, the showing text's generic wording ("indkaldes der til et åbent hus") made the LLM miss
  * clear invitations in the thread.
  */
-export type ShowingContext = { source: "thread"; messages: string[] } | { source: "showingText"; text: string };
+export type ShowingContext = { source: "thread"; messages: ShowingMessage[] } | { source: "showingText"; text: string };
 
 const stripHtml = (text: string) => text.replace(/<[^>]*>?/g, "").trim();
+
+/** The date in Denmark, YYYY-MM-DD, of an ISO timestamp. */
+export const danishDate = (iso: string | Date) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Europe/Copenhagen" });
 
 /**
  * Picks out of `thread` and `showingText` what an extractor needs: the landlord's messages that
@@ -32,11 +41,32 @@ export function showingContext(thread: ApiMessageThreadFull, showingText: string
   const messages = thread.messages
     .toSorted((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime())
     .filter((message) => message.sender?.name?.toLowerCase() !== "findbolig")
-    .map((message) => stripHtml(message.body))
-    .filter((body) => body.toLowerCase().includes("åbent hus") || body.toLowerCase().includes("fremvisning"));
+    .map((message) => ({ sent: danishDate(message.created), text: stripHtml(message.body) }))
+    .filter(({ text }) => text.toLowerCase().includes("åbent hus") || text.toLowerCase().includes("fremvisning"));
   if (messages.length > 0) return { source: "thread", messages };
   const text = stripHtml(showingText ?? "");
   return text ? { source: "showingText", text } : null;
+}
+
+const normalized = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
+
+/** All the text of a context, which a quote must appear in. */
+export const contextText = (context: ShowingContext) =>
+  context.source === "thread" ? context.messages.map((m) => m.text).join("\n") : context.text;
+
+/**
+ * What of an extractor's answer is trusted, for production and the eval harness alike:
+ *  - a date counts only when its `quote` appears in the input (case and whitespace aside), so a
+ *    date the model made up is dropped. It can only remove answers, never add one;
+ *  - from the showing text, only a date with a time counts: its svarfrist and move-in dates are
+ *    never showings, and it never cancels anything.
+ */
+export function acceptedDetails(context: ShowingContext, answer: ExtractedDetails): AppointmentDetails {
+  const { quote, ...details } = answer;
+  const input = normalized(contextText(context));
+  if (details.date && !(normalized(quote) && input.includes(normalized(quote)))) return EMPTY_DETAILS;
+  if (context.source === "showingText" && !(details.date && (details.startTime || details.endTime))) return EMPTY_DETAILS;
+  return details;
 }
 
 /**
@@ -45,6 +75,10 @@ export function showingContext(thread: ApiMessageThreadFull, showingText: string
  * listing walk counts as a failed enrichment (the cursor is withheld and the client asks again).
  */
 export interface AppointmentExtractor {
-  /** From the thread's showing messages or the offer's showing text. `year` is assumed where the text leaves it out. */
-  extract(context: ShowingContext, year: string): Promise<AppointmentDetails>;
+  /**
+   * From the thread's showing messages or the offer's showing text. `today` (YYYY-MM-DD) dates the
+   * showing text, as each message's sent date does a message. Callers pass the answer through
+   * `acceptedDetails`.
+   */
+  extract(context: ShowingContext, today: string): Promise<ExtractedDetails>;
 }

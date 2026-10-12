@@ -4,7 +4,7 @@ import { z } from "zod";
 import { Limiter } from "~/lib/limiter";
 import { EMPTY_DETAILS, type AppointmentExtractor, type ShowingContext } from "./appointment-extractor";
 
-const AppointmentDetailsSchema = z.object({
+export const ExtractedDetailsSchema = z.object({
   date: z
     .string()
     .describe(
@@ -25,6 +25,11 @@ const AppointmentDetailsSchema = z.object({
     .describe(
       "Whether the open house is cancelled. True if cancelled, false if not.",
     ),
+  quote: z
+    .string()
+    .describe(
+      "The exact text from the input that the date was read from, copied character for character. Empty string if there is no date.",
+    ),
 });
 
 /**
@@ -38,7 +43,7 @@ const llmLimiter = new Limiter(LLM_CONCURRENCY);
 const EXTRACTION_PROMPT = `Du er en dansk tekst-analysator. Ekstraher dato og tidspunkt for en konkret planlagt fremvisning eller åbent hus.
 
 Du får én af to kilder:
-1. Beskeder fra udlejer om fremvisning eller åbent hus, ældste først
+1. Beskeder fra udlejer om fremvisning eller åbent hus, ældste først, hver med den dato den blev sendt
 2. Annoncens fremvisningstekst
 
 Vigtige regler:
@@ -52,36 +57,39 @@ Vigtige regler:
 - Starttiden SKAL formateres som HH:mm (f.eks. 16:00)
 - Sluttiden SKAL formateres som HH:mm (f.eks. 16:00)
 - Hvis der ikke findes nogen dato eller start- eller sluttid, returner tomme værdier for alle felter
-- Antag at året er {currentYear} hvis det ikke er specificeret`;
+- Hvis året ikke står, så vælg det år der lægger fremvisningen på eller efter den dag beskeden blev sendt (for fremvisningsteksten: i dag). En besked sendt 2026-12-28 om "åbent hus d. 3/1" betyder 2027-01-03. Det samme gælder "i morgen", "på tirsdag" o.l.
+- Kopier i quote den nøjagtige tekst som datoen står i, tegn for tegn som i kilden`;
 
-function extractionInput(context: ShowingContext): string {
-  return [
-    "Beskeder om fremvisning/åbent hus (ældste først):",
-    context.source === "thread" ? context.messages.join("\n\n") : "(ingen)",
-    "",
-    "Annoncens fremvisningstekst:",
-    context.source === "showingText" ? context.text : "(ingen)",
-  ].join("\n");
+/** The instructions and input one extraction sends, for production and the eval harness alike. */
+export function extractionRequest(context: ShowingContext, today: string) {
+  const instructions = `${EXTRACTION_PROMPT}\n\nI dag er ${today}.`;
+  const input =
+    context.source === "thread"
+      ? ["Beskeder om fremvisning/åbent hus (ældste først):", ...context.messages.map((m) => `Sendt ${m.sent}:\n${m.text}`)].join("\n\n")
+      : `Annoncens fremvisningstekst:\n${context.text}`;
+  return { instructions, input };
 }
 
-/** The extractor production uses: OpenAI, reached with `apiKey`. */
-export function openAIExtractor(apiKey: string | undefined): AppointmentExtractor {
+export type OpenAIModel = { model: string; effort: OpenAI.ReasoningEffort };
+
+/** What production runs. Not "minimal": on real listings it read svarfrist and move-in dates as showings (#77). */
+export const PRODUCTION_MODEL: OpenAIModel = { model: "gpt-5-nano-2025-08-07", effort: "low" };
+
+/** The extractor production uses: OpenAI, reached with `apiKey`. The eval harness passes other models. */
+export function openAIExtractor(apiKey: string | undefined, { model, effort } = PRODUCTION_MODEL): AppointmentExtractor {
   const openai = new OpenAI({ apiKey });
   return {
-    extract: (context, year) =>
+    extract: (context, today) =>
       llmLimiter.run(async () => {
         const response = await openai.responses.parse({
-          model: "gpt-5-nano-2025-08-07",
-          // Not "minimal": on real listings it read svarfrist and move-in dates as showings and
-          // made up times (00:00-23:59), where "low" got them right. See #77.
-          reasoning: { effort: "low" },
-          instructions: EXTRACTION_PROMPT.replace("{currentYear}", year),
-          input: extractionInput(context),
+          model,
+          reasoning: { effort },
+          ...extractionRequest(context, today),
           text: {
-            format: zodTextFormat(AppointmentDetailsSchema, "appointment_details"),
+            format: zodTextFormat(ExtractedDetailsSchema, "appointment_details"),
           },
         });
-        return response.output_parsed ?? EMPTY_DETAILS;
+        return response.output_parsed ?? { ...EMPTY_DETAILS, quote: "" };
       }),
   };
 }
