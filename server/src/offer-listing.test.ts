@@ -4,20 +4,25 @@ import assert from "node:assert/strict";
 import { ConnectionEnded, FindboligUnavailable, UpstreamError } from "./lib/errors";
 import { FindboligClient } from "./lib/findbolig-client";
 import { FakeFindbolig } from "./lib/fake-findbolig";
+import { ENRICHMENT_CONCURRENCY } from "./lib/limiter";
 import { DELTA_PAGE_SIZE, gone, walkOfferListing, type Enrich, type ListingView } from "./offer-listing";
 import type { ApiOffer } from "./types/offers";
 
 type MinimalOffer = Pick<ApiOffer, "id" | "updated"> & Partial<ApiOffer>;
 
-/** A client connected to a fake findbolig.nu whose `/api/search/offers` pages over a fixed, updated-desc-sorted dataset. */
-function clientWithOffers(dataset: MinimalOffer[]) {
+/**
+ * A client connected to a fake findbolig.nu whose `/api/search/offers` pages over a fixed,
+ * updated-desc-sorted dataset. `beforePage` runs before each page is answered, and may throw.
+ */
+function clientWithOffers(dataset: MinimalOffer[], beforePage?: (page: number) => Promise<void>) {
   const fake = new FakeFindbolig()
     .addAccount("tenant@example.com", "pw", "Test Tenant")
-    .on("POST /api/search/offers", (req) => {
+    .on("POST /api/search/offers", async (req) => {
       const body = req.body as { page?: number; pageSize?: number };
       const page = body.page ?? 0;
       const pageSize = body.pageSize ?? DELTA_PAGE_SIZE;
       const start = page * pageSize;
+      await beforePage?.(page);
       return {
         json: { facets: {}, totalResults: dataset.length, page, pageSize, results: dataset.slice(start, start + pageSize) },
       };
@@ -239,4 +244,83 @@ test("each walk logs one summary line of counts and timings", async (t) => {
   assert.match(line, / enriched=2 /);
   assert.match(line, / llmCalls=1 /);
   assert.match(line, / totalMs=\d+ llmMs=\d+ findboligMs=\d+$/);
+});
+
+/** Counts listing requests in flight, holding each page open a moment so overlaps show. */
+function listingTracker() {
+  const pages: number[] = [];
+  let inFlight = 0;
+  const tracker = {
+    peak: 0,
+    pages,
+    async beforePage(page: number) {
+      pages.push(page);
+      tracker.peak = Math.max(tracker.peak, ++inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      inFlight--;
+    },
+  };
+  return tracker;
+}
+
+/** `n` offers, newest first, one minute apart. */
+const offersOverMinutes = (n: number) =>
+  Array.from({ length: n }, (_, i) => offer(`o-${i}`, new Date(Date.UTC(2026, 0, 10, 12) - i * 60_000).toISOString()));
+
+test("a full sync fetches the listing pages after the first concurrently, under the Connection's limit", async () => {
+  const dataset = offersOverMinutes(212);
+  const tracker = listingTracker();
+  const client = await clientWithOffers(dataset, tracker.beforePage);
+
+  const delta = await walkOfferListing(client, null, byId);
+
+  assert.equal(tracker.pages.length, Math.ceil(212 / DELTA_PAGE_SIZE));
+  assert.equal(tracker.pages[0], 0, "page 0 comes first: it says how many pages there are");
+  assert.ok(tracker.peak > 1, `listing pages should overlap, peak was ${tracker.peak}`);
+  assert.ok(tracker.peak <= ENRICHMENT_CONCURRENCY, `listing pages must stay under the Connection's limit, peak was ${tracker.peak}`);
+  assert.deepEqual(ids(delta.items), ids(dataset.map((o) => o.id)));
+  assert.equal(delta.latestUpdated, dataset[0].updated);
+  assert.deepEqual(delta.latestUpdatedIds, [dataset[0].id]);
+});
+
+test("a full sync whose listing page fails fails the walk", async () => {
+  const client = await clientWithOffers(offersOverMinutes(80), async (page) => {
+    if (page === 2) throw new Error("page 2 broke");
+  });
+
+  await assert.rejects(walkOfferListing(client, null, byId));
+});
+
+test("a delta pages one page at a time and stops at the cursor", async () => {
+  const dataset = offersOverMinutes(212);
+  const tracker = listingTracker();
+  const client = await clientWithOffers(dataset, tracker.beforePage);
+
+  // 30 offers are newer than the cursor: two pages hold them, the rest is never asked for.
+  const delta = await walkOfferListing(client, { since: dataset[30].updated, sinceIds: [dataset[30].id] }, byId);
+
+  assert.deepEqual(tracker.pages, [0, 1]);
+  assert.equal(tracker.peak, 1);
+  assert.equal(delta.items.length, 30);
+});
+
+test("the summary line times the listing and the enrichment phases", async (t) => {
+  const client = await clientWithOffers(offersOverMinutes(60));
+  const info = t.mock.method(console, "info", () => {});
+
+  await walkOfferListing(client, null, byId);
+
+  const line = String(info.mock.calls[0].arguments[0]);
+  assert.match(line, new RegExp(` listingPages=${Math.ceil(60 / DELTA_PAGE_SIZE)} listingMs=\\d+ enrichMs=\\d+ `));
+});
+
+test("the summary line counts the listing pages fetched even when one fails", async (t) => {
+  const client = await clientWithOffers(offersOverMinutes(60), async (page) => {
+    if (page === 1) throw new Error("page 1 broke");
+  });
+  const info = t.mock.method(console, "info", () => {});
+
+  await assert.rejects(walkOfferListing(client, null, byId));
+
+  assert.match(String(info.mock.calls[0].arguments[0]), / listingPages=3 /);
 });
