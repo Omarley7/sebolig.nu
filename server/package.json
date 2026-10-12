@@ -8,7 +8,7 @@
     "start": "tsx --tsconfig tsconfig.json src/index.ts",
     "test:sort": "tsx --tsconfig tsconfig.json src/test-sort.ts",
     "clean": "rm -rf ./node_modules/",
-    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "test": "node --import tsx --test \"src/**/*.test.ts\" \"scripts/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],

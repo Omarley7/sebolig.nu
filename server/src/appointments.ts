@@ -2,7 +2,7 @@ import type { Appointment, AppointmentDelta, CachedAppointmentEntry } from "@/ty
 import { nullUnlessConnectionEnded } from "~/lib/errors";
 import type { FindboligClient } from "~/lib/findbolig-client";
 import { mapAppointmentToDomain } from "~/lib/findbolig-domain";
-import { EMPTY_DETAILS, showingContext, type AppointmentExtractor } from "~/lib/llm/appointment-extractor";
+import { acceptedDetails, danishDate, EMPTY_DETAILS, showingContext, type AppointmentExtractor } from "~/lib/llm/appointment-extractor";
 import { gone, walkOfferListing, type ListingCursor, type ListingView } from "~/offer-listing";
 
 function isDateInPast(dateStr: string | null): boolean {
@@ -17,8 +17,8 @@ function isDateInPast(dateStr: string | null): boolean {
  *  - a past appointment it has is echoed back as-is, with no upstream calls;
  *  - a thread with the same message count reuses the cached details, skipping the LLM;
  *  - anything else is extracted in one LLM call from the thread or, when no message is about a
- *    showing, the offer's showing text (no call when neither is). From the showing text, only a
- *    date with a time counts: its svarfrist and move-in dates are never showings.
+ *    showing, the offer's showing text (no call when neither is). The answer goes through `acceptedDetails`: a date
+ *    must be quoted from the input and, from the showing text, come with a time.
  * An offer with no residence or no thread is gone.
  */
 function appointmentsView(
@@ -27,7 +27,7 @@ function appointmentsView(
   cached: CachedAppointmentEntry[],
 ): ListingView<Appointment> {
   const cacheByOfferId = new Map(cached.map((entry) => [entry.offerId, entry]));
-  const year = new Date().getFullYear().toString();
+  const today = danishDate(new Date());
 
   return {
     name: "appointments",
@@ -59,10 +59,7 @@ function appointmentsView(
       }
 
       const context = showingContext(thread, offer.showingText);
-      let details = context ? await llm(() => extractor.extract(context, year)) : EMPTY_DETAILS;
-      if (context?.source === "showingText" && !(details.date && (details.startTime || details.endTime))) {
-        details = EMPTY_DETAILS;
-      }
+      const details = context ? acceptedDetails(context, await llm(() => extractor.extract(context, today))) : EMPTY_DETAILS;
       return mapAppointmentToDomain({ offer, residence, details, position, messageCount });
     },
   };
