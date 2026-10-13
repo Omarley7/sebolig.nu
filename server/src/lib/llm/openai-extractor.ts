@@ -40,11 +40,9 @@ export const ExtractedDetailsSchema = z.object({
 const LLM_CONCURRENCY = 16;
 const llmLimiter = new Limiter(LLM_CONCURRENCY);
 
-const EXTRACTION_PROMPT = `Du er en dansk tekst-analysator. Ekstraher dato og tidspunkt for en konkret planlagt fremvisning eller åbent hus.
+const EXTRACTION_PROMPT = `Ekstraher dato og tidspunkt for en konkret planlagt fremvisning eller åbent hus.
 
-Du får én af to kilder:
-1. Beskeder fra udlejer om fremvisning eller åbent hus, ældste først, hver med den dato den blev sendt
-2. Annoncens fremvisningstekst
+Du får enten udlejers beskeder om fremvisning eller åbent hus (ældste først, hver med den dato den blev sendt) eller annoncens fremvisningstekst.
 
 Vigtige regler:
 - Fremvisningsteksten tæller kun hvis den giver en konkret dato OG et tidspunkt
@@ -53,19 +51,14 @@ Vigtige regler:
 - Svarfrister (f.eks. "svarfrist for deltagelse er...") er IKKE fremvisningsdatoer - ignorer dem
 - Udlejnings- og indflytningsdatoer (f.eks. "klar til udlejning pr...") er IKKE fremvisningsdatoer - ignorer dem
 - Hvis der kun står at der VIL BLIVE indkaldt til åbent hus (fremtid/ubestemt), men ingen konkret dato og tid er fastsat, returner tomme værdier
-- Datoen SKAL formateres som YYYY-MM-DD (f.eks. 2025-12-15)
-- Starttiden SKAL formateres som HH:mm (f.eks. 16:00)
-- Sluttiden SKAL formateres som HH:mm (f.eks. 16:00)
-- Hvis der ikke findes nogen dato eller start- eller sluttid, returner tomme værdier for alle felter
-- Hvis året ikke står, så vælg det år der lægger fremvisningen på eller efter den dag beskeden blev sendt (for fremvisningsteksten: i dag). En besked sendt 2026-12-28 om "åbent hus d. 3/1" betyder 2027-01-03. Det samme gælder "i morgen", "på tirsdag" o.l.`;
-
-/** The rule asking for `quote`; the eval harness leaves it out to measure the year fix on its own. */
-export const QUOTE_RULE =
-  '- Kopier i quote den nøjagtige tekst fra beskeden eller fremvisningsteksten som datoen står i (eller "i morgen", "på tirsdag" o.l.), tegn for tegn. Aldrig "Sendt"-linjen';
+- Datoen formateres som YYYY-MM-DD og tider som HH:mm (f.eks. 2025-12-15 og 16:00)
+- Et felt der ikke står i teksten, returneres tomt. Står der kun et starttidspunkt (f.eks. "fra kl. 15:30"), er endTime tom
+- Hvis året ikke står, så vælg det år der lægger fremvisningen på eller efter den dag beskeden blev sendt (for fremvisningsteksten: i dag). En besked sendt 2026-12-28 om "åbent hus d. 3/1" betyder 2027-01-03. Det samme gælder "i morgen", "på tirsdag" o.l.
+- Kopier i quote den nøjagtige tekst fra beskeden eller fremvisningsteksten som datoen står i (eller "i morgen", "på tirsdag" o.l.), tegn for tegn. Aldrig "Sendt"-linjen`;
 
 /** The instructions and input one extraction sends, for production and the eval harness alike. */
 export function extractionRequest(context: ShowingContext, today: string) {
-  const instructions = `${EXTRACTION_PROMPT}\n${QUOTE_RULE}\n\nI dag er ${today}.`;
+  const instructions = `${EXTRACTION_PROMPT}\n\nI dag er ${today}.`;
   const input =
     context.source === "thread"
       ? ["Beskeder om fremvisning/åbent hus (ældste først):", ...context.messages.map((m) => `Sendt ${m.sent}:\n${m.text}`)].join("\n\n")
