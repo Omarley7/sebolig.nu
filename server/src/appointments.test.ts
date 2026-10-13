@@ -192,6 +192,7 @@ test("the extractor is told today's date in Denmark", async () => {
   const client = await clientWithOneOffer(1);
   let told = "";
   const extractor = { extract: async (_: ShowingContext, today: string) => ((told = today), extracted()) };
+  // Worked out apart from danishDate: the time zone makes it Danish, the Swedish locale writes YYYY-MM-DD.
   const dayInDenmark = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Copenhagen" });
 
   const before = dayInDenmark();

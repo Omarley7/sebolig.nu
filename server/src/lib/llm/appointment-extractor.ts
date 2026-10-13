@@ -45,8 +45,13 @@ const stripHtml = (text: string) =>
     })
     .trim();
 
+const DANISH_DAY = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", year: "numeric", month: "2-digit", day: "2-digit" });
+
 /** The date in Denmark, YYYY-MM-DD, of a moment: a `Date` or an ISO timestamp. */
-export const danishDate = (iso: string | Date) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Europe/Copenhagen" });
+export function danishDate(moment: string | Date): string {
+  const part = (type: string) => DANISH_DAY.formatToParts(new Date(moment)).find((p) => p.type === type)!.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
 
 /**
  * Picks out of `thread` and `showingText` what an extractor needs: the landlord's messages that
