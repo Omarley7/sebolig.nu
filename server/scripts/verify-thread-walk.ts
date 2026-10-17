@@ -9,7 +9,10 @@
  *    the ones only a message moved (what the listing walk alone missed).
  * 2. Runs a full sync, then a delta from both cursors set `--days` back with nothing cached, then a
  *    repeat delta from the cursors that delta handed out, with the full sync's appointments cached.
- * 3. Checks the delta caught every expected offer, that its appointments match the full sync's,
+ *    Then a thread-only delta: the listing cursor from the full sync (so the listing walk finds
+ *    nothing) and the thread cursor `--days` back, so the thread walk alone must catch every offer
+ *    with a message in the window, including those whose newest message is newer than `updated`.
+ * 3. Checks the deltas caught every expected offer, that their appointments match the full sync's,
  *    and that the repeat delta finds nothing and calls no LLM.
  *
  * The last block is counts only, for the issue. Mismatches are listed above it with offer ids and
@@ -57,10 +60,12 @@ const byMessage = new Set(upcoming.filter((o) => after(newestMessage.get(o.id)))
 const messageOnly = [...byMessage].filter((id) => !byUpdated.has(id));
 const expected = new Set([...byUpdated, ...byMessage]);
 // The snapshot's question, over all time: an upcoming offer whose newest message is newer than its `updated`.
-const messageNewerThanUpdated = upcoming.filter((o) => {
-  const message = newestMessage.get(o.id);
-  return message !== undefined && Date.parse(message) - Date.parse(o.updated) > 60_000;
-}).length;
+const messageNewerThanUpdated = upcoming
+  .filter((o) => {
+    const message = newestMessage.get(o.id);
+    return message !== undefined && Date.parse(message) - Date.parse(o.updated) > 60_000;
+  })
+  .map((o) => o.id);
 
 // ── 2. The walks ─────────────────────────────────────────────────
 
@@ -98,6 +103,18 @@ const repeat =
     : null;
 const repeatLlmCalls = llmCalls;
 
+console.log(`Thread-only delta: listing cursor from the full sync, thread cursor ${days} days back, nothing cached…`);
+llmCalls = 0;
+const threadOnly = full.latestUpdated
+  ? await getAppointmentUpdates(
+      client,
+      extractor,
+      { listing: { since: full.latestUpdated, sinceIds: full.latestUpdatedIds }, threads: back },
+      [],
+    )
+  : null;
+const threadOnlyLlmCalls = llmCalls;
+
 // ── 3. Checks ────────────────────────────────────────────────────
 
 const reported = new Set([...delta.items.map((a) => a.offerId), ...delta.removedIds]);
@@ -109,16 +126,28 @@ const same = (a: Appointment, b: Appointment | undefined) =>
   !!b && a.date === b.date && a.start === b.start && a.end === b.end && a.cancelled === b.cancelled;
 const mismatches = delta.items.filter((a) => !same(a, fullByOffer.get(a.offerId)));
 
-if (notCaught.length || mismatches.length) console.log(`\nLocal only, not for the issue:`);
+const threadOnlyReported = new Set([...(threadOnly?.items.map((a) => a.offerId) ?? []), ...(threadOnly?.removedIds ?? [])]);
+const threadOnlyNotCaught = [...byMessage].filter((id) => !threadOnlyReported.has(id));
+const newerInWindow = messageNewerThanUpdated.filter((id) => byMessage.has(id));
+const newerCaught = newerInWindow.filter((id) => threadOnlyReported.has(id)).length;
+const threadOnlyMismatches = (threadOnly?.items ?? []).filter((a) => !same(a, fullByOffer.get(a.offerId)));
+
+if (notCaught.length || mismatches.length || threadOnlyNotCaught.length || threadOnlyMismatches.length) {
+  console.log(`\nLocal only, not for the issue:`);
+}
 for (const id of notCaught) console.log(`  not caught by the delta: ${id}`);
 for (const a of mismatches) console.log(`  differs: ${a.offerId}  delta ${shown(a)}  full sync ${shown(fullByOffer.get(a.offerId))}`);
+for (const id of threadOnlyNotCaught) console.log(`  not caught by the thread-only delta: ${id}`);
+for (const a of threadOnlyMismatches) {
+  console.log(`  differs: ${a.offerId}  thread-only delta ${shown(a)}  full sync ${shown(fullByOffer.get(a.offerId))}`);
+}
 
 const verdict = (ok: boolean) => (ok ? "PASS" : "FAIL");
 const lines = [
   `Thread walk check (#87 decision 7), ${new Date().toISOString().slice(0, 10)}, cursors ${days} days back. Counts only.`,
   ``,
   `Account: ${offers.length} offers, ${upcoming.length} upcoming (Finished/Published), ${threads.length} threads.`,
-  `Upcoming offers whose newest message is newer than their updated (all time): ${messageNewerThanUpdated}.`,
+  `Upcoming offers whose newest message is newer than their updated (all time): ${messageNewerThanUpdated.length}; ${newerInWindow.length} of them in the window.`,
   `In the window: ${expected.size} upcoming offers changed; ${byUpdated.size} by updated, ${byMessage.size} by a message, ${messageOnly.length} by a message only.`,
   ``,
   `${verdict(notCaught.length === 0)}  The delta reported ${expected.size - notCaught.length} of ${expected.size} changed offers; ${messageOnlyCaught} of ${messageOnly.length} message-only ones.`,
@@ -127,7 +156,14 @@ const lines = [
   repeat
     ? `${verdict(repeat.items.length === 0 && repeatLlmCalls === 0)}  The repeat delta reported ${repeat.items.length} appointments and made ${repeatLlmCalls} LLM calls.`
     : `SKIP  No repeat delta: a cursor was withheld.`,
+  threadOnly
+    ? `${verdict(threadOnlyNotCaught.length === 0)}  The thread-only delta reported ${byMessage.size - threadOnlyNotCaught.length} of ${byMessage.size} offers with a message in the window; ${newerCaught} of ${newerInWindow.length} whose message is newer than updated.`
+    : `SKIP  No thread-only delta: the full sync withheld its cursor.`,
+  threadOnly
+    ? `${verdict(threadOnlyMismatches.length === 0)}  ${threadOnly.items.length - threadOnlyMismatches.length} of ${threadOnly.items.length} thread-only delta appointments match the full sync's.`
+    : ``,
   ``,
   `Full sync: ${full.appointments.length} appointments, ${fullLlmCalls} LLM calls. Delta: ${delta.items.length} appointments, ${delta.removedIds.length} removed, ${deltaLlmCalls} LLM calls.`,
+  threadOnly ? `Thread-only delta: ${threadOnly.items.length} appointments, ${threadOnly.removedIds.length} removed, ${threadOnlyLlmCalls} LLM calls.` : ``,
 ];
 console.log(`\n${lines.join("\n")}`);
