@@ -80,19 +80,37 @@ export type CachedAppointmentEntry = {
   appointment: Appointment;
 };
 
+/**
+ * The thread cursor appointment fetches hand out next to the listing cursor: the newest
+ * `lastMessage.created` in findbolig.nu's thread list, and every thread id at exactly that value.
+ * Pass both back as `messagesSince`/`messagesSinceIds`, so an offer whose thread got a new message
+ * is caught even when its `updated` did not move. Null when withheld, like `latestUpdated`; see the
+ * thread walk in server/src/offer-listing.ts.
+ */
+export type ThreadCursor = {
+  latestMessageAt: string | null;
+  latestMessageThreadIds: string[];
+};
+
 /** `POST /api/appointments/sync`: what the client already has, so unchanged threads aren't extracted again. */
 export type SyncAppointmentsRequest = {
   cached: CachedAppointmentEntry[];
 };
 
-/** `POST /api/appointments/delta`: a cursor, plus what the client already has, as for a sync. */
+/** `POST /api/appointments/sync`'s answer: every upcoming appointment and both cursors. */
+export type SyncAppointmentsResponse = { appointments: Appointment[] } & Pick<Delta<Appointment>, "latestUpdated" | "latestUpdatedIds"> &
+  ThreadCursor;
+
+/** `POST /api/appointments/delta`: both cursors, plus what the client already has, as for a sync. */
 export type AppointmentDeltaRequest = {
   since: string;
   sinceIds: string[];
+  messagesSince: string;
+  messagesSinceIds: string[];
   cached: CachedAppointmentEntry[];
 };
 
-export type AppointmentDelta = Delta<Appointment>;
+export type AppointmentDelta = Delta<Appointment> & ThreadCursor;
 
 export type WaitingListStatus = "Active" | "Passive";
 

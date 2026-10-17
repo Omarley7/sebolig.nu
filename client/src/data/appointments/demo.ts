@@ -15,8 +15,9 @@ export function demoAppointments(): AppointmentsSource {
   return {
     async sync() {
       await demoDelay(1500);
-      return { appointments, ...demoCursor() };
+      const cursor = demoCursor();
+      return { appointments, ...cursor, latestMessageAt: cursor.latestUpdated, latestMessageThreadIds: [] };
     },
-    fetchDelta: async () => noChanges<Appointment>(),
+    fetchDelta: async () => ({ ...noChanges<Appointment>(), latestMessageAt: null, latestMessageThreadIds: [] }),
   };
 }

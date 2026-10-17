@@ -1,9 +1,9 @@
-import type { Appointment, AppointmentDelta, CachedAppointmentEntry } from "@/types";
+import type { Appointment, AppointmentDelta, CachedAppointmentEntry, SyncAppointmentsResponse, ThreadCursor } from "@/types";
 import { nullUnlessConnectionEnded } from "~/lib/errors";
 import type { FindboligClient } from "~/lib/findbolig-client";
 import { mapAppointmentToDomain } from "~/lib/findbolig-domain";
 import { acceptedDetails, danishDate, EMPTY_DETAILS, showingContext, type AppointmentExtractor } from "~/lib/llm/appointment-extractor";
-import { gone, walkOfferListing, type ListingCursor, type ListingView } from "~/offer-listing";
+import { gone, walkOfferListing, type ListingCursor, type ListingView, type Walked } from "~/offer-listing";
 
 function isDateInPast(dateStr: string | null): boolean {
   if (!dateStr) return false;
@@ -12,7 +12,8 @@ function isDateInPast(dateStr: string | null): boolean {
 }
 
 /**
- * Upcoming appointments: Finished and Published offers. Each is built reusing what the client
+ * Upcoming appointments: Finished and Published offers, found by the listing walk and the thread
+ * walk (a new message does not move an offer's `updated`). Each is built reusing what the client
  * already has (`cached`) where possible:
  *  - a past appointment it has is echoed back as-is, with no upstream calls;
  *  - a thread with the same message count reuses the cached details, skipping the LLM;
@@ -31,6 +32,7 @@ function appointmentsView(
 
   return {
     name: "appointments",
+    walksThreads: true,
     belongs: (offer) => offer.state === "Finished" || offer.state === "Published",
     async enrich(offer, { findbolig, llm }) {
       const { residenceId } = offer;
@@ -65,26 +67,33 @@ function appointmentsView(
   };
 }
 
-/** Every upcoming appointment, and the cursor for the next delta. `cached` is what the client already has. */
+/** Where an appointments delta picks up from: the listing cursor and the thread cursor. */
+export type AppointmentCursors = { listing: ListingCursor; threads: ListingCursor };
+
+/** A walk's thread cursor, as the client stores and sends it back. */
+function threadCursorFields({ threadCursor }: Walked<Appointment>): ThreadCursor {
+  return { latestMessageAt: threadCursor?.since ?? null, latestMessageThreadIds: threadCursor?.sinceIds ?? [] };
+}
+
+/** Every upcoming appointment, and both cursors for the next delta. `cached` is what the client already has. */
 export async function getUpcomingAppointments(
   client: FindboligClient,
   extractor: AppointmentExtractor,
   cached: CachedAppointmentEntry[],
-) {
-  const { items, latestUpdated, latestUpdatedIds } = await walkOfferListing(
-    client,
-    null,
-    appointmentsView(client, extractor, cached),
-  );
-  return { appointments: items, latestUpdated, latestUpdatedIds };
+): Promise<SyncAppointmentsResponse> {
+  const walked = await walkOfferListing(client, null, appointmentsView(client, extractor, cached));
+  const { items, latestUpdated, latestUpdatedIds } = walked;
+  return { appointments: items, latestUpdated, latestUpdatedIds, ...threadCursorFields(walked) };
 }
 
-/** What changed among upcoming appointments since `cursor`, reusing `cached` like a full sync does. */
-export function getAppointmentUpdates(
+/** What changed among upcoming appointments since `cursors`, reusing `cached` like a full sync does. */
+export async function getAppointmentUpdates(
   client: FindboligClient,
   extractor: AppointmentExtractor,
-  cursor: ListingCursor,
+  cursors: AppointmentCursors,
   cached: CachedAppointmentEntry[],
 ): Promise<AppointmentDelta> {
-  return walkOfferListing(client, cursor, appointmentsView(client, extractor, cached));
+  const walked = await walkOfferListing(client, cursors.listing, appointmentsView(client, extractor, cached), cursors.threads);
+  const { items, removedIds, latestUpdated, latestUpdatedIds } = walked;
+  return { items, removedIds, latestUpdated, latestUpdatedIds, ...threadCursorFields(walked) };
 }

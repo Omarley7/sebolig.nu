@@ -1,5 +1,4 @@
-import type { Appointment, AppointmentDelta, AppointmentDeltaRequest, SyncAppointmentsRequest } from "@/types";
-import type { FullFetchCursor } from "~/data/cursor";
+import type { AppointmentDelta, AppointmentDeltaRequest, SyncAppointmentsRequest, SyncAppointmentsResponse } from "@/types";
 import { api } from "~/data/http";
 import type { AppointmentsSource } from "./source";
 
@@ -9,7 +8,7 @@ const TIMEOUT_DELTA = 30_000;
 export const httpAppointments: AppointmentsSource = {
   sync(known) {
     const body: SyncAppointmentsRequest = { cached: known };
-    return api<{ appointments: Appointment[] } & FullFetchCursor>("/api/appointments/sync", {
+    return api<SyncAppointmentsResponse>("/api/appointments/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -19,7 +18,13 @@ export const httpAppointments: AppointmentsSource = {
   },
 
   fetchDelta(cursor, known) {
-    const body: AppointmentDeltaRequest = { since: cursor.latestUpdated, sinceIds: cursor.latestUpdatedIds, cached: known };
+    const body: AppointmentDeltaRequest = {
+      since: cursor.latestUpdated,
+      sinceIds: cursor.latestUpdatedIds,
+      messagesSince: cursor.latestMessageAt,
+      messagesSinceIds: cursor.latestMessageThreadIds,
+      cached: known,
+    };
     return api<AppointmentDelta>("/api/appointments/delta", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
