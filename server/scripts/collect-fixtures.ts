@@ -3,9 +3,9 @@
  * the maintainer's account and, for every Finished or Published offer with something to extract,
  * writes `.scratch/extractor-fixtures/<offerId>.json` (gitignored: real messages are personal data).
  *
- *   cd server && FINDBOLIG_EMAIL=… FINDBOLIG_PASSWORD=… npx tsx --tsconfig tsconfig.json scripts/collect-fixtures.ts
+ *   cd server && npx tsx --tsconfig tsconfig.json scripts/collect-fixtures.ts
  *
- * Without the env vars it asks for them. Nothing is stored but the fixtures.
+ * The login comes from the env vars or `server/.env`, else it asks for it. Nothing is stored but the fixtures.
  *
  * `expected` is left null for the maintainer to fill in by hand (format in `eval-extractor.ts`). A
  * fixture already on disk is left alone while its context is unchanged; when the thread has grown,
@@ -14,33 +14,14 @@
 import "~/lib/tls-setup";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createInterface } from "node:readline/promises";
-import { Writable } from "node:stream";
 import { isDeepStrictEqual } from "node:util";
 import { FindboligClient } from "~/lib/findbolig-client";
 import { httpTransport } from "~/lib/http-transport";
 import { Limiter } from "~/lib/limiter";
 import { danishDate, showingContext } from "~/lib/llm/appointment-extractor";
+import { credentials } from "./credentials";
 
 const DIR = join(import.meta.dirname, "../../.scratch/extractor-fixtures");
-
-/** Reads a line from the terminal; `hidden` keeps what is typed off the screen. */
-async function ask(question: string, hidden = false) {
-  process.stdout.write(question);
-  const output = hidden ? new Writable({ write: (_chunk, _encoding, done) => done() }) : process.stdout;
-  const rl = createInterface({ input: process.stdin, output, terminal: true });
-  const answer = await rl.question("");
-  rl.close();
-  if (hidden) process.stdout.write("\n");
-  return answer;
-}
-
-async function credentials() {
-  let { FINDBOLIG_EMAIL: email, FINDBOLIG_PASSWORD: password } = process.env;
-  email ||= await ask("findbolig.nu email: ");
-  password ||= await ask("findbolig.nu password: ", true);
-  return { email, password };
-}
 
 async function main() {
   const { email, password } = await credentials();
