@@ -37,5 +37,5 @@ SeBolig asking findbolig.nu, without the user asking, what changed since Local d
 _Avoid_: sync, poll, auto-refresh, background update
 
 **Refresh**:
-The user asking SeBolig to fetch everything from findbolig.nu again, replacing that part of Local data.
+Fetching one kind of Local data from findbolig.nu again in full, replacing what was kept. The user starts one with the Refresh button; an Automatic check starts one when it can't ask cheaply.
 _Avoid_: reload, sync, update
