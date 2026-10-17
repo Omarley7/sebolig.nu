@@ -1,5 +1,5 @@
 import type { Delta } from "@/types";
-import type { Cursor, FullFetchCursor } from "~/data/cursor";
+import { cursorFrom, type Cursor, type FullFetchCursor } from "~/data/cursor";
 
 /**
  * Local data kept in step with findbolig.nu's offers listing through a delta cursor: offers
@@ -13,10 +13,8 @@ export type CursorData<T> = { updatedAt: Date; items: T[]; cursor: Cursor | null
  * without a cursor (the server withholds it when some enrichment failed) keeps the old one,
  * so the same changes are asked for again next time.
  */
-export function applyDelta<T>(data: CursorData<T>, delta: Delta<T>, keyOf: (item: T) => string): CursorData<T> {
-  const cursor = delta.latestUpdated
-    ? { latestUpdated: delta.latestUpdated, latestUpdatedIds: delta.latestUpdatedIds }
-    : data.cursor;
+export function applyDelta<T>(data: CursorData<T>, delta: Delta<T> & FullFetchCursor, keyOf: (item: T) => string): CursorData<T> {
+  const cursor = cursorFrom(delta) ?? data.cursor;
   if (delta.items.length === 0 && delta.removedIds.length === 0) return { ...data, cursor };
 
   const removed = new Set(delta.removedIds);
@@ -34,6 +32,8 @@ type Stored<ItemsKey extends string, T> = {
   updatedAt: string;
   latestUpdated?: string | null;
   latestUpdatedIds?: string[];
+  latestMessageAt?: string | null;
+  latestMessageThreadIds?: string[];
 } & Record<ItemsKey, T[]>;
 
 /**
@@ -47,8 +47,11 @@ export function cursorKind<T, ItemsKey extends string, Source>(kind: {
   /** Fills in fields that older stored items predate. */
   reviveItem?(stored: T): T;
   fetchEverything(current: CursorData<T> | null, source: Source): Promise<{ items: T[] } & FullFetchCursor>;
-  /** What changed since `cursor`, a cursor the same source handed out earlier. */
-  fetchChanges(cursor: Cursor, current: CursorData<T>, source: Source): Promise<Delta<T>>;
+  /**
+   * What changed since `cursor`, a cursor the same source handed out earlier. Null when that
+   * cursor can't be checked from (it lacks a part the kind needs), like having no cursor at all.
+   */
+  fetchChanges(cursor: Cursor, current: CursorData<T>, source: Source): Promise<Delta<T> & FullFetchCursor> | null;
 }) {
   return {
     revive(raw: unknown): CursorData<T> {
@@ -57,10 +60,13 @@ export function cursorKind<T, ItemsKey extends string, Source>(kind: {
       return {
         updatedAt: new Date(stored.updatedAt),
         items: kind.reviveItem ? items.map(kind.reviveItem) : items,
-        // Older stored data predates the delta cursor: treat it as absent.
-        cursor: stored.latestUpdated
-          ? { latestUpdated: stored.latestUpdated, latestUpdatedIds: stored.latestUpdatedIds ?? [] }
-          : null,
+        // Older stored data predates the delta cursor (or the thread cursor): treat it as absent.
+        cursor: cursorFrom({
+          latestUpdated: stored.latestUpdated ?? null,
+          latestUpdatedIds: stored.latestUpdatedIds ?? [],
+          latestMessageAt: stored.latestMessageAt ?? null,
+          latestMessageThreadIds: stored.latestMessageThreadIds,
+        }),
       };
     },
 
@@ -69,19 +75,23 @@ export function cursorKind<T, ItemsKey extends string, Source>(kind: {
         updatedAt: data.updatedAt.toISOString(),
         latestUpdated: data.cursor?.latestUpdated ?? null,
         latestUpdatedIds: data.cursor?.latestUpdatedIds ?? [],
+        ...(data.cursor?.latestMessageAt && {
+          latestMessageAt: data.cursor.latestMessageAt,
+          latestMessageThreadIds: data.cursor.latestMessageThreadIds ?? [],
+        }),
         [kind.itemsKey]: data.items,
       } as Stored<ItemsKey, T>;
     },
 
     async fetchAll(current: CursorData<T> | null, source: Source): Promise<CursorData<T>> {
-      const { items, latestUpdated, latestUpdatedIds } = await kind.fetchEverything(current, source);
+      const { items, ...cursor } = await kind.fetchEverything(current, source);
       // A withheld cursor (some enrichment failed) means the next load does another full fetch.
-      return { updatedAt: new Date(), items, cursor: latestUpdated ? { latestUpdated, latestUpdatedIds } : null };
+      return { updatedAt: new Date(), items, cursor: cursorFrom(cursor) };
     },
 
     async checkForChanges(current: CursorData<T>, source: Source): Promise<CursorData<T> | null> {
-      if (!current.cursor) return null;
-      return applyDelta(current, await kind.fetchChanges(current.cursor, current, source), kind.keyOf);
+      const changes = current.cursor && kind.fetchChanges(current.cursor, current, source);
+      return changes ? applyDelta(current, await changes, kind.keyOf) : null;
     },
   };
 }

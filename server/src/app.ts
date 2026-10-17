@@ -37,6 +37,7 @@ function cursorFromQuery(c: Context): ListingCursor | null {
 }
 
 const MISSING_SINCE = { error: "'since' (ISO timestamp) is required" };
+const MISSING_MESSAGES_SINCE = { error: "'messagesSince' (ISO timestamp) is required" };
 
 /** The cached entries a request body carries, or none. */
 function cachedFrom(body: { cached?: unknown } | null): SyncAppointmentsRequest["cached"] {
@@ -147,9 +148,11 @@ export function createApp({ transport, extractor }: AppDeps) {
 
   appointments.post("/delta", async (c) => {
     const body = await c.req.json<AppointmentDeltaRequest>().catch(() => null);
-    const cursor = parseCursor(body?.since, body?.sinceIds);
-    if (!cursor) return c.json(MISSING_SINCE, 400);
-    return c.json(await getAppointmentUpdates(c.var.findbolig, extractor, cursor, cachedFrom(body)));
+    const listing = parseCursor(body?.since, body?.sinceIds);
+    if (!listing) return c.json(MISSING_SINCE, 400);
+    const threads = parseCursor(body?.messagesSince, body?.messagesSinceIds);
+    if (!threads) return c.json(MISSING_MESSAGES_SINCE, 400);
+    return c.json(await getAppointmentUpdates(c.var.findbolig, extractor, { listing, threads }, cachedFrom(body)));
   });
 
   offers.get("/active", async (c) => c.json(await getActiveOffers(c.var.findbolig)));

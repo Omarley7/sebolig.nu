@@ -4,7 +4,7 @@ import { ConnectionEnded, CredentialsRejected, FindboligUnavailable, UpstreamErr
 import type { SealedSession } from "./session";
 import type { ApiOffer, ApiOffersPage, ApiUserData } from "~/types/offers";
 import type { ApiResidence, ResidenceDetails } from "~/types/residences";
-import type { ApiMessageThreadFull } from "~/types/threads";
+import type { ApiMessageThreadFull, ApiThreadsPage } from "~/types/threads";
 import type { ApiPositionForProperty, ApiPropertySearchPage, ApiResidenceApplication } from "~/types/waiting-lists";
 
 /** One request to findbolig.nu, as the client hands it to a transport. */
@@ -128,6 +128,15 @@ export class FindboligClient {
       "Failed to fetch thread for offer",
     );
     return json as ApiMessageThreadFull | null;
+  }
+
+  /** One page of the user's message threads, newest last message first, in findbolig.nu's own shape. */
+  async listThreads({ page = 0, pageSize = 100 }: { page?: number; pageSize?: number } = {}): Promise<ApiThreadsPage> {
+    const json = await this.call(
+      { method: "POST", path: "/api/communications/threads", body: { page, pageSize, orderDirection: "DESC" } },
+      "Failed to fetch threads",
+    );
+    return json as ApiThreadsPage;
   }
 
   /** The user's position among the applicants for an offer. */

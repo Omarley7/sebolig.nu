@@ -12,7 +12,9 @@ import { apiResidence } from "./lib/test-fixtures";
 import type { ApiOffer } from "./types/offers";
 
 const T = "2026-01-10T00:00:00.000Z";
-const BEFORE = { since: "2026-01-01T00:00:00.000Z", sinceIds: [] };
+const BEFORE = { listing: { since: "2026-01-01T00:00:00.000Z", sinceIds: [] }, threads: { since: "2026-01-01T00:00:00.000Z", sinceIds: [] } };
+/** findbolig.nu's thread list with no threads in it. */
+const NO_THREADS = () => ({ json: { totalResults: 0, page: 0, pageSize: 100, results: [] } });
 const FUTURE = "2099-06-01";
 
 const OFFER: Partial<ApiOffer> = { id: "o1", residenceId: "r1", state: "Published", updated: T, showingText: null };
@@ -33,6 +35,7 @@ function clientWithOneOffer(messageCount: number, offers: Partial<ApiOffer>[] = 
   const fake = new FakeFindbolig()
     .addAccount("tenant@example.com", "pw", "Test Tenant")
     .on("POST /api/search/offers", () => ({ json: { facets: {}, totalResults: offers.length, page: 0, pageSize: 25, results: offers } }))
+    .on("POST /api/communications/threads", NO_THREADS)
     .on("GET /api/models/residence/r1", () => ({ json: apiResidence() }))
     .on("GET /api/communications/messages/thread/related-to/o1", () => ({ json: thread(messageCount) }))
     .on("GET /api/search/waiting-lists/applicants/position-on-offer/o1", () => ({ json: 4 }));
@@ -114,7 +117,8 @@ async function clientWithOffers(count: number) {
   const offers = Array.from({ length: count }, (_, i) => ({ ...OFFER, id: `o${i}`, residenceId: `r${i}` }));
   const fake = new FakeFindbolig()
     .addAccount("tenant@example.com", "pw", "Test Tenant")
-    .on("POST /api/search/offers", () => ({ json: { facets: {}, totalResults: count, page: 0, pageSize: 25, results: offers } }));
+    .on("POST /api/search/offers", () => ({ json: { facets: {}, totalResults: count, page: 0, pageSize: 25, results: offers } }))
+    .on("POST /api/communications/threads", NO_THREADS);
   let fetched = 0;
   let allFetched!: () => void;
   const allThreadsFetched = new Promise<void>((resolve) => (allFetched = resolve));
@@ -211,4 +215,155 @@ test("with no showing text and nothing about a showing in the thread, the extrac
   assert.equal(extractor.calls, 0);
   assert.equal(delta.items.length, 1);
   assert.equal(delta.items[0].date, null);
+});
+
+// ── The thread walk ──────────────────────────────────────────────
+
+const LISTING_SINCE = "2026-01-05T00:00:00.000Z";
+const MESSAGES_SINCE = "2026-01-05T00:00:00.000Z";
+const SINCE_BOTH = { listing: { since: LISTING_SINCE, sinceIds: [] }, threads: { since: MESSAGES_SINCE, sinceIds: [] } };
+const QUIET = "2026-01-01T00:00:00.000Z"; // an offer `updated` older than the listing cursor
+const NEW_MESSAGE = "2026-01-12T09:00:00.000Z";
+
+type ThreadRow = { id: string; relatedEntity: string | null; relatedEntityType?: string; lastMessage: { id: string; body: string; created: string } | null };
+
+function threadRow(id: string, offerId: string | null, lastMessageAt: string | null): ThreadRow {
+  return {
+    id,
+    relatedEntity: offerId,
+    relatedEntityType: offerId ? "Offer" : undefined,
+    lastMessage: lastMessageAt ? { id: `${id}-last`, body: "Åbent hus 1/6 kl. 16-17", created: lastMessageAt } : null,
+  };
+}
+
+/**
+ * A fake findbolig.nu account: `offers` in the listing (updated desc), `threads` in the thread list
+ * (newest last message first), and each offer's own thread with `messageCount` messages. Offers can
+ * also be looked up by id, like findbolig.nu's `searchOffers` with an id filter.
+ */
+async function account({ offers, threads, messageCount = 1 }: { offers: Partial<ApiOffer>[]; threads: ThreadRow[]; messageCount?: number }) {
+  const fake = new FakeFindbolig()
+    .addAccount("tenant@example.com", "pw", "Test Tenant")
+    .on("POST /api/search/offers", (req) => {
+      const { page = 0, pageSize = 25, filters = {} } = req.body as { page?: number; pageSize?: number; filters?: { id?: string[] } };
+      const matching = filters.id ? offers.filter((o) => filters.id!.includes(o.id!)) : offers;
+      return { json: { facets: {}, totalResults: matching.length, page, pageSize, results: matching.slice(page * pageSize, (page + 1) * pageSize) } };
+    })
+    .on("POST /api/communications/threads", (req) => {
+      const { page = 0, pageSize = 100 } = req.body as { page?: number; pageSize?: number };
+      return { json: { totalResults: threads.length, page, pageSize, results: threads.slice(page * pageSize, (page + 1) * pageSize) } };
+    });
+  for (const { id, residenceId } of offers) {
+    fake
+      .on(`GET /api/models/residence/${residenceId}`, () => ({ json: apiResidence() }))
+      .on(`GET /api/communications/messages/thread/related-to/${id}`, () => ({ json: thread(messageCount) }))
+      .on(`GET /api/search/waiting-lists/applicants/position-on-offer/${id}`, () => ({ json: 4 }));
+  }
+  return { fake, client: await FindboligClient.connect(fake, "tenant@example.com", "pw") };
+}
+
+const searchesById = (fake: FakeFindbolig) =>
+  fake.requests.filter((r) => r.path === "/api/search/offers" && (r.body as { filters?: { id?: string[] } }).filters?.id);
+
+test("a delta picks up an offer whose thread got a new message, although its updated did not move", async () => {
+  const { client } = await account({
+    offers: [{ ...OFFER, updated: QUIET }],
+    threads: [threadRow("t1", "o1", NEW_MESSAGE)],
+    messageCount: 4,
+  });
+  const extractor = new FakeExtractor(extracted);
+
+  const delta = await getAppointmentUpdates(client, extractor, SINCE_BOTH, [cachedEntry(3)]);
+
+  assert.deepEqual(delta.items.map((a) => [a.offerId, a.date, a.messageCount]), [["o1", "2099-07-01", 4]]);
+  assert.equal(extractor.calls, 1);
+  assert.deepEqual([delta.latestMessageAt, delta.latestMessageThreadIds], [NEW_MESSAGE, ["t1"]]);
+});
+
+test("an offer changed in both walks is enriched once, without looking it up by id", async () => {
+  const { fake, client } = await account({
+    offers: [{ ...OFFER, updated: NEW_MESSAGE }],
+    threads: [threadRow("t1", "o1", NEW_MESSAGE)],
+  });
+  const extractor = new FakeExtractor(extracted);
+
+  const delta = await getAppointmentUpdates(client, extractor, SINCE_BOTH, []);
+
+  assert.deepEqual(delta.items.map((a) => a.offerId), ["o1"]);
+  assert.equal(extractor.calls, 1);
+  assert.equal(searchesById(fake).length, 0);
+});
+
+test("a repeat delta from the thread cursor it handed out finds nothing, but a thread landing on that same instant is caught", async () => {
+  const seen = threadRow("t1", "o1", NEW_MESSAGE);
+  const arrival = threadRow("t2", "o2", NEW_MESSAGE);
+  const offers = [{ ...OFFER, updated: QUIET }, { ...OFFER, id: "o2", residenceId: "r2", updated: QUIET }];
+  const cursors = { ...SINCE_BOTH, threads: { since: NEW_MESSAGE, sinceIds: ["t1"] } };
+
+  const quiet = await account({ offers, threads: [seen] });
+  const nothing = await getAppointmentUpdates(quiet.client, new FakeExtractor(extracted), cursors, []);
+  assert.deepEqual(nothing.items, []);
+  assert.equal(searchesById(quiet.fake).length, 0, "nothing changed: no offer is looked up");
+  assert.deepEqual([nothing.latestMessageAt, nothing.latestMessageThreadIds], [NEW_MESSAGE, ["t1"]]);
+
+  // findbolig.nu's tie-break order shifted: the new thread comes first.
+  const tied = await account({ offers, threads: [arrival, seen] });
+  const caught = await getAppointmentUpdates(tied.client, new FakeExtractor(extracted), cursors, []);
+  assert.deepEqual(caught.items.map((a) => a.offerId), ["o2"]);
+  assert.deepEqual([...caught.latestMessageThreadIds].sort(), ["t1", "t2"]);
+});
+
+test("a thread whose offer is no longer upcoming is reported removed, and a thread with no offer is left out", async () => {
+  const { fake, client } = await account({
+    offers: [{ ...OFFER, state: "Expired", updated: QUIET }],
+    threads: [threadRow("t0", null, NEW_MESSAGE), threadRow("t1", "o1", NEW_MESSAGE)],
+  });
+
+  const delta = await getAppointmentUpdates(client, new FakeExtractor(extracted), SINCE_BOTH, []);
+
+  assert.deepEqual([delta.items, delta.removedIds], [[], ["o1"]]);
+  assert.deepEqual(searchesById(fake).map((r) => (r.body as { filters: { id: string[] } }).filters.id), [["o1"]]);
+  assert.deepEqual([...delta.latestMessageThreadIds].sort(), ["t0", "t1"]);
+});
+
+test("an enrichment failing withholds both cursors", async () => {
+  const { client } = await account({ offers: [{ ...OFFER, updated: QUIET }], threads: [threadRow("t1", "o1", NEW_MESSAGE)] });
+  const extractor = new FakeExtractor(() => {
+    throw new Error("OpenAI: 500");
+  });
+
+  const delta = await getAppointmentUpdates(client, extractor, SINCE_BOTH, []);
+
+  assert.deepEqual(delta.items, []);
+  assert.deepEqual([delta.latestUpdated, delta.latestMessageAt, delta.latestMessageThreadIds], [null, null, []]);
+});
+
+test("a thread list page failing fails the delta", async () => {
+  const { fake, client } = await account({ offers: [{ ...OFFER, updated: QUIET }], threads: [] });
+  fake.on("POST /api/communications/threads", () => ({ status: 503 }));
+
+  await assert.rejects(getAppointmentUpdates(client, new FakeExtractor(extracted), SINCE_BOTH, []));
+});
+
+test("a full sync hands out the thread cursor it read before enrichment, so a message arriving mid-sync is caught next time", async () => {
+  const threads = [threadRow("t1", "o1", NEW_MESSAGE)];
+  const { fake, client } = await account({ offers: [{ ...OFFER, updated: QUIET }], threads });
+  // While o1 is being enriched, a new message lands in another thread.
+  fake.on("GET /api/communications/messages/thread/related-to/o1", () => {
+    threads.unshift(threadRow("t2", "o2", "2026-01-12T09:30:00.000Z"));
+    return { json: thread(1) };
+  });
+
+  const sync = await getUpcomingAppointments(client, new FakeExtractor(extracted), []);
+
+  assert.deepEqual(sync.appointments.map((a) => a.offerId), ["o1"]);
+  assert.deepEqual([sync.latestMessageAt, sync.latestMessageThreadIds], [NEW_MESSAGE, ["t1"]]);
+});
+
+test("a delta over a thread list with no messages hands back the thread cursor it was given", async () => {
+  const { client } = await account({ offers: [{ ...OFFER, updated: QUIET }], threads: [threadRow("t0", null, null)] });
+
+  const delta = await getAppointmentUpdates(client, new FakeExtractor(extracted), SINCE_BOTH, []);
+
+  assert.deepEqual([delta.latestMessageAt, delta.latestMessageThreadIds], [MESSAGES_SINCE, []]);
 });

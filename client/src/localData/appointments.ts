@@ -41,7 +41,11 @@ export function appointmentsKind(sources: Record<Mode, AppointmentsSource>) {
         const { appointments, ...cursor } = await source.sync(knownEntries(current?.items ?? []));
         return { items: appointments, ...cursor };
       },
-      fetchChanges: (cursor, current, source) => source.fetchDelta(cursor, knownEntries(current.items)),
+      fetchChanges({ latestMessageAt, latestMessageThreadIds = [], ...cursor }, current, source) {
+        // Stored before the thread walk: without a thread cursor, self-heal with one full sync.
+        if (!latestMessageAt) return null;
+        return source.fetchDelta({ ...cursor, latestMessageAt, latestMessageThreadIds }, knownEntries(current.items));
+      },
     }),
     expose: exposeAppointments,
   };

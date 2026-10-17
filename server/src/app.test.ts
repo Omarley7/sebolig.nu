@@ -286,7 +286,7 @@ test("an ended Connection during offer enrichment ends the request and clears th
   assert.equal(sessionCookieAttrs(res)?.["max-age"], "0", "the Connection cookie was not cleared");
 });
 
-test("the appointments delta takes its cursor and the cached appointments in the body, and reuses an unchanged extraction", async () => {
+test("the appointments delta takes both cursors and the cached appointments in the body, and reuses an unchanged extraction", async () => {
   const T = "2026-01-10T00:00:00.000Z";
   const fake = findboligWithTenant()
     .on("POST /api/search/offers", () => ({
@@ -294,6 +294,9 @@ test("the appointments delta takes its cursor and the cached appointments in the
         { id: "o1", residenceId: "r1", state: "Published", updated: T },
         { id: "o2", residenceId: "r2", state: "Published", updated: "2026-01-01T00:00:00.000Z" },
       ] },
+    }))
+    .on("POST /api/communications/threads", () => ({
+      json: { totalResults: 1, page: 0, pageSize: 100, results: [{ id: "t1", relatedEntity: "o1", relatedEntityType: "Offer", lastMessage: { id: "m2", body: "", created: T } }] },
     }))
     // A thread that was already extracted: it still has its 2 messages.
     .on("GET /api/communications/messages/thread/related-to/o1", () => ({ json: { messages: [{}, {}] } }))
@@ -306,7 +309,7 @@ test("the appointments delta takes its cursor and the cached appointments in the
   const res = await app.request("/api/appointments/delta", {
     method: "POST",
     headers: { ...(await connectedHeaders(fake)), "Content-Type": "application/json" },
-    body: JSON.stringify({ since: "2026-01-05T00:00:00.000Z", sinceIds: [], cached }),
+    body: JSON.stringify({ since: "2026-01-05T00:00:00.000Z", sinceIds: [], messagesSince: T, messagesSinceIds: ["t1"], cached }),
   });
 
   assert.equal(res.status, 200);
@@ -314,6 +317,7 @@ test("the appointments delta takes its cursor and the cached appointments in the
   // o2 is older than the cursor and untouched; o1 keeps the details extracted before.
   assert.deepEqual(delta.items.map((a: { offerId: string; date: string; start: string }) => [a.offerId, a.date, a.start]), [["o1", "2099-01-01", "16:00"]]);
   assert.deepEqual([delta.removedIds, delta.latestUpdated, delta.latestUpdatedIds], [[], T, ["o1"]]);
+  assert.deepEqual([delta.latestMessageAt, delta.latestMessageThreadIds], [T, ["t1"]]);
   assert.equal(extractor.calls, 0, "an unchanged thread must not be extracted again");
 });
 
@@ -325,6 +329,19 @@ test("the appointments delta without a valid since is a 400", async () => {
     method: "POST",
     headers: { ...(await connectedHeaders(fake)), "Content-Type": "application/json" },
     body: JSON.stringify({ since: "not a date", cached: [] }),
+  });
+
+  assert.equal(res.status, 400);
+});
+
+test("the appointments delta without a valid messagesSince is a 400", async () => {
+  const fake = findboligWithNoOffers();
+  const app = createApp({ transport: fake, extractor: new FakeExtractor() });
+
+  const res = await app.request("/api/appointments/delta", {
+    method: "POST",
+    headers: { ...(await connectedHeaders(fake)), "Content-Type": "application/json" },
+    body: JSON.stringify({ since: "2026-01-05T00:00:00.000Z", sinceIds: [], cached: [] }),
   });
 
   assert.equal(res.status, 400);

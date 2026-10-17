@@ -30,6 +30,7 @@ export async function getActiveOffers(client: FindboligClient) {
 }
 
 /** What changed in the offers view since `cursor`; only changed offers pay for enrichment. */
-export function getOfferUpdates(client: FindboligClient, cursor: ListingCursor): Promise<OfferDelta> {
-  return walkOfferListing(client, cursor, offersView(client));
+export async function getOfferUpdates(client: FindboligClient, cursor: ListingCursor): Promise<OfferDelta> {
+  const { items, removedIds, latestUpdated, latestUpdatedIds } = await walkOfferListing(client, cursor, offersView(client));
+  return { items, removedIds, latestUpdated, latestUpdatedIds };
 }
