@@ -16,6 +16,7 @@ export function demoAppointments(): AppointmentsSource {
     async sync() {
       await demoDelay(1500);
       const cursor = demoCursor();
+      // The Demo has no threads either: any instant serves as its thread cursor.
       return { appointments, ...cursor, latestMessageAt: cursor.latestUpdated, latestMessageThreadIds: [] };
     },
     fetchDelta: async () => ({ ...noChanges<Appointment>(), latestMessageAt: null, latestMessageThreadIds: [] }),

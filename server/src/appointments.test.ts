@@ -359,3 +359,11 @@ test("a full sync hands out the thread cursor it read before enrichment, so a me
   assert.deepEqual(sync.appointments.map((a) => a.offerId), ["o1"]);
   assert.deepEqual([sync.latestMessageAt, sync.latestMessageThreadIds], [NEW_MESSAGE, ["t1"]]);
 });
+
+test("a delta over a thread list with no messages hands back the thread cursor it was given", async () => {
+  const { client } = await account({ offers: [{ ...OFFER, updated: QUIET }], threads: [threadRow("t0", null, null)] });
+
+  const delta = await getAppointmentUpdates(client, new FakeExtractor(extracted), SINCE_BOTH, []);
+
+  assert.deepEqual([delta.latestMessageAt, delta.latestMessageThreadIds], [MESSAGES_SINCE, []]);
+});

@@ -28,7 +28,7 @@ function storedAppointments(
 }
 
 /** A stored thread cursor, as a sync since the thread walk hands out. */
-const THREADS = { latestMessageAt: "2026-10-01T09:00:00Z", latestMessageThreadIds: ["t1"] };
+const THREAD_CURSOR = { latestMessageAt: "2026-10-01T09:00:00Z", latestMessageThreadIds: ["t1"] };
 const NO_CHANGES: AppointmentDelta = { items: [], removedIds: [], latestUpdated: null, latestUpdatedIds: [], latestMessageAt: null, latestMessageThreadIds: [] };
 
 function fakeSource(overrides: Partial<AppointmentsSource> = {}): AppointmentsSource {
@@ -62,7 +62,7 @@ it("the cheap check merges changed appointments by offer id, drops removed ones 
     stored: {
       appointments_cache: storedAppointments([appointment("1"), appointment("2")], {
         latestUpdated: "2026-10-01T00:00:00Z",
-        ...THREADS,
+        ...THREAD_CURSOR,
       }),
     },
   });
@@ -83,7 +83,7 @@ it("the cheap check sends what is stored too, so a changed offer with an unchang
   const stored = appointment("1", { messageCount: 4 });
   const { store } = setup(
     fakeSource({ fetchDelta: async (_cursor, known) => (sent.push(known), NO_CHANGES) }),
-    { stored: { appointments_cache: storedAppointments([stored], { latestUpdated: "2026-10-01T00:00:00Z", ...THREADS }) } },
+    { stored: { appointments_cache: storedAppointments([stored], { latestUpdated: "2026-10-01T00:00:00Z", ...THREAD_CURSOR }) } },
   );
 
   await store.init();
@@ -93,33 +93,33 @@ it("the cheap check sends what is stored too, so a changed offer with an unchang
 
 it("a full refresh stores both cursors it hands out", async () => {
   const { store, readStored } = setup(
-    fakeSource({ sync: async () => ({ appointments: [appointment("1")], latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: ["1"], ...THREADS }) }),
+    fakeSource({ sync: async () => ({ appointments: [appointment("1")], latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: ["1"], ...THREAD_CURSOR }) }),
   );
 
   await store.init();
 
-  expect(readStored("appointments_cache")).toMatchObject({ latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: ["1"], ...THREADS });
+  expect(readStored("appointments_cache")).toMatchObject({ latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: ["1"], ...THREAD_CURSOR });
 });
 
 it("the cheap check sends the stored thread cursor next to the listing cursor", async () => {
   const sent: Cursor[] = [];
   const { store } = setup(fakeSource({ fetchDelta: async (cursor) => (sent.push(cursor), NO_CHANGES) }), {
-    stored: { appointments_cache: storedAppointments([appointment("1")], { latestUpdated: "2026-10-01T00:00:00Z", latestUpdatedIds: ["1"], ...THREADS }) },
+    stored: { appointments_cache: storedAppointments([appointment("1")], { latestUpdated: "2026-10-01T00:00:00Z", latestUpdatedIds: ["1"], ...THREAD_CURSOR }) },
   });
 
   await store.init();
 
-  expect(sent).toEqual([{ latestUpdated: "2026-10-01T00:00:00Z", latestUpdatedIds: ["1"], ...THREADS }]);
+  expect(sent).toEqual([{ latestUpdated: "2026-10-01T00:00:00Z", latestUpdatedIds: ["1"], ...THREAD_CURSOR }]);
 });
 
 it("a cheap check that withholds the cursors keeps both stored ones", async () => {
   const { store, readStored } = setup(fakeSource({ fetchDelta: async () => ({ ...NO_CHANGES, items: [appointment("2")] }) }), {
-    stored: { appointments_cache: storedAppointments([appointment("1")], { latestUpdated: "2026-10-01T00:00:00Z", latestUpdatedIds: ["1"], ...THREADS }) },
+    stored: { appointments_cache: storedAppointments([appointment("1")], { latestUpdated: "2026-10-01T00:00:00Z", latestUpdatedIds: ["1"], ...THREAD_CURSOR }) },
   });
 
   await store.init();
 
-  expect(readStored("appointments_cache")).toMatchObject({ latestUpdated: "2026-10-01T00:00:00Z", latestUpdatedIds: ["1"], ...THREADS });
+  expect(readStored("appointments_cache")).toMatchObject({ latestUpdated: "2026-10-01T00:00:00Z", latestUpdatedIds: ["1"], ...THREAD_CURSOR });
 });
 
 it("appointments stored without a thread cursor take one full sync instead of the cheap check", async () => {
@@ -127,7 +127,7 @@ it("appointments stored without a thread cursor take one full sync instead of th
   const { store, readStored } = setup(
     fakeSource({
       fetchDelta: async () => (deltas++, NO_CHANGES),
-      sync: async () => ({ appointments: [appointment("2")], latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: ["2"], ...THREADS }),
+      sync: async () => ({ appointments: [appointment("2")], latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: ["2"], ...THREAD_CURSOR }),
     }),
     { stored: { appointments_cache: storedAppointments([appointment("1")], { latestUpdated: "2026-10-01T00:00:00Z" }) } },
   );
@@ -136,15 +136,15 @@ it("appointments stored without a thread cursor take one full sync instead of th
 
   expect(deltas).toBe(0);
   expect(store.appointments.map((a) => a.offerId)).toEqual(["2"]);
-  expect(readStored("appointments_cache")).toMatchObject({ latestUpdated: "2026-10-02T00:00:00Z", ...THREADS });
+  expect(readStored("appointments_cache")).toMatchObject({ latestUpdated: "2026-10-02T00:00:00Z", ...THREAD_CURSOR });
 });
 
 it("a full refresh sends what is stored, so unchanged appointments are not extracted again", async () => {
   const sent: CachedAppointmentEntry[][] = [];
   const stored = appointment("1", { messageCount: 4 });
   const { store } = setup(
-    fakeSource({ sync: async (known) => (sent.push(known), { appointments: [stored], latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: [], ...THREADS }) }),
-    { stored: { appointments_cache: storedAppointments([stored], { latestUpdated: "2026-10-01T00:00:00Z", ...THREADS }) } },
+    fakeSource({ sync: async (known) => (sent.push(known), { appointments: [stored], latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: [], ...THREAD_CURSOR }) }),
+    { stored: { appointments_cache: storedAppointments([stored], { latestUpdated: "2026-10-01T00:00:00Z", ...THREAD_CURSOR }) } },
   );
   await store.init();
 

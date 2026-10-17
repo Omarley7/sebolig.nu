@@ -23,8 +23,9 @@ import type { ApiThreadSummary } from "~/types/threads";
  * from a thread cursor of its own. It is the same rule over `lastMessage.created` and thread ids,
  * handed out as `threadCursor`. A delta enriches every offer changed in either walk, once: offers
  * the listing walk did not find are fetched in one `searchOffers` by id. Threads with no offer are
- * left out. A full sync enriches every offer anyway, so it only reads the thread cursor, before any
- * enrichment starts: a message arriving mid-sync is caught by the next delta.
+ * left out. A full sync enriches every offer anyway, so it walks the thread list only for the next
+ * thread cursor, before any enrichment starts: a message arriving mid-sync is caught by the next
+ * delta. A thread list with no message in it hands back the thread cursor it was walked from.
  *
  * ## Paging
  * Both page by `totalResults`, so no change is silently lost. A delta fetches one page at a time
@@ -53,7 +54,8 @@ import type { ApiThreadSummary } from "~/types/threads";
  * ## The summary line
  * Each walk logs one line: offers walked (changed since the cursor), offers enriched (that fetched
  * from findbolig.nu), LLM calls, thread list pages and listing pages fetched (the by-id fetch counts
- * as a listing page), then milliseconds: the listing phase (wall time, the thread walk included), the enrichment phase (wall time from the end of the listing until the last enrichment
+ * as a listing page), then milliseconds: the listing phase (wall time, the thread walk included),
+ * the enrichment phase (wall time from the end of the listing until the last enrichment
  * settles, the critical path through findbolig.nu and the slowest LLM call), the total, summed LLM
  * (including any wait for the server's LLM cap) and summed findbolig.nu. Counts and timings only,
  * never anything about the offers themselves.
@@ -158,7 +160,8 @@ export async function walkOfferListing<T>(
           }))
         : null,
     ]);
-    const nextThreadCursor = threads?.latest ? { since: threads.latest, sinceIds: threads.latestIds } : null;
+    // A thread list with no message in it has nothing newer than the cursor a delta was given.
+    const nextThreadCursor = threads?.latest ? { since: threads.latest, sinceIds: threads.latestIds } : threadCursor;
     if (!cursor || !threads) return { listing, threadCursor: nextThreadCursor, changed: listing.changed };
 
     const listed = new Set(listing.changed.map((offer) => offer.id));

@@ -30,7 +30,6 @@ export type ApiThreadSummary = {
   /** The offer id for an offer's thread; null for a thread about nothing in particular. */
   relatedEntity: string | null;
   relatedEntityType: string | null;
-  title: string;
   lastMessage: ApiMessage | null;
 };
 
