@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import AppointmentsList from "~/components/appointment/AppointmentsList.vue";
+import { useAutomaticChecks } from "~/composables/useAutomaticChecks";
 import { useAppointmentsStore } from "~/stores/appointments";
 
 const store = useAppointmentsStore();
@@ -9,7 +10,7 @@ const { t } = useI18n();
 
 const appointmentCount = computed(() => store.appointments.length);
 
-onMounted(() => store.init());
+useAutomaticChecks(store);
 </script>
 
 <template>
@@ -26,14 +27,14 @@ onMounted(() => store.init());
       </p>
       <button
         @click="store.refresh()"
-        :disabled="store.isLoading"
+        :disabled="store.isBusy"
         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 disabled:opacity-40 transition-colors"
       >
         <img
           src="/icons/refresh-ccw.svg"
           alt=""
           class="size-4 dark:invert opacity-60"
-          :class="{ 'animate-spin': store.isLoading }"
+          :class="{ 'animate-spin': store.isBusy }"
         />
         {{ t("appointments.refresh") }}
       </button>

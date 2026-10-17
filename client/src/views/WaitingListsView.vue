@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import PassivatedBanner from "~/components/waitingList/PassivatedBanner.vue";
 import WaitingListsList from "~/components/waitingList/WaitingListsList.vue";
+import { useAutomaticChecks } from "~/composables/useAutomaticChecks";
 import { useWaitingListsStore } from "~/stores/waitingLists";
 
 const store = useWaitingListsStore();
@@ -10,7 +11,7 @@ const { t } = useI18n();
 
 const count = computed(() => store.lists.length);
 
-onMounted(() => store.init());
+useAutomaticChecks(store);
 </script>
 
 <template>
@@ -24,7 +25,7 @@ onMounted(() => store.init());
       </p>
       <button
         @click="store.refresh()"
-        :disabled="store.isLoading"
+        :disabled="store.isBusy"
         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
                text-neutral-500 dark:text-neutral-400
                hover:bg-neutral-100 dark:hover:bg-white/5
@@ -34,7 +35,7 @@ onMounted(() => store.init());
           src="/icons/refresh-ccw.svg"
           alt=""
           class="size-4 dark:invert opacity-60"
-          :class="{ 'animate-spin': store.isLoading }"
+          :class="{ 'animate-spin': store.isBusy }"
         />
         {{ t("waitingLists.refresh") }}
       </button>

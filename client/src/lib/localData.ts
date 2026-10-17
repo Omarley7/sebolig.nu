@@ -47,6 +47,12 @@ export type Notice = {
 
 export type Mode = "live" | "demo";
 
+/** When each kind was last checked successfully, by kind name, kept apart from the kinds' own data. */
+const CHECKED_AT_KEY = "local_data_checked_at";
+
+/** How long an automatic check waits after the last check or refresh of the same kind. */
+const CHECK_COOLDOWN_MS = 60_000;
+
 export interface LocalDataDeps {
   storage: LocalStorage;
   connection: () => Connection;
@@ -67,9 +73,14 @@ export interface LocalDataDefinition<Data, Source, Extra> {
   /**
    * The cheap "did anything change" path init() takes over stored data. Resolves null when
    * the stored data cannot be checked cheaply (e.g. it predates the delta cursor). Kinds
-   * without a cheap signal leave it out, and init() just shows what is stored.
+   * without a cheap signal leave it out, and init() shows what is stored (see refreshAfterMs).
    */
   checkForChanges?(current: Data, source: Source): Promise<Data | null>;
+  /**
+   * For kinds without a cheap check: init() fetches everything once the last successful check
+   * is this many ms old. Data with no recorded check counts as that old.
+   */
+  refreshAfterMs?: number;
   failedKey: MessageKey;
   sources: Record<Mode, Source>;
   /** What the kind's store exposes on top of the shared lifecycle: its own state, getters and writes. */
@@ -101,7 +112,7 @@ export interface LocalDataContext<Data, Source> {
 export function createLocalData(deps: LocalDataDeps) {
   // Every kind registers when it is defined, not when its store is first used, so erasing
   // also reaches data of kinds no page has used since the app started.
-  const storedKeys: string[] = [];
+  const storedKeys: string[] = [CHECKED_AT_KEY];
   const forgetInMemory = new Set<() => void>();
 
   /** Erases all Local data kept by the defined kinds: stored copies and in-memory state. */
@@ -110,13 +121,27 @@ export function createLocalData(deps: LocalDataDeps) {
     for (const forget of forgetInMemory) forget();
   }
 
+  function readCheckedAt(): Record<string, string> {
+    try {
+      const parsed = JSON.parse(deps.storage.read(CHECKED_AT_KEY) ?? "{}");
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
   function define<Data, Source, Extra extends object = {}>(definition: LocalDataDefinition<Data, Source, Extra>) {
     storedKeys.push(definition.key, ...(definition.extraKeys ?? []));
     return defineStore(definition.name, () => {
       const data = shallowRef<Data | null>(null);
+      // The last successful check: a cheap check or a full refresh. Data that didn't change
+      // keeps its own updatedAt, so this is what "last updated" shows.
+      const checkedAt = ref<Date | null>(null);
       const status = ref<"idle" | "loading" | "error">("idle");
       const hasData = computed(() => data.value !== null);
       const isLoading = computed(() => status.value === "loading");
+      // Bumped when Local data is erased: a fetch that started before then must not store its result.
+      let erasures = 0;
       // Looked up on every call: a demo can start after the store already exists.
       const source = () => definition.sources[deps.mode()];
       const refreshListeners: ((data: Data) => void)[] = [];
@@ -127,17 +152,55 @@ export function createLocalData(deps: LocalDataDeps) {
         deps.storage.write(definition.key, JSON.stringify(definition.serialize ? definition.serialize(next) : next));
       }
 
+      function recordCheck() {
+        checkedAt.value = new Date();
+        deps.storage.write(CHECKED_AT_KEY, JSON.stringify({ ...readCheckedAt(), [definition.name]: checkedAt.value.toISOString() }));
+      }
+
       function load() {
+        const stored = new Date(readCheckedAt()[definition.name] ?? NaN);
+        checkedAt.value = Number.isNaN(stored.getTime()) ? null : stored;
         const raw = deps.storage.read(definition.key);
         if (raw === null) return;
         data.value = definition.revive(JSON.parse(raw));
       }
 
+      // When the last check or refresh started, for the cooldown between automatic checks.
+      let lastCheckStartedAt = -Infinity;
+      let checkInFlight: Promise<void> | null = null;
+      const isChecking = ref(false);
+      /** A check or a refresh is running: what the refresh icon spins for. */
+      const isBusy = computed(() => isChecking.value || isLoading.value);
+
+      /**
+       * Shows what is stored and, with a Connection, checks findbolig.nu for changes: the
+       * automatic check a page runs when it opens and when the tab is shown again. A check
+       * started within CHECK_COOLDOWN_MS of the last one (or of a refresh) is skipped.
+       */
       async function init() {
-        load();
+        // Once loaded, the data in memory is what is stored: every change goes through save().
+        if (data.value === null) load();
         if (!deps.connection().isConnected()) return;
+        if (checkInFlight) return checkInFlight;
+        if (Date.now() - lastCheckStartedAt < CHECK_COOLDOWN_MS) return;
+        isChecking.value = true;
+        checkInFlight = check().finally(() => {
+          checkInFlight = null;
+          isChecking.value = false;
+        });
+        return checkInFlight;
+      }
+
+      async function check() {
         if (data.value === null) return refresh();
-        if (!definition.checkForChanges) return;
+        lastCheckStartedAt = Date.now();
+        if (!definition.checkForChanges) {
+          const { refreshAfterMs } = definition;
+          const due = refreshAfterMs !== undefined && (checkedAt.value?.getTime() ?? -Infinity) <= Date.now() - refreshAfterMs;
+          if (due) await refreshIfLive();
+          return;
+        }
+        const startedBefore = erasures;
         let checked: Data | null;
         try {
           checked = await definition.checkForChanges(data.value, source());
@@ -147,10 +210,20 @@ export function createLocalData(deps: LocalDataDeps) {
           await deps.connection().recoverFrom(error);
           return;
         }
-        if (checked) return save(checked);
-        // Can't check cheaply: self-heal with one full refresh, but only on a confirmed live
-        // Connection. An ended one is the Connection's to handle; an unreachable findbolig.nu
-        // just leaves the stored data as it is.
+        if (erasures !== startedBefore) return;
+        if (checked) {
+          save(checked);
+          return recordCheck();
+        }
+        // Can't check cheaply: self-heal with one full refresh.
+        await refreshIfLive();
+      }
+
+      /**
+       * An automatic full refresh, only on a confirmed live Connection. An ended one is the
+       * Connection's to handle; an unreachable findbolig.nu just leaves the stored data as it is.
+       */
+      async function refreshIfLive() {
         if ((await deps.connection().checkConnection()) === "live") await refresh();
       }
 
@@ -165,15 +238,20 @@ export function createLocalData(deps: LocalDataDeps) {
         return inFlight;
       }
 
-      function saveRefreshed(next: Data) {
+      function saveRefreshed(next: Data, startedBefore: number) {
+        // Local data was erased while fetching (say, a disconnect): keep it erased.
+        if (erasures !== startedBefore) return;
         save(next);
+        recordCheck();
         for (const listener of refreshListeners) listener(next);
       }
 
       async function fetchEverything() {
+        lastCheckStartedAt = Date.now();
+        const startedBefore = erasures;
         status.value = "loading";
         try {
-          saveRefreshed(await definition.fetchAll(data.value, source()));
+          saveRefreshed(await definition.fetchAll(data.value, source()), startedBefore);
           status.value = "idle";
         } catch (error) {
           const check = await deps.connection().recoverFrom(error);
@@ -184,7 +262,7 @@ export function createLocalData(deps: LocalDataDeps) {
           }
           if (check === "live") {
             try {
-              saveRefreshed(await definition.fetchAll(data.value, source()));
+              saveRefreshed(await definition.fetchAll(data.value, source()), startedBefore);
               status.value = "idle";
               return;
             } catch {
@@ -197,7 +275,10 @@ export function createLocalData(deps: LocalDataDeps) {
       }
 
       forgetInMemory.add(() => {
+        erasures++;
         data.value = null;
+        checkedAt.value = null;
+        lastCheckStartedAt = -Infinity;
         status.value = "idle";
         for (const listener of eraseListeners) listener();
       });
@@ -219,7 +300,7 @@ export function createLocalData(deps: LocalDataDeps) {
         onErase: (listener) => void eraseListeners.push(listener),
       });
 
-      return { data, status, hasData, isLoading, init, refresh, ...(own as Extra) };
+      return { data, status, hasData, isLoading, isChecking, isBusy, checkedAt, init, refresh, ...(own as Extra) };
     });
   }
 
