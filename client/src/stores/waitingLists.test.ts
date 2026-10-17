@@ -1,6 +1,6 @@
 import type { WaitingList, WaitingListSnapshot } from "@/types";
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { WaitingListsSource } from "~/data/waitingLists/source";
 import { waitingListsKind } from "~/localData/waitingLists";
 import { localDataHarness, type HarnessOptions } from "~/test/localDataHarness";
@@ -37,11 +37,16 @@ beforeEach(() => {
   setActivePinia(createPinia());
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 it("a refresh flags lists that went passive since they were last seen active", async () => {
   const { store, readStored } = setup(fakeSource({ fetchAll: async () => [list("a", "Passive"), list("b", "Passive")] }), {
     stored: {
       waiting_lists_cache: storedLists([list("a"), list("b", "Passive")]),
       waiting_lists_snapshots: [snapshot("a", "Active"), snapshot("b", "Passive")],
+      local_data_checked_at: { waitingLists: new Date().toISOString() },
     },
   });
   await store.init();
@@ -153,4 +158,45 @@ it("unsubscribing removes the list and forgets it was ever seen", async () => {
 
   expect(store.lists.map((l) => l.propertyId)).toEqual(["b"]);
   expect(readStored("waiting_lists_snapshots").map((s: WaitingListSnapshot) => s.propertyId)).toEqual(["b"]);
+});
+
+it("waiting lists last checked more than 24 h ago are fetched again automatically", async () => {
+  vi.setSystemTime(new Date("2026-10-18T10:00:00.000Z"));
+  const { store } = setup(fakeSource({ fetchAll: async () => [list("a"), list("b")] }), {
+    stored: {
+      waiting_lists_cache: storedLists([list("a")]),
+      local_data_checked_at: { waitingLists: "2026-10-17T09:59:00.000Z" },
+    },
+  });
+
+  await store.init();
+
+  expect(store.lists.map((l) => l.propertyId)).toEqual(["a", "b"]);
+  expect(store.checkedAt).toEqual(new Date("2026-10-18T10:00:00.000Z"));
+});
+
+it("waiting lists checked within the last 24 h are shown as stored, without fetching", async () => {
+  vi.setSystemTime(new Date("2026-10-18T10:00:00.000Z"));
+  let fetches = 0;
+  const { store } = setup(fakeSource({ fetchAll: async () => (fetches++, []) }), {
+    stored: {
+      waiting_lists_cache: storedLists([list("a")]),
+      local_data_checked_at: { waitingLists: "2026-10-17T10:01:00.000Z" },
+    },
+  });
+
+  await store.init();
+
+  expect(fetches).toBe(0);
+  expect(store.lists.map((l) => l.propertyId)).toEqual(["a"]);
+});
+
+it("waiting lists stored before checks were recorded are fetched again once", async () => {
+  const { store } = setup(fakeSource({ fetchAll: async () => [list("b")] }), {
+    stored: { waiting_lists_cache: storedLists([list("a")]) },
+  });
+
+  await store.init();
+
+  expect(store.lists.map((l) => l.propertyId)).toEqual(["b"]);
 });
