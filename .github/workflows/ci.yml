@@ -29,7 +29,8 @@ jobs:
       - name: No local-only patches
         run: |
           # Real-account runs mark throwaway patches LOCAL-ONLY; they may hold personal data.
-          if git grep -n "LOCAL-ONLY" -- . ':!.github/workflows/ci.yml'; then
+          # ci.yml and guide.md name the marker to explain this rule, so they are left out.
+          if git grep -n "LOCAL-ONLY" -- . ':!.github/workflows/ci.yml' ':!guide.md'; then
             echo "::error::A LOCAL-ONLY patch was committed."
             exit 1
           fi
