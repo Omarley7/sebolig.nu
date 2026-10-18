@@ -52,6 +52,7 @@ const detail = useDetailSheet((id) => appointments.value.find((a) => a.id === id
       :appointment="detail.item"
       :include-date="includeDate"
       :gone="detail.gone"
+      :section="detail.section"
       @close="detail.onClose"
       @after-leave="detail.onAfterLeave"
     />

@@ -35,15 +35,15 @@ const ENTITIES: Record<string, string> = {
   aelig: "æ", oslash: "ø", aring: "å", AElig: "Æ", Oslash: "Ø", Aring: "Å",
 };
 
-const stripHtml = (text: string) =>
-  text
-    .replace(/<[^>]*>?/g, "")
-    .replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (entity, name: string) => {
-      if (name[0] !== "#") return ENTITIES[name] ?? entity;
-      const code = name[1].toLowerCase() === "x" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
-      return code <= 0x10ffff ? String.fromCodePoint(code) : entity;
-    })
-    .trim();
+/** Decodes the HTML entities in findbolig.nu's text; an unknown one is left as it is. */
+export const decodeEntities = (text: string) =>
+  text.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (entity, name: string) => {
+    if (name[0] !== "#") return ENTITIES[name] ?? entity;
+    const code = name[1].toLowerCase() === "x" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+    return code <= 0x10ffff ? String.fromCodePoint(code) : entity;
+  });
+
+const stripHtml = (text: string) => decodeEntities(text.replace(/<[^>]*>?/g, "")).trim();
 
 const DANISH_DAY = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", year: "numeric", month: "2-digit", day: "2-digit" });
 

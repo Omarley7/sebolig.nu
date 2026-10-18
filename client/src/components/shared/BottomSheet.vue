@@ -141,7 +141,7 @@ onUnmounted(() => clearTimeout(afterLeaveTimer));
         </button>
 
         <!-- Scrollable content -->
-        <div class="overflow-y-auto overscroll-contain flex-1">
+        <div data-sheet-scroll class="overflow-y-auto overscroll-contain flex-1">
           <slot />
         </div>
 

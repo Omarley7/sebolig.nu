@@ -1,7 +1,7 @@
 import type { Appointment, AppointmentDelta, CachedAppointmentEntry, SyncAppointmentsResponse, ThreadCursor } from "@/types";
 import { nullUnlessConnectionEnded } from "~/lib/errors";
 import type { FindboligClient } from "~/lib/findbolig-client";
-import { mapAppointmentToDomain } from "~/lib/findbolig-domain";
+import { mapAppointmentToDomain, mapThreadToDomain } from "~/lib/findbolig-domain";
 import { acceptedDetails, danishDate, EMPTY_DETAILS, showingContext, type AppointmentExtractor } from "~/lib/llm/appointment-extractor";
 import { gone, walkOfferListing, type ListingCursor, type ListingView, type Walked } from "~/offer-listing";
 
@@ -11,11 +11,19 @@ function isDateInPast(dateStr: string | null): boolean {
   return dateStr < today;
 }
 
+/** Whether the thread list's newest message is newer than the newest the client has (or it has none). */
+function isNewer(lastMessageAt: string | null, newestMessageAt: string | null | undefined): boolean {
+  if (!lastMessageAt) return false;
+  return !newestMessageAt || new Date(lastMessageAt).getTime() > new Date(newestMessageAt).getTime();
+}
+
 /**
  * Upcoming appointments: Finished and Published offers, found by the listing walk and the thread
  * walk (a new message does not move an offer's `updated`). Each is built reusing what the client
  * already has (`cached`) where possible:
- *  - a past appointment it has is echoed back as-is, with no upstream calls;
+ *  - a past appointment it has is echoed back as-is, with no upstream calls, unless the thread list
+ *    has a message newer than any the client has: then only the thread is fetched again, for its
+ *    messages (no LLM call, and the viewing, residence and position are kept);
  *  - a thread with the same message count reuses the cached details, skipping the LLM;
  *  - anything else is extracted in one LLM call from the thread or, when no message is about a
  *    showing, the offer's showing text (no call when neither is). The answer goes through `acceptedDetails`: a date
@@ -34,11 +42,17 @@ function appointmentsView(
     name: "appointments",
     walksThreads: true,
     belongs: (offer) => offer.state === "Finished" || offer.state === "Published",
-    async enrich(offer, { findbolig, llm }) {
+    async enrich(offer, { findbolig, llm }, { lastMessageAt }) {
       const { residenceId } = offer;
       if (!residenceId) return gone;
       const cachedEntry = cacheByOfferId.get(offer.id);
-      if (cachedEntry && isDateInPast(cachedEntry.date)) return cachedEntry.appointment;
+      if (cachedEntry && isDateInPast(cachedEntry.date)) {
+        if (!isNewer(lastMessageAt, cachedEntry.newestMessageAt)) return cachedEntry.appointment;
+        // A message after the viewing (how to apply, say): read it, but keep the viewing as it was.
+        const thread = await findbolig(() => client.getThreadForOffer(offer.id));
+        if (!thread) return cachedEntry.appointment;
+        return { ...cachedEntry.appointment, ...mapThreadToDomain(thread, offer) };
+      }
 
       const [residence, thread, position] = await findbolig(() =>
         Promise.all([
@@ -57,12 +71,12 @@ function appointmentsView(
           endTime: cachedEntry.appointment.end ?? "",
           cancelled: cachedEntry.appointment.cancelled,
         };
-        return mapAppointmentToDomain({ offer, residence, details, position, messageCount });
+        return mapAppointmentToDomain({ offer, residence, details, position, thread });
       }
 
       const context = showingContext(thread, offer.showingText);
       const details = context ? acceptedDetails(context, await llm(() => extractor.extract(context, today))) : EMPTY_DETAILS;
-      return mapAppointmentToDomain({ offer, residence, details, position, messageCount });
+      return mapAppointmentToDomain({ offer, residence, details, position, thread });
     },
   };
 }

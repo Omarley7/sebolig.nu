@@ -17,13 +17,29 @@ function reviveAppointment(stored: Appointment): Appointment {
   };
 }
 
-/** What a fetch tells the server it already knows, so unchanged threads aren't extracted again. */
+/**
+ * What a fetch tells the server it already knows, so unchanged threads aren't extracted again.
+ * The messages stay on the device: only when the newest was sent goes along.
+ */
 function knownEntries(appointments: Appointment[]): CachedAppointmentEntry[] {
-  return appointments.map((appointment) => ({
+  return appointments.map(({ messages, ...appointment }) => ({
     offerId: appointment.offerId,
     messageCount: appointment.messageCount ?? 0,
+    newestMessageAt: messages?.at(-1)?.sentAt ?? null,
     date: appointment.date,
     appointment,
+  }));
+}
+
+/**
+ * A past appointment the server echoes back comes without its thread: it keeps the messages
+ * stored for it. After a full sync every appointment has a thread, if only an empty one.
+ */
+function keepMessages(fetched: Appointment[], stored: Appointment[]): Appointment[] {
+  const storedById = new Map(stored.map((appointment) => [appointment.offerId, appointment]));
+  return fetched.map((appointment) => ({
+    ...appointment,
+    messages: appointment.messages ?? storedById.get(appointment.offerId)?.messages ?? [],
   }));
 }
 
@@ -39,12 +55,14 @@ export function appointmentsKind(sources: Record<Mode, AppointmentsSource>) {
       reviveItem: reviveAppointment,
       async fetchEverything(current, source) {
         const { appointments, ...cursor } = await source.sync(knownEntries(current?.items ?? []));
-        return { items: appointments, ...cursor };
+        return { items: keepMessages(appointments, current?.items ?? []), ...cursor };
       },
       fetchChanges({ latestMessageAt, latestMessageThreadIds = [], ...cursor }, current, source) {
-        // Stored before the thread walk: without a thread cursor, self-heal with one full sync.
-        if (!latestMessageAt) return null;
-        return source.fetchDelta({ ...cursor, latestMessageAt, latestMessageThreadIds }, knownEntries(current.items));
+        // Stored before the thread walk, or before threads were kept: self-heal with one full sync.
+        if (!latestMessageAt || current.items.some((appointment) => !appointment.messages)) return null;
+        return source
+          .fetchDelta({ ...cursor, latestMessageAt, latestMessageThreadIds }, knownEntries(current.items))
+          .then((delta) => ({ ...delta, items: keepMessages(delta.items, current.items) }));
       },
     }),
     expose: exposeAppointments,

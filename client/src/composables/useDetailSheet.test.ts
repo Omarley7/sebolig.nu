@@ -23,6 +23,7 @@ const Detail = defineComponent({
   props: {
     item: { type: Object as PropType<Item>, required: true },
     gone: Boolean,
+    section: { type: String as PropType<string | null>, default: null },
   },
   emits: ["close", "after-leave"],
   setup(props, { emit }) {
@@ -32,7 +33,7 @@ const Detail = defineComponent({
       h(
         BottomSheet,
         { sheet: own, onClose: () => emit("close"), onAfterLeave: () => emit("after-leave") },
-        () => h("p", { class: "detail" }, props.item.name),
+        () => h("p", { class: "detail", "data-section": props.section ?? "" }, props.item.name),
       );
   },
 });
@@ -41,7 +42,13 @@ const Card = defineComponent({
   props: { item: { type: Object as PropType<Item>, required: true } },
   setup(props) {
     const openDetail = useOpenDetail();
-    return () => h("li", { class: "card", "data-id": props.item.id, onClick: () => openDetail(props.item.id) });
+    return () =>
+      h("li", { class: "card", "data-id": props.item.id, onClick: () => openDetail(props.item.id) }, [
+        h("span", {
+          class: "card-thread",
+          onClick: (event: Event) => (event.stopPropagation(), openDetail(props.item.id, "thread")),
+        }),
+      ]);
   },
 });
 
@@ -56,6 +63,7 @@ const List = defineComponent({
         ? h(Detail, {
             item: detail.item,
             gone: detail.gone,
+            section: detail.section,
             onClose: detail.onClose,
             onAfterLeave: detail.onAfterLeave,
           })
@@ -112,7 +120,22 @@ beforeEach(async () => {
 
 afterEach(() => unmount());
 
+const section = () => document.querySelector<HTMLElement>(".detail")?.dataset.section;
+
 describe("useDetailSheet", () => {
+  it("a card can open its sheet at a section, and tapping the card itself opens it at the top", async () => {
+    card("a").querySelector<HTMLElement>(".card-thread")!.click();
+    await nextTick();
+    await frame();
+    expect([shown(), section()]).toEqual(["Alpha", "thread"]);
+
+    sheet!.close();
+    await nextTick();
+    await slideOut();
+    await tap("b");
+    expect([shown(), section()]).toEqual(["Beta", ""]);
+  });
+
   it("tapping a card opens its detail sheet", async () => {
     await tap("a");
     expect(shown()).toBe("Alpha");
