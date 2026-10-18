@@ -61,6 +61,63 @@
     "position": 12
   },
   {
+    "id": "1f3c9a7e-52d4-4b1e-9c0a-7e2b6d8f4a13",
+    "residence": {
+      "addressLine1": "Philip Schous Vej 21, 1. TV.",
+      "addressLine2": "2000 Frederiksberg",
+      "location": { "latitude": 55.68095, "longitude": 12.52475 }
+    },
+    "deadline": "",
+    "availableFrom": "2026-04-01T00:00:00Z",
+    "rooms": 2,
+    "area": 64,
+    "recipientState": "OfferReceived",
+    "company": "PFA (Capital Investment)",
+    "financials": {
+      "monthlyRentIncludingAconto": 10250,
+      "monthlyRentExcludingAconto": 9450,
+      "utilityCosts": 800,
+      "deposit": 28350,
+      "prepaidRent": 28350,
+      "firstPayment": 66950
+    },
+    "imageUrl": "/data/media/a6a99bfb-ef48-4de0-8462-a21739c7f1e6/1f611538-1a1f-4b51-ae27-6ba37c784a23.jpg",
+    "images": [
+      "/data/media/a6a99bfb-ef48-4de0-8462-a21739c7f1e6/1f611538-1a1f-4b51-ae27-6ba37c784a23.jpg",
+      "/data/media/a6a99bfb-ef48-4de0-8462-a21739c7f1e6/0675e7db-0238-4331-9469-837765896653.jpg"
+    ],
+    "blueprints": [],
+    "position": 21
+  },
+  {
+    "id": "8b2e4d61-0c7f-4a95-b3d2-5f1e9a6c7b28",
+    "residence": {
+      "addressLine1": "Nitivej 6, 2. tv",
+      "addressLine2": "2000 Frederiksberg",
+      "location": { "latitude": 55.67942, "longitude": 12.51234 }
+    },
+    "deadline": "",
+    "availableFrom": "2026-05-01T00:00:00Z",
+    "rooms": 1,
+    "area": 42,
+    "recipientState": "OfferReceived",
+    "company": "PFA (Capital Investment)",
+    "financials": {
+      "monthlyRentIncludingAconto": 7350,
+      "monthlyRentExcludingAconto": 6750,
+      "utilityCosts": 600,
+      "deposit": 20250,
+      "prepaidRent": 20250,
+      "firstPayment": 47850
+    },
+    "imageUrl": "/data/media/d7e91ff6-3b48-4e79-8e96-df0c710f7898/76019d7c-d1b5-41b3-be2b-63b66962c512.jpg",
+    "images": [
+      "/data/media/d7e91ff6-3b48-4e79-8e96-df0c710f7898/76019d7c-d1b5-41b3-be2b-63b66962c512.jpg"
+    ],
+    "blueprints": [],
+    "position": 5
+  },
+  {
     "id": "ee898f56-6gf7-6dgd-d5da-20fg969hcd1g",
     "residence": {
       "addressLine1": "Mariendalsvej 52G, 2. TV",
