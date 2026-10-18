@@ -367,3 +367,97 @@ test("a delta over a thread list with no messages hands back the thread cursor i
 
   assert.deepEqual([delta.latestMessageAt, delta.latestMessageThreadIds], [MESSAGES_SINCE, []]);
 });
+
+// ── The thread ───────────────────────────────────────────────────
+
+const FINDBOLIG = { id: "11111111-1111-1111-1111-111111111111", name: "Findbolig" };
+const LANDLORD = { id: "landlord-1", name: "Anette Udlejer" };
+const TENANT = { id: "tenant-1", name: "Test Tenant" };
+const RECIPIENT = { userId: TENANT.id, state: "OfferAccepted" } as NonNullable<ApiOffer["recipients"]>[number];
+
+const NOTICE = {
+  id: "m1",
+  sender: FINDBOLIG,
+  body: "<p>Kære boligsøgende</p>\n<p><span style=\"color: #213540;\">Du har modtaget et <a href=\"/da-dk/profile/my-offers\">boligtilbud</a>.</span>&nbsp;</p>\n<p>Med venlig hilsen<br />\nFindbolig</p>",
+  created: "2026-01-02T09:00:00.000Z",
+};
+const INVITATION = { id: "m2", sender: LANDLORD, body: "Kære ansøger,\nÅbent hus 1/6 kl. 16-17.", created: "2026-01-03T09:00:00.000Z" };
+const REPLY = { id: "m3", sender: TENANT, body: "Jeg kommer", attachments: [{ id: "a1" }], created: "2026-01-04T09:00:00.000Z" };
+
+/** A client on a fake findbolig.nu with one Published offer whose thread holds `messages`. */
+async function clientWithThread(messages: object[], offer: Partial<ApiOffer> = { ...OFFER, recipients: [RECIPIENT] }) {
+  const { fake, client } = await account({ offers: [offer], threads: [] });
+  fake.on("GET /api/communications/messages/thread/related-to/o1", () => ({ json: { ...thread(0), messages } }));
+  return { fake, client };
+}
+
+test("an appointment carries its thread, oldest first, as plain text, telling findbolig.nu, the landlord and the user apart", async () => {
+  const { client } = await clientWithThread([REPLY, NOTICE, INVITATION]);
+
+  const delta = await getAppointmentUpdates(client, new FakeExtractor(extracted), BEFORE, []);
+
+  assert.deepEqual(delta.items[0].messages, [
+    {
+      from: "findbolig",
+      senderName: null,
+      sentAt: NOTICE.created,
+      body: "Kære boligsøgende\n\nDu har modtaget et boligtilbud.\n\nMed venlig hilsen\nFindbolig",
+      hasAttachments: false,
+    },
+    { from: "landlord", senderName: "Anette Udlejer", sentAt: INVITATION.created, body: INVITATION.body, hasAttachments: false },
+    { from: "you", senderName: null, sentAt: REPLY.created, body: "Jeg kommer", hasAttachments: true },
+  ]);
+});
+
+const PAST = "2026-01-03";
+
+/** What the client has of a past appointment: its invitation, and nothing since `newestMessageAt`. */
+function pastEntry(newestMessageAt: string | null | undefined = INVITATION.created): CachedAppointmentEntry {
+  const entry = cachedEntry(2);
+  return { ...entry, date: PAST, newestMessageAt, appointment: { ...entry.appointment, date: PAST, position: 7, messageCount: 2 } };
+}
+
+/** The calls made to enrich offers: residences, threads and positions, not the listing or the thread list. */
+const enrichmentCalls = (fake: FakeFindbolig) =>
+  fake.requests.map((r) => r.path).filter((path) => /^\/api\/(models|communications\/messages|search\/waiting-lists)\//.test(path));
+
+const AFTER_VIEWING = { id: "m4", sender: LANDLORD, body: "Sådan søger du boligen", created: NEW_MESSAGE };
+
+test("a past appointment whose thread got a new message has only its thread fetched again, keeping the rest", async () => {
+  const { fake, client } = await account({ offers: [{ ...OFFER, updated: QUIET, recipients: [RECIPIENT] }], threads: [threadRow("t1", "o1", NEW_MESSAGE)] });
+  fake.on("GET /api/communications/messages/thread/related-to/o1", () => ({ json: { ...thread(0), messages: [NOTICE, INVITATION, AFTER_VIEWING] } }));
+  const extractor = new FakeExtractor(extracted);
+
+  const delta = await getAppointmentUpdates(client, extractor, SINCE_BOTH, [pastEntry()]);
+
+  assert.equal(extractor.calls, 0);
+  assert.deepEqual(enrichmentCalls(fake), ["/api/communications/messages/thread/related-to/o1"]);
+  const [appointment] = delta.items;
+  assert.deepEqual([appointment.date, appointment.position, appointment.messageCount], [PAST, 7, 3]);
+  assert.deepEqual(appointment.messages?.map((m) => m.body), ["Kære boligsøgende\n\nDu har modtaget et boligtilbud.\n\nMed venlig hilsen\nFindbolig", INVITATION.body, "Sådan søger du boligen"]);
+});
+
+test("a full sync, too, fetches a past appointment's thread only when the thread list has a newer message than the client", async () => {
+  const offer = { ...OFFER, updated: QUIET, recipients: [RECIPIENT] };
+
+  const quiet = await account({ offers: [offer], threads: [threadRow("t1", "o1", INVITATION.created)] });
+  const unchanged = await getUpcomingAppointments(quiet.client, new FakeExtractor(extracted), [pastEntry()]);
+  assert.deepEqual(enrichmentCalls(quiet.fake), []);
+  assert.deepEqual(unchanged.appointments, [pastEntry().appointment]);
+
+  const { fake, client } = await account({ offers: [offer], threads: [threadRow("t1", "o1", NEW_MESSAGE)] });
+  fake.on("GET /api/communications/messages/thread/related-to/o1", () => ({ json: { ...thread(0), messages: [NOTICE, INVITATION, AFTER_VIEWING] } }));
+  const sync = await getUpcomingAppointments(client, new FakeExtractor(extracted), [pastEntry()]);
+  assert.deepEqual(enrichmentCalls(fake), ["/api/communications/messages/thread/related-to/o1"]);
+  assert.equal(sync.appointments[0].messages?.at(-1)?.body, "Sådan søger du boligen");
+});
+
+test("a past appointment stored before threads were kept has its thread fetched once", async () => {
+  const { fake, client } = await account({ offers: [{ ...OFFER, updated: QUIET }], threads: [threadRow("t1", "o1", INVITATION.created)] });
+
+  const sync = await getUpcomingAppointments(client, new FakeExtractor(extracted), [{ ...pastEntry(), newestMessageAt: undefined }]);
+
+  assert.deepEqual(enrichmentCalls(fake), ["/api/communications/messages/thread/related-to/o1"]);
+  assert.equal(sync.appointments[0].date, PAST);
+  assert.equal(sync.appointments[0].messages?.length, 1);
+});

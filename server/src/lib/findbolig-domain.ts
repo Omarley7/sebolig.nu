@@ -1,21 +1,63 @@
-import type { Appointment, Offer, RecipientState, UserData, WaitingList, WaitingListStatus } from "@/types";
-import type { AppointmentDetails } from "~/lib/llm/appointment-extractor";
+import type { Appointment, MessageSender, Offer, RecipientState, ThreadMessage, UserData, WaitingList, WaitingListStatus } from "@/types";
+import { decodeEntities, type AppointmentDetails } from "~/lib/llm/appointment-extractor";
 import type { ApiOffer, ApiUserData } from "~/types/offers";
 import type { ApiResidence, ResidenceDetails } from "~/types/residences";
+import type { ApiMessageThreadFull } from "~/types/threads";
 import type { ApiPositionForProperty, ApiPropertySearchResult, ApiResidenceApplication } from "~/types/waiting-lists";
+
+/** The sender id findbolig.nu signs its own notices with. */
+const FINDBOLIG_SENDER_ID = "11111111-1111-1111-1111-111111111111";
+
+/**
+ * A message body as plain text: paragraphs and `<br>` become line breaks, every other tag is
+ * stripped (a link keeps its text), entities are decoded. Bodies that are plain text already
+ * keep their line breaks.
+ */
+export function plainText(body: string): string {
+  const text = body
+    .replace(/<br\s*\/?>\n?/gi, "\n")
+    .replace(/<\/p>\n?/gi, "\n\n")
+    .replace(/<[^>]*>?/g, "");
+  return decodeEntities(text)
+    .replace(/[ \t ]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** An offer's thread as the client shows it, oldest first. `offer` tells the user's own messages apart. */
+export function mapThreadMessages(thread: ApiMessageThreadFull, offer: ApiOffer): ThreadMessage[] {
+  const userId = offer.recipients?.[0]?.userId;
+  return thread.messages
+    .toSorted((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime())
+    .map((message) => {
+      const from: MessageSender =
+        message.sender?.id === FINDBOLIG_SENDER_ID || message.sender?.name?.toLowerCase() === "findbolig"
+          ? "findbolig"
+          : userId && message.sender?.id === userId
+            ? "you"
+            : "landlord";
+      return {
+        from,
+        senderName: from === "landlord" ? (message.sender?.name ?? null) : null,
+        sentAt: message.created,
+        body: plainText(message.body ?? ""),
+        hasAttachments: (message.attachments?.length ?? 0) > 0,
+      };
+    });
+}
 
 export function mapAppointmentToDomain({
   offer,
   residence,
   details,
   position,
-  messageCount,
+  thread,
 }: {
   offer: ApiOffer;
   residence: ResidenceDetails;
   details: AppointmentDetails;
   position: number | null;
-  messageCount: number;
+  thread: ApiMessageThreadFull;
 }): Appointment {
   const recipient = offer.recipients?.[0];
   return {
@@ -46,7 +88,8 @@ export function mapAppointmentToDomain({
     recipientState: recipient?.state ?? null,
     accepted: recipient?.accepted ?? null,
     declined: recipient?.declined ?? null,
-    messageCount,
+    messageCount: thread.messages.length,
+    messages: mapThreadMessages(thread, offer),
   };
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { Appointment } from "@/types";
-import { formatTimeSlot } from "~/lib/formatters";
+import { formatSentAt, formatTimeSlot } from "~/lib/formatters";
 
 const t = (key: string, params?: Record<string, unknown>) =>
   key === "appointments.until" ? `until ${params?.time}` : key;
@@ -30,5 +30,14 @@ describe("formatTimeSlot", () => {
 
   test("no date reads empty", () => {
     expect(formatTimeSlot({ date: null, start: "14:00", end: "15:00" } as Appointment, t, true)).toBe("");
+  });
+});
+
+describe("formatSentAt", () => {
+  test.each([
+    ["2026-10-09T13:05:00Z", "09/10 15:05"],
+    ["2026-01-31T23:30:00.6564535Z", "01/02 00:30"],
+  ])("%s reads %s, in Danish time", (sentAt, expected) => {
+    expect(formatSentAt(sentAt)).toBe(expected);
   });
 });

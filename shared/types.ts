@@ -16,6 +16,24 @@ export type Appointment = {
   accepted: string | null;
   declined: string | null;
   messageCount?: number;
+  /**
+   * The offer's thread, oldest first. Absent when the server echoed a past appointment back
+   * without fetching its thread: the client keeps the messages it already has.
+   */
+  messages?: ThreadMessage[];
+};
+
+/** Who wrote a message in an appointment's thread: findbolig.nu's own notices, the landlord, or the user. */
+export type MessageSender = "findbolig" | "landlord" | "you";
+
+export type ThreadMessage = {
+  from: MessageSender;
+  /** The landlord's name, when findbolig.nu gives one; null for findbolig.nu and the user. */
+  senderName: string | null;
+  sentAt: string; // ISO date string
+  /** Plain text: tags stripped, line breaks kept. Never HTML. */
+  body: string;
+  hasAttachments: boolean;
 };
 
 export type Financials = {
@@ -76,7 +94,13 @@ export type OfferDelta = Delta<Offer>;
 export type CachedAppointmentEntry = {
   offerId: string;
   messageCount: number;
+  /**
+   * When the newest message the client has of the thread was sent. A past appointment's thread
+   * is fetched again only when the thread list has a newer one. Null when it has none.
+   */
+  newestMessageAt?: string | null;
   date: string | null;
+  /** Sent without `messages`, which the client keeps. */
   appointment: Appointment;
 };
 

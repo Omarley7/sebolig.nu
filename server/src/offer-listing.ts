@@ -26,6 +26,8 @@ import type { ApiThreadSummary } from "~/types/threads";
  * left out. A full sync enriches every offer anyway, so it walks the thread list only for the next
  * thread cursor, before any enrichment starts: a message arriving mid-sync is caught by the next
  * delta. A thread list with no message in it hands back the thread cursor it was walked from.
+ * Either way, each enrichment is told when the newest message of its offer's thread was sent, as
+ * far as the walk read the thread list (`ThreadSeen`), so it can skip a thread nothing arrived in.
  *
  * ## Paging
  * Both page by `totalResults`, so no change is silently lost. A delta fetches one page at a time
@@ -81,8 +83,18 @@ export type EnrichTools = {
   llm<R>(task: () => Promise<R>): Promise<R>;
 };
 
+/** What the thread walk read of a changed offer's thread. */
+export type ThreadSeen = {
+  /**
+   * When the newest message in the offer's thread was sent, as the thread list has it. Null when
+   * the walk did not read it: a view that walks no threads, or a delta whose thread walk stopped
+   * at the cursor before that thread.
+   */
+  lastMessageAt: string | null;
+};
+
 /** Turns a changed offer into an item, or `gone`. Throwing counts as failed, unless it is an `UpstreamError`. */
-export type Enrich<T> = (offer: ApiOffer, tools: EnrichTools) => Promise<T | typeof gone>;
+export type Enrich<T> = (offer: ApiOffer, tools: EnrichTools, thread: ThreadSeen) => Promise<T | typeof gone>;
 
 export type ListingView<T> = {
   /** What the summary line calls this view. */
@@ -162,7 +174,11 @@ export async function walkOfferListing<T>(
     ]);
     // A thread list with no message in it has nothing newer than the cursor a delta was given.
     const nextThreadCursor = threads?.latest ? { since: threads.latest, sinceIds: threads.latestIds } : threadCursor;
-    if (!cursor || !threads) return { listing, threadCursor: nextThreadCursor, changed: listing.changed };
+    const lastMessageAt = new Map<string, string>();
+    for (const { relatedEntity, relatedEntityType, lastMessage } of threads?.changed ?? []) {
+      if (relatedEntity && relatedEntityType === "Offer" && lastMessage) lastMessageAt.set(relatedEntity, lastMessage.created);
+    }
+    if (!cursor || !threads) return { listing, threadCursor: nextThreadCursor, lastMessageAt, changed: listing.changed };
 
     const listed = new Set(listing.changed.map((offer) => offer.id));
     const threadOnly = new Set<string>();
@@ -170,7 +186,7 @@ export async function walkOfferListing<T>(
       if (relatedEntity && relatedEntityType === "Offer" && !listed.has(relatedEntity)) threadOnly.add(relatedEntity);
     }
     const fetched = threadOnly.size > 0 ? (await fetchOffersById([...threadOnly])).results : [];
-    return { listing, threadCursor: nextThreadCursor, changed: [...listing.changed, ...fetched] };
+    return { listing, threadCursor: nextThreadCursor, lastMessageAt, changed: [...listing.changed, ...fetched] };
   };
 
   let ended: ConnectionEnded | null = null;
@@ -186,7 +202,7 @@ export async function walkOfferListing<T>(
   };
 
   try {
-    const { changed, listing, threadCursor: nextThreadCursor } = await timed(collectChanged, (ms) => (stats.listingMs = ms));
+    const { changed, listing, threadCursor: nextThreadCursor, lastMessageAt } = await timed(collectChanged, (ms) => (stats.listingMs = ms));
 
     const belonging = changed.filter((offer) => view.belongs(offer));
     const removedIds = changed.filter((offer) => !view.belongs(offer)).map((offer) => offer.id);
@@ -195,7 +211,7 @@ export async function walkOfferListing<T>(
     const enrich = async (offer: ApiOffer): Promise<Outcome<T>> => {
       if (ended) return { kind: "failed" };
       try {
-        const item = await view.enrich(offer, tools);
+        const item = await view.enrich(offer, tools, { lastMessageAt: lastMessageAt.get(offer.id) ?? null });
         return item === gone ? { kind: "gone" } : { kind: "ok", item };
       } catch (error) {
         if (error instanceof ConnectionEnded) {

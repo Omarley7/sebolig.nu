@@ -15,6 +15,7 @@ function appointment(offerId: string, overrides: Partial<Appointment> = {}): App
     start: "16:00",
     end: "17:00",
     messageCount: 1,
+    messages: [],
     ...overrides,
   } as Appointment;
 }
@@ -88,7 +89,8 @@ it("the cheap check sends what is stored too, so a changed offer with an unchang
 
   await store.init();
 
-  expect(sent).toEqual([[{ offerId: "1", messageCount: 4, date: "2026-10-10", appointment: stored }]]);
+  const { messages: _, ...withoutMessages } = stored;
+  expect(sent).toEqual([[{ offerId: "1", messageCount: 4, newestMessageAt: null, date: "2026-10-10", appointment: withoutMessages }]]);
 });
 
 it("a full refresh stores both cursors it hands out", async () => {
@@ -150,7 +152,8 @@ it("a full refresh sends what is stored, so unchanged appointments are not extra
 
   await store.refresh();
 
-  expect(sent).toEqual([[{ offerId: "1", messageCount: 4, date: "2026-10-10", appointment: stored }]]);
+  const { messages: _, ...withoutMessages } = stored;
+  expect(sent).toEqual([[{ offerId: "1", messageCount: 4, newestMessageAt: null, date: "2026-10-10", appointment: withoutMessages }]]);
 });
 
 it("appointments stored before offerId and messageCount existed still load", async () => {
@@ -180,4 +183,67 @@ it("appointments stored with the misspelled address fields still show their addr
   await store.init();
 
   expect(store.appointments[0].residence).toEqual({ addressLine1: "Ålekistevej 59", addressLine2: "2720 Vanløse", location });
+});
+
+const message = (sentAt: string, body = "Kære ansøger") => ({ from: "landlord" as const, senderName: null, sentAt, body, hasAttachments: false });
+
+it("what is sent leaves the messages out, saying only when the newest one was sent", async () => {
+  const sent: CachedAppointmentEntry[][] = [];
+  const messages = [message("2026-10-01T09:00:00Z"), message("2026-10-03T09:00:00Z")];
+  const stored = appointment("1", { messageCount: 2, messages });
+  const { store } = setup(
+    fakeSource({ fetchDelta: async (_cursor, known) => (sent.push(known), NO_CHANGES) }),
+    { stored: { appointments_cache: storedAppointments([stored], { latestUpdated: "2026-10-01T00:00:00Z", ...THREAD_CURSOR }) } },
+  );
+
+  await store.init();
+
+  const { messages: _, ...withoutMessages } = stored;
+  expect(sent).toEqual([[{ offerId: "1", messageCount: 2, newestMessageAt: "2026-10-03T09:00:00Z", date: "2026-10-10", appointment: withoutMessages }]]);
+});
+
+it("an appointment the server echoes back without its thread keeps the messages stored, in a check and a refresh", async () => {
+  const messages = [message("2026-10-01T09:00:00Z")];
+  const { messages: _, ...echoed } = appointment("1", { start: "18:00" });
+  const { store } = setup(
+    fakeSource({
+      fetchDelta: async () => ({ ...NO_CHANGES, items: [echoed] }),
+      sync: async () => ({ appointments: [echoed], latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: [], ...THREAD_CURSOR }),
+    }),
+    { stored: { appointments_cache: storedAppointments([appointment("1", { messages })], { latestUpdated: "2026-10-01T00:00:00Z", ...THREAD_CURSOR }) } },
+  );
+
+  await store.init();
+  expect(store.appointments.map((a) => [a.start, a.messages])).toEqual([["18:00", messages]]);
+
+  await store.refresh();
+  expect(store.appointments.map((a) => a.messages)).toEqual([messages]);
+});
+
+it("a thread the server sends replaces the messages stored", async () => {
+  const newer = [message("2026-10-01T09:00:00Z"), message("2026-10-05T09:00:00Z", "Sådan søger du")];
+  const { store } = setup(fakeSource({ fetchDelta: async () => ({ ...NO_CHANGES, items: [appointment("1", { messages: newer })] }) }), {
+    stored: { appointments_cache: storedAppointments([appointment("1", { messages: newer.slice(0, 1) })], { latestUpdated: "2026-10-01T00:00:00Z", ...THREAD_CURSOR }) },
+  });
+
+  await store.init();
+
+  expect(store.appointments[0].messages).toEqual(newer);
+});
+
+it("appointments stored before threads were kept take one full sync instead of the cheap check", async () => {
+  let deltas = 0;
+  const { messages: _, ...storedBefore } = appointment("1");
+  const { store } = setup(
+    fakeSource({
+      fetchDelta: async () => (deltas++, NO_CHANGES),
+      sync: async () => ({ appointments: [appointment("1", { messages: [message("2026-10-01T09:00:00Z")] })], latestUpdated: "2026-10-02T00:00:00Z", latestUpdatedIds: [], ...THREAD_CURSOR }),
+    }),
+    { stored: { appointments_cache: storedAppointments([storedBefore], { latestUpdated: "2026-10-01T00:00:00Z", ...THREAD_CURSOR }) } },
+  );
+
+  await store.init();
+
+  expect(deltas).toBe(0);
+  expect(store.appointments[0].messages).toHaveLength(1);
 });

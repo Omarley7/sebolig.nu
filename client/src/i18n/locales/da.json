@@ -29,7 +29,15 @@
     "queuePosition": "Køposition",
     "cancelled": "Aflyst",
     "refresh": "Opdatér",
-    "refreshFailed": "Fremvisningerne kunne ikke opdateres. Prøv igen."
+    "refreshFailed": "Fremvisningerne kunne ikke opdateres. Prøv igen.",
+    "thread": {
+      "title": "Beskeder",
+      "findbolig": "findbolig.nu",
+      "landlord": "Udlejer",
+      "you": "Dig",
+      "attachment": "📎 Vedhæftet fil, åbn på findbolig.nu",
+      "reply": "Svar på findbolig.nu"
+    }
   },
   "offers": {
     "pageTitle": "Boligtilbud",

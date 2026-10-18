@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Appointment } from "@/types";
 import "add-to-calendar-button";
-import { computed } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDarkMode } from "~/composables/useDarkMode";
 import { useSheet } from "~/composables/useSheet";
@@ -9,6 +9,7 @@ import { formatCurrency, formatTimeSlot } from "~/lib/formatters";
 import FinancialsModal from "~/components/shared/FinancialsModal.vue";
 import BottomSheet from "~/components/shared/BottomSheet.vue";
 import DetailGallery from "~/components/shared/DetailGallery.vue";
+import AppointmentThread from "~/components/appointment/detail/AppointmentThread.vue";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -20,6 +21,8 @@ const props = defineProps<{
   includeDate?: boolean;
   /** The item has disappeared from the store; the sheet slides out showing its last-known state. */
   gone?: boolean;
+  /** Where to open: "thread" scrolls to the messages. */
+  section?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -50,13 +53,26 @@ function handleMapClick() {
   );
 }
 
+// findbolig.nu's page for the offer, which also opens its thread.
+const offerUrl = computed(() =>
+  hasValidOfferId.value ? `https://findbolig.nu/profile/my-offers?offerId=${props.appointment.offerId}` : null,
+);
+
 function openOnFindbolig() {
-  if (!hasValidOfferId.value) return;
-  window.open(
-    `https://findbolig.nu/profile/my-offers?offerId=${props.appointment.offerId}`,
-    "_blank",
-  );
+  if (offerUrl.value) window.open(offerUrl.value, "_blank");
 }
+
+const messages = computed(() => props.appointment.messages ?? []);
+const threadEl = ref<HTMLElement | null>(null);
+
+onMounted(async () => {
+  if (props.section !== "thread") return;
+  await nextTick();
+  const thread = threadEl.value;
+  const scroller = thread?.closest<HTMLElement>("[data-sheet-scroll]");
+  if (!thread || !scroller) return;
+  scroller.scrollTop += thread.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+});
 </script>
 
 <template>
@@ -177,6 +193,15 @@ function openOnFindbolig() {
           class="size-4 -rotate-90 opacity-30 dark:invert shrink-0 ml-2"
         />
       </button>
+
+      <!-- Thread -->
+      <template v-if="messages.length">
+        <div ref="threadEl">
+          <AppointmentThread :messages="messages" :reply-url="offerUrl" />
+        </div>
+
+        <hr class="border-neutral-200 dark:border-neutral-700/50" />
+      </template>
 
       <!-- Open on findbolig -->
       <button

@@ -26,3 +26,18 @@ export function formatCurrency(amount: number): string {
     minimumFractionDigits: 0,
   });
 }
+
+const SENT_AT = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Copenhagen",
+  day: "2-digit",
+  month: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** When a message was sent, as "09/10 15:05" in Danish time. */
+export function formatSentAt(sentAt: string): string {
+  const part = (type: Intl.DateTimeFormatPartTypes) => SENT_AT.formatToParts(new Date(sentAt)).find((p) => p.type === type)?.value;
+  return `${part("day")}/${part("month")} ${part("hour")}:${part("minute")}`;
+}

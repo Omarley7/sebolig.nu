@@ -29,7 +29,15 @@
     "queuePosition": "Queue",
     "cancelled": "Cancelled",
     "refresh": "Refresh",
-    "refreshFailed": "Could not update appointments. Please try again."
+    "refreshFailed": "Could not update appointments. Please try again.",
+    "thread": {
+      "title": "Messages",
+      "findbolig": "findbolig.nu",
+      "landlord": "Landlord",
+      "you": "You",
+      "attachment": "📎 Attachment, open on findbolig.nu",
+      "reply": "Reply on findbolig.nu"
+    }
   },
   "offers": {
     "pageTitle": "Housing Offers",
