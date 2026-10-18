@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import type { ThreadMessage } from "@/types";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { formatSentAt } from "~/lib/formatters";
-import { senderLabel, withLinks } from "~/lib/thread";
+import BaseCollapse from "~/components/Base/BaseCollapse.vue";
+import ThreadMessageItem from "~/components/appointment/detail/ThreadMessageItem.vue";
 
 const { t } = useI18n();
 
-defineProps<{
+const props = defineProps<{
   /** Oldest first. */
   messages: ThreadMessage[];
   /** findbolig.nu's page for the offer, where its thread is answered; null when there is none. */
   replyUrl: string | null;
 }>();
+
+// Only the latest message shows; the earlier ones unfold above it.
+const latest = computed(() => props.messages[props.messages.length - 1]);
+const earlier = computed(() => props.messages.slice(0, -1));
+const showEarlier = ref(false);
 </script>
 
 <template>
@@ -20,38 +26,32 @@ defineProps<{
       {{ t("appointments.thread.title") }}
     </p>
 
-    <ol class="space-y-2">
-      <li
-        v-for="(message, i) in messages"
-        :key="i"
-        class="p-3 rounded-xl"
-        :class="message.from === 'you'
-          ? 'bg-neutral-200/70 dark:bg-white/10 ml-6'
-          : 'bg-neutral-100 dark:bg-white/5'"
+    <template v-if="earlier.length">
+      <button
+        type="button"
+        class="flex items-center gap-1 mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400
+               hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
+        :aria-expanded="showEarlier"
+        @click="showEarlier = !showEarlier"
       >
-        <div class="flex items-baseline justify-between gap-2 mb-1">
-          <p class="text-xs font-semibold truncate text-neutral-700 dark:text-neutral-200">
-            {{ senderLabel(message, t) }}
-          </p>
-          <p class="text-xs tabular-nums shrink-0 text-neutral-400 dark:text-neutral-500">
-            {{ formatSentAt(message.sentAt) }}
-          </p>
-        </div>
-        <p class="text-sm whitespace-pre-line break-words text-neutral-700 dark:text-neutral-300">
-          <template v-for="(part, j) in withLinks(message.body)" :key="j">
-            <a
-              v-if="part.href"
-              :href="part.href"
-              target="_blank"
-              rel="noopener noreferrer"
-            >{{ part.text }}</a>
-            <template v-else>{{ part.text }}</template>
-          </template>
-        </p>
-        <p v-if="message.hasAttachments" class="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">
-          {{ t("appointments.thread.attachment") }}
-        </p>
-      </li>
+        <img
+          src="/icons/chevron-down.svg"
+          alt=""
+          class="size-3.5 opacity-50 dark:invert transition-transform"
+          :class="{ 'rotate-180': showEarlier }"
+        />
+        {{ showEarlier ? t("appointments.thread.hideEarlier") : t("appointments.thread.showEarlier", earlier.length) }}
+      </button>
+
+      <BaseCollapse v-model:expanded="showEarlier">
+        <ol class="space-y-2 pb-2">
+          <ThreadMessageItem v-for="(message, i) in earlier" :key="i" :message="message" />
+        </ol>
+      </BaseCollapse>
+    </template>
+
+    <ol>
+      <ThreadMessageItem :message="latest" />
     </ol>
 
     <a
