@@ -141,10 +141,19 @@ To learn what SeBolig does with your password, read the Explainer. Click **How i
 
 #### 2.2 Get new data from findbolig.nu
 
+SeBolig checks findbolig.nu for changes by itself when you open a page, and again when you come back to the tab. It checks each kind of data at most once a minute. The **Refresh** icon spins while a check runs, and the home page reads "Checking…".
+
+- Appointments and offers: SeBolig gets only the changes since the last check.
+- Waiting lists: SeBolig gets all of them again when they are more than 24 hours old.
+
+The home page shows when SeBolig last checked, even if nothing changed.
+
+To get everything again now:
+
 1. Open the page: **Appointments**, **Offers** or **Waiting lists**.
 2. Click **Refresh**.
 
-SeBolig gets only the changes since the last refresh. If findbolig.nu does not answer, you keep your Local data.
+If findbolig.nu does not answer, you keep your Local data.
 
 #### 2.3 Add a viewing to your calendar
 

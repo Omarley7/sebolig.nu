@@ -29,3 +29,13 @@ _Avoid_: privacy policy, security page, FAQ
 **Demo**:
 Trying SeBolig with sample data and no findbolig account. It behaves like a Connection to the user, but nothing ever reaches findbolig.nu. Chosen at connect time and remembered across reloads; ending it erases the sample Local data like a disconnect.
 _Avoid_: mock mode, demo login
+
+### Keeping Local data current
+
+**Automatic check**:
+SeBolig asking findbolig.nu, without the user asking, what changed since Local data was last brought up to date. It happens when the user opens a page or comes back to it; for waiting lists, which have no cheap way to ask, it is a Refresh once the data is a day old. When it last succeeded is what "last updated" shows, whether or not anything changed.
+_Avoid_: sync, poll, auto-refresh, background update
+
+**Refresh**:
+Fetching one kind of Local data from findbolig.nu again in full, replacing what was kept. The user starts one with the Refresh button; an Automatic check starts one when it can't ask cheaply.
+_Avoid_: reload, sync, update

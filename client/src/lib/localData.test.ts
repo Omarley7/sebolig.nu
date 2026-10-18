@@ -1,5 +1,5 @@
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createLocalData, memoryStorage, type Connection, type Notice } from "~/lib/localData";
 
 type Note = { id: string; text: string };
@@ -66,6 +66,10 @@ const PAGE: Notes = { updatedAt: "2026-10-01T00:00:00.000Z", notes: [{ id: "a", 
 
 beforeEach(() => {
   setActivePinia(createPinia());
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 it("refresh fetches the data, exposes it and saves it", async () => {
@@ -329,4 +333,168 @@ it("erasing Local data also removes a kind's extra keys and its own state", asyn
 
   expect(storage.read("watched_notes_seen")).toBeNull();
   expect(store.erasedCount()).toBe(1);
+});
+
+it("a successful check is remembered as the last check, apart from when the data last changed", async () => {
+  vi.setSystemTime(new Date("2026-10-18T10:00:00.000Z"));
+  const { useNotes } = setup([], { stored: PAGE, check: async (current) => current });
+  const store = useNotes();
+
+  await store.init();
+
+  expect(store.checkedAt).toEqual(new Date("2026-10-18T10:00:00.000Z"));
+  expect(store.data).toEqual(PAGE);
+});
+
+it("a failed check after a reload still shows the last successful one", async () => {
+  vi.setSystemTime(new Date("2026-10-18T10:00:00.000Z"));
+  const { useNotes } = setup([PAGE], {
+    check: async () => {
+      throw new Error("check failed");
+    },
+  });
+  await useNotes().refresh();
+
+  setActivePinia(createPinia());
+  vi.setSystemTime(new Date("2026-10-18T12:00:00.000Z"));
+  const reloaded = useNotes();
+  await reloaded.init();
+
+  expect(reloaded.data).toEqual(PAGE);
+  expect(reloaded.checkedAt).toEqual(new Date("2026-10-18T10:00:00.000Z"));
+});
+
+it("an automatic check within 60 s of the last one is skipped, and runs again after", async () => {
+  vi.setSystemTime(new Date("2026-10-18T10:00:00.000Z"));
+  let checks = 0;
+  const { useNotes } = setup([], { stored: PAGE, check: async (current) => (checks++, current) });
+  const store = useNotes();
+  await store.init();
+
+  vi.setSystemTime(new Date("2026-10-18T10:00:59.000Z"));
+  await store.init();
+  expect(checks).toBe(1);
+
+  vi.setSystemTime(new Date("2026-10-18T10:01:00.000Z"));
+  await store.init();
+  expect(checks).toBe(2);
+});
+
+it("a refresh counts as a check for the cooldown", async () => {
+  vi.setSystemTime(new Date("2026-10-18T10:00:00.000Z"));
+  let checks = 0;
+  const { useNotes } = setup([PAGE], { check: async (current) => (checks++, current) });
+  const store = useNotes();
+  await store.refresh();
+
+  vi.setSystemTime(new Date("2026-10-18T10:00:30.000Z"));
+  await store.init();
+
+  expect(checks).toBe(0);
+});
+
+it("a failed check also holds off the next one for 60 s", async () => {
+  vi.setSystemTime(new Date("2026-10-18T10:00:00.000Z"));
+  let checks = 0;
+  const { useNotes } = setup([], {
+    stored: PAGE,
+    check: async () => {
+      checks++;
+      throw new Error("check failed");
+    },
+  });
+  const store = useNotes();
+  await store.init();
+
+  vi.setSystemTime(new Date("2026-10-18T10:00:30.000Z"));
+  await store.init();
+
+  expect(checks).toBe(1);
+});
+
+it("each kind has its own cooldown", async () => {
+  vi.setSystemTime(new Date("2026-10-18T10:00:00.000Z"));
+  let checks = 0;
+  const { useNotes, localData, storage } = setup([], { stored: PAGE, check: async (current) => (checks++, current) });
+  storage.write("other_notes_cache", JSON.stringify(PAGE));
+  const useOtherNotes = localData.define({
+    name: "otherNotes",
+    key: "other_notes_cache",
+    revive: (raw: unknown) => raw as Notes,
+    fetchAll: async () => PAGE,
+    checkForChanges: async (current: Notes) => (checks++, current),
+    failedKey: "offers.refreshFailed",
+    sources: { live: null, demo: null },
+  });
+
+  await useNotes().init();
+  await useOtherNotes().init();
+
+  expect(checks).toBe(2);
+});
+
+it("a store says it is checking while an automatic check runs, and a second one joins it", async () => {
+  let finishCheck!: (notes: Notes) => void;
+  let checks = 0;
+  const { useNotes } = setup([], {
+    stored: PAGE,
+    check: () => (checks++, new Promise((resolve) => (finishCheck = resolve))),
+  });
+  const store = useNotes();
+
+  const first = store.init();
+  const second = store.init();
+  await vi.waitFor(() => expect(checks).toBe(1));
+  expect(store.isChecking).toBe(true);
+  finishCheck(PAGE);
+  await Promise.all([first, second]);
+
+  expect(store.isChecking).toBe(false);
+  expect(checks).toBe(1);
+});
+
+it("a check that finishes after Local data was erased stores nothing", async () => {
+  let finishCheck!: (notes: Notes) => void;
+  const { useNotes, localData, storage } = setup([], {
+    stored: PAGE,
+    check: () => new Promise((resolve) => (finishCheck = resolve)),
+  });
+  const store = useNotes();
+  const checking = store.init();
+  await vi.waitFor(() => expect(finishCheck).toBeDefined());
+
+  localData.eraseAll();
+  finishCheck({ ...PAGE, notes: [] });
+  await checking;
+
+  expect(store.data).toBeNull();
+  expect(store.checkedAt).toBeNull();
+  expect(storage.read("notes_cache")).toBeNull();
+  expect(storage.read("local_data_checked_at")).toBeNull();
+});
+
+it("a check date that can't be read counts as no check at all", async () => {
+  const { useNotes, storage } = setup([], { connected: false, stored: PAGE });
+  storage.write("local_data_checked_at", JSON.stringify({ notes: "not a date" }));
+  const store = useNotes();
+
+  await store.init();
+
+  expect(store.checkedAt).toBeNull();
+});
+
+it("a refresh that finishes after Local data was erased stores nothing", async () => {
+  let finishFetch!: (notes: Notes) => void;
+  const { useNotes, localData, source, storage } = setup([]);
+  source.fetchAll = () => new Promise((resolve) => (finishFetch = resolve));
+  const store = useNotes();
+  const refreshing = store.refresh();
+  await vi.waitFor(() => expect(finishFetch).toBeDefined());
+
+  localData.eraseAll();
+  finishFetch(PAGE);
+  await refreshing;
+
+  expect(store.data).toBeNull();
+  expect(storage.read("notes_cache")).toBeNull();
 });

@@ -5,6 +5,8 @@ import type { ConnectionCheck, LocalDataContext, LocalDataDefinition, Mode } fro
 
 const SNAPSHOTS_KEY = "waiting_lists_snapshots";
 const CONCURRENCY_REACTIVATE_ALL = 5;
+/** Queue positions move slowly; a full fetch costs one request per property. */
+const REFRESH_AFTER_MS = 24 * 60 * 60 * 1000;
 
 /** Waiting lists as stored on the device, under waiting_lists_cache. */
 type StoredWaitingLists = { updatedAt: string; lists: WaitingList[] };
@@ -26,9 +28,10 @@ function snapshotsOf(lists: WaitingList[], observedAt = new Date()): WaitingList
 
 /**
  * Waiting lists have no cheap "did anything change" signal: queue positions cost the same
- * per-property fetch as a full refresh. So there is no check; init shows what is stored and
- * the refresh button fetches everything. A full refresh compares statuses with the last one
- * seen (stored separately as snapshots) to flag lists that went passive.
+ * per-property fetch as a full refresh. So there is no cheap check; init shows what is stored
+ * and fetches everything once it is a day old, and the refresh button fetches everything. A
+ * full refresh compares statuses with the last one seen (stored separately as snapshots) to flag
+ * lists that went passive.
  */
 export function waitingListsKind(sources: Record<Mode, WaitingListsSource>) {
   const definition: LocalDataDefinition<WaitingLists, WaitingListsSource, ReturnType<typeof exposeWaitingLists>> = {
@@ -37,6 +40,7 @@ export function waitingListsKind(sources: Record<Mode, WaitingListsSource>) {
     extraKeys: [SNAPSHOTS_KEY],
     failedKey: "waitingLists.refreshFailed",
     sources,
+    refreshAfterMs: REFRESH_AFTER_MS,
     revive(raw) {
       const stored = raw as StoredWaitingLists;
       return { updatedAt: new Date(stored.updatedAt), lists: stored.lists };

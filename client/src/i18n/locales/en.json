@@ -167,6 +167,7 @@
     "readyToFetch": "Your appointments from findbolig.nu are ready to be fetched.",
     "noAppointmentsHint": "Don't have any appointments yet? Use findbolig.nu to search for housing and wait for invitations.",
     "lastUpdated": "Last updated {0} ago",
+    "checking": "Checking…",
     "viewOffers": "View your {count} offer | View your {count} offers",
     "checkOffers": "Check for housing offers",
     "viewWaitingLists": "View your {count} waiting list | View your {count} waiting lists",

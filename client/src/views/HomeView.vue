@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import LandingSection from "~/components/LandingSection.vue";
 import { useAuth } from "~/composables/useAuth";
+import { useAutomaticChecks } from "~/composables/useAutomaticChecks";
 import { useAppointmentsStore } from "~/stores/appointments";
 import { useOffersStore } from "~/stores/offers";
 import { useWaitingListsStore } from "~/stores/waitingLists";
@@ -20,20 +21,20 @@ const showLanding = computed(
 );
 
 // Each store shows what is stored, and only checks findbolig.nu when there is a Connection.
-onMounted(() => {
-  store.init();
-  offersStore.init();
-  waitingListsStore.init();
-});
+useAutomaticChecks(store, offersStore, waitingListsStore);
 
 const hasAppointments = computed(() => store.appointments.length > 0);
 const offerCount = computed(() => offersStore.offers.length);
 const waitingListsCount = computed(() => waitingListsStore.lists.length);
 const firstName = computed(() => auth.name?.split(" ")[0] || "");
 
+// The appointments' last successful check, even when it found nothing new. Data stored before
+// checks were recorded only knows when it last changed.
 const lastUpdatedText = computed(() => {
-  if (!store.updatedAt) return null;
-  const age = Date.now() - store.updatedAt.getTime();
+  if (store.isBusy) return t("home.checking");
+  const checkedAt = store.checkedAt ?? store.updatedAt;
+  if (!checkedAt) return null;
+  const age = Date.now() - checkedAt.getTime();
   const hours = Math.floor(age / (1000 * 60 * 60));
   const minutes = Math.floor((age % (1000 * 60 * 60)) / (1000 * 60));
   if (hours > 0) return t("home.lastUpdated", [`${hours}h ${minutes}m`]);

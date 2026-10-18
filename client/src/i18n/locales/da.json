@@ -167,6 +167,7 @@
     "readyToFetch": "Dine aftaler fra findbolig.nu er klar til at blive hentet.",
     "noAppointmentsHint": "Har du ingen aftaler endnu? Brug findbolig.nu til at søge efter boliger og vent på invitationer.",
     "lastUpdated": "Sidst opdateret for {0} siden",
+    "checking": "Tjekker…",
     "viewOffers": "Se dit {count} tilbud | Se dine {count} tilbud",
     "checkOffers": "Tjek for boligtilbud",
     "viewWaitingLists": "Se din {count} venteliste | Se dine {count} ventelister",
