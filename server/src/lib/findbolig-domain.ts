@@ -9,14 +9,15 @@ import type { ApiPositionForProperty, ApiPropertySearchResult, ApiResidenceAppli
 const FINDBOLIG_SENDER_ID = "11111111-1111-1111-1111-111111111111";
 
 /**
- * A message body as plain text: paragraphs and `<br>` become line breaks, every other tag is
- * stripped (a link keeps its text), entities are decoded. Bodies that are plain text already
+ * A message body as plain text: a paragraph ends in a blank line, `<br>` and the end of a div or
+ * list item in a line break; every other tag is stripped (a link keeps its text), entities are decoded. Bodies that are plain text already
  * keep their line breaks.
  */
 export function plainText(body: string): string {
   const text = body
     .replace(/<br\s*\/?>\n?/gi, "\n")
     .replace(/<\/p>\n?/gi, "\n\n")
+    .replace(/<\/(div|li)>\n?/gi, "\n")
     .replace(/<[^>]*>?/g, "");
   return decodeEntities(text)
     .replace(/[ \t ]+$/gm, "")
@@ -24,8 +25,13 @@ export function plainText(body: string): string {
     .trim();
 }
 
+/** What an appointment holds of its offer's thread. */
+export function mapThreadToDomain(thread: ApiMessageThreadFull, offer: ApiOffer): Pick<Appointment, "messageCount" | "messages"> {
+  return { messageCount: thread.messages.length, messages: mapThreadMessages(thread, offer) };
+}
+
 /** An offer's thread as the client shows it, oldest first. `offer` tells the user's own messages apart. */
-export function mapThreadMessages(thread: ApiMessageThreadFull, offer: ApiOffer): ThreadMessage[] {
+function mapThreadMessages(thread: ApiMessageThreadFull, offer: ApiOffer): ThreadMessage[] {
   const userId = offer.recipients?.[0]?.userId;
   return thread.messages
     .toSorted((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime())
@@ -88,8 +94,7 @@ export function mapAppointmentToDomain({
     recipientState: recipient?.state ?? null,
     accepted: recipient?.accepted ?? null,
     declined: recipient?.declined ?? null,
-    messageCount: thread.messages.length,
-    messages: mapThreadMessages(thread, offer),
+    ...mapThreadToDomain(thread, offer),
   };
 }
 

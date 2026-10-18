@@ -27,7 +27,10 @@ const timeLabel = computed(() => formatTimeSlot(props.appointment, t, props.incl
 
 // The latest message, once anything came after the invitation.
 const latest = computed(() => followUp(props.appointment.messages ?? []));
-const latestText = computed(() => latest.value?.body.replace(/\s+/g, " ") || t("appointments.thread.attachment"));
+const latestText = computed(() => {
+  const body = latest.value?.body.replace(/\s+/g, " ").trim();
+  return body || (latest.value?.hasAttachments ? t("appointments.thread.attachment") : "");
+});
 </script>
 
 <template>

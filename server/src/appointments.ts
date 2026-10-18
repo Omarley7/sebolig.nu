@@ -1,7 +1,7 @@
 import type { Appointment, AppointmentDelta, CachedAppointmentEntry, SyncAppointmentsResponse, ThreadCursor } from "@/types";
 import { nullUnlessConnectionEnded } from "~/lib/errors";
 import type { FindboligClient } from "~/lib/findbolig-client";
-import { mapAppointmentToDomain, mapThreadMessages } from "~/lib/findbolig-domain";
+import { mapAppointmentToDomain, mapThreadToDomain } from "~/lib/findbolig-domain";
 import { acceptedDetails, danishDate, EMPTY_DETAILS, showingContext, type AppointmentExtractor } from "~/lib/llm/appointment-extractor";
 import { gone, walkOfferListing, type ListingCursor, type ListingView, type Walked } from "~/offer-listing";
 
@@ -51,7 +51,7 @@ function appointmentsView(
         // A message after the viewing (how to apply, say): read it, but keep the viewing as it was.
         const thread = await findbolig(() => client.getThreadForOffer(offer.id));
         if (!thread) return cachedEntry.appointment;
-        return { ...cachedEntry.appointment, messageCount: thread.messages.length, messages: mapThreadMessages(thread, offer) };
+        return { ...cachedEntry.appointment, ...mapThreadToDomain(thread, offer) };
       }
 
       const [residence, thread, position] = await findbolig(() =>

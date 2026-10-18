@@ -461,3 +461,12 @@ test("a past appointment stored before threads were kept has its thread fetched 
   assert.equal(sync.appointments[0].date, PAST);
   assert.equal(sync.appointments[0].messages?.length, 1);
 });
+
+test("a body laid out with divs and a list keeps a line per block", async () => {
+  const body = "<div>Kære ansøger</div><div>Medbring:</div><ul><li>Lønsedler</li><li>Pas</li></ul>";
+  const { client } = await clientWithThread([{ ...INVITATION, body }]);
+
+  const delta = await getAppointmentUpdates(client, new FakeExtractor(extracted), BEFORE, []);
+
+  assert.equal(delta.items[0].messages?.[0].body, "Kære ansøger\nMedbring:\nLønsedler\nPas");
+});
