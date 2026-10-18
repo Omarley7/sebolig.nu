@@ -3,7 +3,7 @@ import type { Offer } from "@/types";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useSheet } from "~/composables/useSheet";
-import { formatCurrency } from "~/lib/formatters";
+import { formatCurrency, formatDate, formatOfferFacts } from "~/lib/formatters";
 import { getDeadlineUrgency, urgencyColors } from "~/lib/deadlineUrgency";
 import { useOffersStore } from "~/stores/offers";
 import FinancialsModal from "~/components/shared/FinancialsModal.vue";
@@ -37,23 +37,11 @@ const allImages = computed(() => {
 
 const blueprints = computed(() => props.offer.blueprints ?? []);
 
-const facts = computed(() => {
-  const parts: string[] = [];
-  if (props.offer.rooms != null) parts.push(t("offers.rooms", { count: props.offer.rooms }));
-  if (props.offer.area != null) parts.push(t("offers.area", { value: props.offer.area }));
-  return parts.join(" · ");
-});
+const facts = computed(() => formatOfferFacts(props.offer, t));
 
 const urgency = computed(() => getDeadlineUrgency(props.offer.deadline, t));
 
-const availableFromFormatted = computed(() => {
-  if (!props.offer.availableFrom) return null;
-  return new Date(props.offer.availableFrom).toLocaleDateString("da-DK", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-});
+const availableFromFormatted = computed(() => (props.offer.availableFrom ? formatDate(props.offer.availableFrom) : null));
 
 function handleMapClick() {
   const address = `${props.offer.residence.addressLine1}, ${props.offer.residence.addressLine2}`;
@@ -121,7 +109,7 @@ async function handleConfirm() {
           <div class="flex items-center gap-1.5">
             <span class="inline-block w-2 h-2 rounded-full" :class="urgencyColors[urgency.color].dot" />
             <p class="text-sm font-medium" :class="urgencyColors[urgency.color].text">
-              {{ offer.deadline ? new Date(offer.deadline).toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" }) : t("offers.noDeadline") }}
+              {{ offer.deadline ? formatDate(offer.deadline) : t("offers.noDeadline") }}
             </p>
           </div>
           <p class="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">

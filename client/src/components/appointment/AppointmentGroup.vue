@@ -6,7 +6,7 @@ import BaseCollapse from "~/components/Base/BaseCollapse.vue";
 import MapModal from "~/components/shared/MapModal.vue";
 import { useI18n } from "vue-i18n";
 import { useOpenDetail } from "~/composables/useDetailSheet";
-import type { MapPin } from "~/lib/mapPin";
+import { appointmentPin } from "~/lib/mapPin";
 
 const { t } = useI18n();
 const openDetail = useOpenDetail();
@@ -32,13 +32,7 @@ function toggleExpanded() {
   expanded.value = !expanded.value;
 }
 
-const pins = computed<MapPin[]>(() =>
-  props.appointments.flatMap(({ id, title, residence }) =>
-    residence.location
-      ? [{ id, lat: residence.location.latitude, lng: residence.location.longitude, label: residence.addressLine1 ?? title }]
-      : [],
-  ),
-);
+const pins = computed(() => props.appointments.map((appointment) => appointmentPin(appointment, t)).filter((pin) => pin !== null));
 </script>
 
 <template>

@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
 import L from "leaflet";
+import "leaflet.markercluster";
 import { useHistoryLayer } from "~/composables/useHistoryLayer";
 import { useScrollLock } from "~/composables/useScrollLock";
 import type { MapPin } from "~/lib/mapPin";
@@ -26,18 +27,29 @@ const layer = useHistoryLayer({ onClose: () => emit("close") });
 const mapContainer = ref<HTMLDivElement>();
 let map: L.Map | null = null;
 
-// Built from DOM nodes so the label is always text, never HTML
+function textElement(tag: string, text: string, className: string): HTMLElement {
+  const el = document.createElement(tag);
+  el.className = className;
+  el.textContent = text;
+  return el;
+}
+
+// Built from DOM nodes so the label and lines are always text, never HTML.
+// Divs, not paragraphs: Leaflet's popup gives a <p> wide margins.
 function popupContent(pin: MapPin): HTMLElement {
   const content = document.createElement("div");
-  content.className = "flex flex-col items-start gap-2";
-  const label = document.createElement("strong");
-  label.textContent = pin.label;
-  const details = document.createElement("button");
-  details.type = "button";
-  details.className = "px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors";
-  details.textContent = t("common.seeDetails");
-  details.addEventListener("click", () => emit("select", pin.id));
-  content.append(label, details);
+  content.className = "flex flex-col items-start gap-0.5";
+  content.append(textElement("strong", pin.label, "text-sm"));
+  if (pin.sublabel) content.append(textElement("div", pin.sublabel, "text-xs text-neutral-500"));
+  for (const detail of pin.details) content.append(textElement("div", detail, "text-xs tabular-nums"));
+  const seeDetails = textElement(
+    "button",
+    t("common.seeDetails"),
+    "mt-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors",
+  ) as HTMLButtonElement;
+  seeDetails.type = "button";
+  seeDetails.addEventListener("click", () => emit("select", pin.id));
+  content.append(seeDetails);
   return content;
 }
 
@@ -62,10 +74,24 @@ function initMap() {
     shadowSize: [41, 41],
   });
 
+  // Nearby pins merge into a numbered circle; clicking it zooms in until they separate,
+  // and pins at the very same spot fan out at the last zoom
+  const clusters = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    maxClusterRadius: 50,
+    // The count sits in an inner element: Leaflet's own CSS keeps the icon itself display: block
+    iconCreateFunction: (cluster) =>
+      L.divIcon({
+        html: textElement("span", String(cluster.getChildCount()), "size-full flex items-center justify-center"),
+        className: "marker-cluster rounded-full bg-emerald-500 text-white text-sm font-semibold shadow-md ring-2 ring-white",
+        iconSize: L.point(36, 36),
+      }),
+  }).addTo(map);
+
   const bounds = L.latLngBounds([]);
 
   for (const pin of props.pins) {
-    L.marker([pin.lat, pin.lng], { icon: pinIcon }).addTo(map).bindPopup(popupContent(pin));
+    clusters.addLayer(L.marker([pin.lat, pin.lng], { icon: pinIcon, alt: pin.label }).bindPopup(popupContent(pin)));
     bounds.extend([pin.lat, pin.lng]);
   }
 
@@ -118,4 +144,5 @@ onUnmounted(() => {
 
 <style>
 @import "leaflet/dist/leaflet.css";
+@import "leaflet.markercluster/dist/MarkerCluster.css";
 </style>
