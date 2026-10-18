@@ -53,9 +53,16 @@ function handleMapClick() {
   );
 }
 
-// findbolig.nu's page for the offer, which also opens its thread.
 const offerUrl = computed(() =>
   hasValidOfferId.value ? `https://findbolig.nu/profile/my-offers?offerId=${props.appointment.offerId}` : null,
+);
+
+// findbolig.nu's messages page, its thread list filtered to the offer's thread by its own
+// `relatedEntities` query parameter: opened on desktop, one tap away on a phone. The offer page's
+// "skriv til udlejer" dialog can't be linked to. Should findbolig.nu drop the parameter, this
+// still lands on the messages page.
+const threadUrl = computed(() =>
+  hasValidOfferId.value ? `https://findbolig.nu/profile/messages?relatedEntities=${props.appointment.offerId}` : null,
 );
 
 function openOnFindbolig() {
@@ -197,7 +204,7 @@ onMounted(async () => {
       <!-- Thread -->
       <template v-if="messages.length">
         <div ref="threadEl">
-          <AppointmentThread :messages="messages" :reply-url="offerUrl" />
+          <AppointmentThread :messages="messages" :reply-url="threadUrl" />
         </div>
 
         <hr class="border-neutral-200 dark:border-neutral-700/50" />

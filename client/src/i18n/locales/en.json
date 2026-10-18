@@ -36,7 +36,9 @@
       "landlord": "Landlord",
       "you": "You",
       "attachment": "📎 Attachment, open on findbolig.nu",
-      "reply": "Reply on findbolig.nu"
+      "reply": "Reply on findbolig.nu",
+      "showEarlier": "Show {count} earlier message | Show {count} earlier messages",
+      "hideEarlier": "Hide earlier messages"
     }
   },
   "offers": {

@@ -36,7 +36,9 @@
       "landlord": "Udlejer",
       "you": "Dig",
       "attachment": "📎 Vedhæftet fil, åbn på findbolig.nu",
-      "reply": "Svar på findbolig.nu"
+      "reply": "Svar på findbolig.nu",
+      "showEarlier": "Vis {count} tidligere besked | Vis {count} tidligere beskeder",
+      "hideEarlier": "Skjul tidligere beskeder"
     }
   },
   "offers": {
