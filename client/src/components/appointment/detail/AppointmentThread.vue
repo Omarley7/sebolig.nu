@@ -10,7 +10,7 @@ const { t } = useI18n();
 const props = defineProps<{
   /** Oldest first. */
   messages: ThreadMessage[];
-  /** findbolig.nu's page for the offer, where its thread is answered; null when there is none. */
+  /** findbolig.nu's page for answering the thread; null when there is none. */
   replyUrl: string | null;
 }>();
 
