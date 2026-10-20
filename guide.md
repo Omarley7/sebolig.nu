@@ -44,19 +44,23 @@ In this tutorial, you use SeBolig with sample data. You do not need a findbolig.
 
    A detail sheet opens. It shows photos, the rent and a map.
 
-7. Click **Offers** in the navigation bar.
+7. Click **Share**. Then click **Text**.
+
+   The share menu of your device opens. The text shows the address, the date and the time. Close the menu.
+
+8. Click **Offers** in the navigation bar.
 
    You see housing offers. Each offer has a deadline.
 
-8. Click **Waiting lists** in the navigation bar.
+9. Click **Waiting lists** in the navigation bar.
 
    You see your waiting lists in two groups: **Active** and **Passive**.
 
-9. Click **Disconnect**. Then confirm.
+10. Click **Disconnect**. Then confirm.
 
    SeBolig erases the sample data. You are on the home page again.
 
-You now know the three main pages of SeBolig.
+You now know the three main pages of SeBolig. You also know how to share a viewing.
 
 ### 1.2 Run SeBolig on your computer
 
@@ -162,7 +166,29 @@ If findbolig.nu does not answer, you keep your Local data.
 3. Click **Add to calendar**.
 4. Select your calendar app.
 
-#### 2.4 Accept or decline a housing offer
+#### 2.4 Share a viewing with another person
+
+The other person does not need a SeBolig account or a findbolig.nu account.
+
+1. Open **Appointments**.
+2. Click the viewing.
+3. Click **Share**.
+4. Select the format:
+   - **Calendar event**: SeBolig makes an `.ics` file. The other person can add it to a calendar.
+   - **Text**: SeBolig makes a short message with the address, the date and the time.
+5. Select an app or a person in the share menu of your device. For example, select Messages, WhatsApp or Mail.
+6. Send the message in the app that you selected.
+
+If your browser has no share menu, SeBolig does these steps:
+
+- For **Text**, SeBolig copies the text. SeBolig shows "Text copied". Paste the text in a message.
+- For **Calendar event**, SeBolig downloads the `.ics` file. Attach the file to a message.
+
+> **NOTE:** You cannot share a viewing that is cancelled or that has no date. The **Share** button is not available for these viewings.
+
+For the contents of the text and the calendar event, see [Reference: Shared viewing](#38-shared-viewing).
+
+#### 2.5 Accept or decline a housing offer
 
 1. Open **Offers**.
 2. Click the offer.
@@ -171,7 +197,7 @@ If findbolig.nu does not answer, you keep your Local data.
 
 You can change your answer until the deadline. To undo an accept, click **Undo accept**.
 
-#### 2.5 Make a passive waiting list active again
+#### 2.6 Make a passive waiting list active again
 
 findbolig.nu can set a waiting list to passive. A passive waiting list does not give you offers.
 
@@ -188,7 +214,7 @@ To make all passive lists active:
 
 SeBolig shows how many lists it made active. If some fail, SeBolig shows how many.
 
-#### 2.6 Remove yourself from a waiting list
+#### 2.7 Remove yourself from a waiting list
 
 > **WARNING:** You lose your seniority on the list. You cannot undo this.
 
@@ -198,7 +224,7 @@ SeBolig shows how many lists it made active. If some fail, SeBolig shows how man
 4. Click **Remove me from waiting list**.
 5. Click **Remove me** to confirm.
 
-#### 2.7 Take back access to your account
+#### 2.8 Take back access to your account
 
 Use one of these methods:
 
@@ -210,7 +236,7 @@ A Connection is for one browser on one device. Disconnect on each device that yo
 
 ### For developers
 
-#### 2.8 Run the tests
+#### 2.9 Run the tests
 
 To test the server:
 
@@ -238,7 +264,7 @@ npx vue-tsc --noEmit
 
 CI runs all of these checks on each pull request. See [Reference: CI checks](#36-ci-checks).
 
-#### 2.9 Make a build that is only the Demo
+#### 2.10 Make a build that is only the Demo
 
 A Demo build does not use the server or findbolig.nu.
 
@@ -252,7 +278,7 @@ A Demo build does not use the server or findbolig.nu.
 
 The files are in `client/dist/`. You can put them on a static web host.
 
-#### 2.10 Run the production server on your computer
+#### 2.11 Run the production server on your computer
 
 1. Build the client:
 
@@ -268,7 +294,7 @@ The files are in `client/dist/`. You can put them on a static web host.
 
 The server gives the API at `/api` and the client from `client/dist/`. Open <http://localhost:3000>.
 
-#### 2.11 Measure the appointment extractor
+#### 2.12 Measure the appointment extractor
 
 The eval harness compares LLM models and prompts. It uses fixtures with real messages.
 
@@ -300,7 +326,7 @@ The eval harness compares LLM models and prompts. It uses fixtures with real mes
 
 For the options, see [Reference: Scripts](#31-scripts).
 
-#### 2.12 Deploy a change
+#### 2.13 Deploy a change
 
 1. Open a pull request to `main`.
 2. Wait until the CI check `checks` passes.
@@ -448,6 +474,67 @@ The workflow is `.github/workflows/ci.yml`. It runs on each pull request and on 
 | `shared/types.ts` | Types for the client and the server. |
 | `docs/adr/` | Architecture decision records. |
 
+### 3.8 Shared viewing
+
+**Share** is in the detail sheet of a viewing. It is available when the viewing has a date and is not cancelled.
+
+#### Formats
+
+| Format | Content | File |
+|---|---|---|
+| Text | Plain text. See the template below. | – |
+| Calendar event | One iCalendar event (RFC 5545). | `viewing-<date>.ics`, type `text/calendar` |
+
+#### Text template
+
+```text
+Viewing: <address>, <postal code> <city>
+<weekday> <date>, <start time>–<end time>
+Map: <map link>
+```
+
+Example:
+
+```text
+Viewing: Ålekistevej 59, 2720 Vanløse
+Tuesday 20 October 2026, 16:00–17:00
+Map: https://maps.google.com/?q=Ålekistevej+59,+2720+Vanløse
+```
+
+| Line | Rule |
+|---|---|
+| Line 1 | Always present. "Open house" replaces "Viewing" for an open house. |
+| Line 2 | Always present. Without an end time, the line shows only the start time. |
+| Line 3 | Always present. The link opens the address in a map app. |
+
+The text uses the app language (Danish or English) and the date format of that language.
+
+#### Calendar event fields
+
+| Field | Value |
+|---|---|
+| `SUMMARY` | "Viewing: <address>" or "Open house: <address>" |
+| `LOCATION` | `<address>, <postal code> <city>` |
+| `DTSTART` | Date and start time, time zone `Europe/Copenhagen` |
+| `DTEND` | Date and end time. Without an end time: start time plus 1 hour. |
+| `DESCRIPTION` | The same text as the **Text** format |
+
+#### Content that SeBolig does not share
+
+| Item | Reason |
+|---|---|
+| Your name and email | Personal data. |
+| Your queue position | Personal data. |
+| The findbolig.nu link | The other person cannot open it without an account. |
+| Rent, photos and floor plans | Not necessary to go to the viewing. |
+
+#### Share methods
+
+| Condition | Text | Calendar event |
+|---|---|---|
+| Browser can share | Share menu of the device (`navigator.share` with `text`) | Share menu of the device (`navigator.share` with `files`) |
+| Browser cannot share | Copy to clipboard | Download of the `.ics` file |
+
 ---
 
 ## 4. Explanation
@@ -554,7 +641,24 @@ The Demo uses the same pages and stores as a real Connection. Only the data sour
 
 The Demo never sends data to findbolig.nu or to the SeBolig server. SeBolig remembers the Demo after a reload. When you end the Demo, SeBolig erases the sample data, as for a disconnect.
 
-### 4.9 Usage statistics
+### 4.9 How sharing works
+
+You often go to a viewing with another person, for example a partner or a friend. This person usually has no SeBolig account. Thus, the shared content must work without SeBolig and without findbolig.nu.
+
+SeBolig makes the text and the calendar event on your device, from your Local data. The SeBolig server does not get the shared content. The share also works offline and in the Demo.
+
+SeBolig gives the content to the share menu of your device. This menu shows the apps that you already use, for example Messages or WhatsApp. SeBolig does not need to know these apps. If the browser has no share menu, SeBolig copies the text or downloads the file. You then send it yourself.
+
+There are two formats because people use them differently:
+
+- **Text** is easy to read in any chat app. Use it when the other person only needs the address and the time.
+- **Calendar event** puts the viewing directly into a calendar, with a reminder if the calendar app sets one. Use it when the other person wants the viewing in a calendar.
+
+The shared content is a copy. If the landlord changes the time, SeBolig does not update the copy. Share the viewing again after a change.
+
+SeBolig shares only what the other person needs to go to the viewing: the place and the time. It does not share personal data, such as your queue position. It does not share the findbolig.nu link, because the other person cannot open it without an account.
+
+### 4.10 Usage statistics
 
 SeBolig uses PostHog for usage statistics. The data is stored in the EU. PostHog records which pages you use and where you click.
 
