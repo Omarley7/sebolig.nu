@@ -4,7 +4,7 @@ import type { Appointment, Offer } from "@/types";
  * it could not be read from findbolig's messages; a missing part is left out.
  */
 export function formatTimeSlot(
-  appointment: Appointment,
+  appointment: Pick<Appointment, "date" | "start" | "end">,
   t: (key: string, params?: Record<string, unknown>) => string,
   includeDate = false,
 ): string {

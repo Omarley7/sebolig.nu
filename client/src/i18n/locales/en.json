@@ -257,5 +257,35 @@
     "floorPlanFile": "floor-plan",
     "button": "Share",
     "floorPlanFailed": "could not be fetched"
+  },
+  "changes": {
+    "title": "What changed",
+    "open": "What changed | What changed, {count} new | What changed, {count} new",
+    "markAllSeen": "Mark all as seen",
+    "empty": "Nothing has changed yet. When SeBolig notices something new on your viewings or offers, it shows up here.",
+    "changed": "Changed",
+    "invited": "New viewing invitation",
+    "newOffer": "New offer",
+    "viewingSet": "Viewing date set: {when}",
+    "viewingMoved": "Viewing moved: {from} → {to}",
+    "cancelled": "Viewing cancelled",
+    "backOn": "Viewing is back on",
+    "message": "New message from {sender}",
+    "messages": "{count} new messages, latest from {sender}",
+    "position": "Position {from} → {to}",
+    "rent": "Rent {from} → {to}",
+    "deposit": "Deposit {from} → {to}",
+    "accepted": "Accepted on findbolig.nu",
+    "declined": "Declined on findbolig.nu",
+    "deadline": "Deadline changed: {from} → {to}",
+    "moveIn": "Move-in date changed: {from} → {to}",
+    "removed": {
+      "won": "You got it! 🎉",
+      "rentedToOthers": "Rented to someone else",
+      "withdrawn": "Withdrawn by the landlord",
+      "movedToAppointments": "Moved to appointments",
+      "appointment": "No longer in your appointments",
+      "offer": "No longer in your offers"
+    }
   }
 }

@@ -7,6 +7,7 @@ import { imageUrl } from "~/lib/imageUrl";
 import { compactThumb } from "~/lib/imageTransform";
 import { formatCurrency } from "~/lib/formatters";
 import { getDeadlineUrgency, urgencyColors } from "~/lib/deadlineUrgency";
+import { useChangesStore } from "~/stores/changes";
 
 const { t } = useI18n();
 
@@ -16,6 +17,9 @@ const props = defineProps<{
 }>();
 
 const openDetail = useOpenDetail();
+const changes = useChangesStore();
+// Something changed on it that the user has not seen yet.
+const changed = computed(() => changes.hasUnseen("offer", props.offer.id));
 
 const thumbUrl = computed(() => {
   if (props.loadImage === false) return undefined;
@@ -52,6 +56,12 @@ const urgency = computed(() => getDeadlineUrgency(props.offer.deadline, t));
       <div class="flex flex-col justify-between min-w-0 flex-1 py-0.5">
         <div class="min-w-0">
           <p class="font-semibold text-[0.8125rem] leading-snug truncate dark:text-neutral-100">
+            <span
+            v-if="changed"
+            class="inline-block size-2 mr-1 rounded-full bg-sky-500 align-middle"
+            role="img"
+            :aria-label="t('changes.changed')"
+          />
             {{ offer.residence.addressLine1 }}
           </p>
           <p class="text-xs text-neutral-500 dark:text-neutral-400 truncate">

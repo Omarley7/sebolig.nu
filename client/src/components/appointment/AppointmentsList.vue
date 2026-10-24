@@ -12,7 +12,9 @@ import {
   type GroupBy,
 } from "~/composables/useGroupAppointments";
 import { useAppointmentsStore } from "~/stores/appointments";
+import { useChangesStore } from "~/stores/changes";
 const store = useAppointmentsStore();
+const changes = useChangesStore();
 const { appointments, isLoading } = storeToRefs(store);
 const groupBy = ref<GroupBy>("day");
 const { groupedAppointments, formatLabel } = useGroupAppointments(
@@ -20,7 +22,9 @@ const { groupedAppointments, formatLabel } = useGroupAppointments(
   groupBy,
 );
 const includeDate = computed(() => groupBy.value !== "day");
-const detail = useDetailSheet((id) => appointments.value.find((a) => a.id === id));
+const detail = useDetailSheet((id) => appointments.value.find((a) => a.id === id), {
+  onOpen: (id) => changes.markSeen("appointment", id),
+});
 </script>
 <template>
   <div>
