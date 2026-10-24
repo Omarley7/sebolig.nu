@@ -1,6 +1,7 @@
 import type { Appointment, AppointmentDelta } from "@/types";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { demoAppointments } from "~/data/appointments/demo";
 import type { AppointmentsSource } from "~/data/appointments/source";
 import type { OffersSource } from "~/data/offers/source";
 import type { ChangeDetail, FoundChange } from "~/lib/changes";
@@ -222,4 +223,25 @@ it("an offer answered in SeBolig is not reported as answered on findbolig.nu whe
   await appointmentsStore.init();
 
   expect(changes.changes).toEqual([]);
+});
+
+it("in the Demo, the first check brings a viewing date, a landlord message and an awarded viewing; later checks nothing", async () => {
+  vi.useFakeTimers({ toFake: ["Date", "setTimeout"] });
+  vi.setSystemTime(new Date("2026-10-20T12:00:00Z"));
+  const { appointmentsStore, changes } = tracked(demoAppointments());
+  const connecting = appointmentsStore.init();
+  await vi.runAllTimersAsync();
+  await connecting;
+  expect(changes.changes).toEqual([]);
+
+  vi.advanceTimersByTime(61_000);
+  await appointmentsStore.init();
+  vi.advanceTimersByTime(61_000);
+  await appointmentsStore.init();
+
+  expect(changes.changes.map((c) => c.detail).sort((a, b) => a.field.localeCompare(b.field))).toEqual([
+    expect.objectContaining({ field: "message", count: 1, latest: expect.objectContaining({ from: "landlord" }) }),
+    { field: "removed", state: "Awarded" },
+    expect.objectContaining({ field: "viewing", from: { date: null, start: null, end: null } }),
+  ]);
 });

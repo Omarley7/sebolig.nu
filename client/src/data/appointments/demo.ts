@@ -1,4 +1,4 @@
-import type { Appointment, ThreadMessage } from "@/types";
+import type { Appointment, AppointmentDelta, ThreadMessage } from "@/types";
 import MOCK_APPOINTMENTS from "~/data/MOCK_APPOINTMENTS.json";
 import { demoCursor, demoDelay, noChanges } from "~/data/demo";
 import { dateInDays } from "~/lib/dateHelper";
@@ -27,7 +27,7 @@ const invitation = (days: number, when: string): ThreadMessage => ({
 });
 
 /** Each sample appointment's thread, oldest first: the first has a message after its viewing. */
-const threads: ThreadMessage[][] = [
+const sampleThreads = (): ThreadMessage[][] => [
   [
     notice(-14),
     invitation(-12, `${showingDay(-7)} kl. 16:00-16:20`),
@@ -45,15 +45,31 @@ const threads: ThreadMessage[][] = [
   [notice(-1)],
 ];
 
-/** Sample appointments for the Demo, with dates kept relative to today. */
+/** A landlord's follow-up for the Demo's first check to bring. */
+const followUpMessage = (): ThreadMessage => ({
+  from: "landlord",
+  senderName: "Udlejningen",
+  sentAt: new Date().toISOString(),
+  body: "Kære ansøger,\n\nHusk at medbringe lønsedler og legitimation til fremvisningen. Der er desværre ingen parkering ved ejendommen.\n\nMed venlig hilsen\nUdlejningen",
+  hasAttachments: false,
+});
+
+/**
+ * Sample appointments for the Demo, with dates kept relative to today. The first cheap check
+ * brings a few changes, so the Demo shows what changed too: the appointment waiting for a date
+ * gets one, the one a week out gets a message from the landlord, and the past one is awarded to
+ * someone else. Later checks bring nothing, and a Refresh fetches the changed appointments.
+ */
 export function demoAppointments(): AppointmentsSource {
   const dates: (string | null)[] = [dateInDays(-7), dateInDays(0), dateInDays(0), dateInDays(7)];
-  const appointments = (MOCK_APPOINTMENTS as Appointment[]).map((appt, i) => ({
+  const threads = sampleThreads();
+  let appointments = (MOCK_APPOINTMENTS as Appointment[]).map((appt, i) => ({
     ...appt,
     date: i < dates.length ? dates[i] : null,
     messages: threads[i] ?? [],
     messageCount: threads[i]?.length ?? 0,
   }));
+  let scripted = false;
 
   return {
     async sync() {
@@ -62,6 +78,18 @@ export function demoAppointments(): AppointmentsSource {
       // The Demo has no threads either: any instant serves as its thread cursor.
       return { appointments, ...cursor, latestMessageAt: cursor.latestUpdated, latestMessageThreadIds: [] };
     },
-    fetchDelta: async () => ({ ...noChanges<Appointment>(), latestMessageAt: null, latestMessageThreadIds: [] }),
+    async fetchDelta() {
+      const delta: AppointmentDelta = { ...noChanges<Appointment>(), latestMessageAt: null, latestMessageThreadIds: [] };
+      if (scripted) return delta;
+      scripted = true;
+      const [awarded, , , messaged, waiting] = appointments;
+      const items = [
+        { ...waiting, date: dateInDays(3), start: "17:00", end: "17:30" },
+        { ...messaged, messages: [...messaged.messages, followUpMessage()], messageCount: messaged.messageCount + 1 },
+      ];
+      const byId = new Map(items.map((appointment) => [appointment.offerId, appointment]));
+      appointments = appointments.filter((a) => a !== awarded).map((a) => byId.get(a.offerId) ?? a);
+      return { ...delta, items, removedIds: [awarded.offerId], removedStates: { [awarded.offerId]: "Awarded" } };
+    },
   };
 }
