@@ -139,6 +139,34 @@ it("init keeps stored data when it can't be checked and the Connection isn't liv
   expect(source.calls.fetchAll).toBe(0);
 });
 
+it("a cheap check or a refresh tells update listeners what was shown before and what is shown now", async () => {
+  const checked: Notes = { ...PAGE, notes: [...PAGE.notes, { id: "b", text: "second" }] };
+  const fresh: Notes = { ...PAGE, updatedAt: "2026-10-02T00:00:00.000Z", notes: [] };
+  const { useNotes } = setup([fresh], { stored: PAGE, check: async () => checked });
+  const store = useNotes();
+  const updates: { before: Notes; after: Notes }[] = [];
+  store.onUpdated((update) => updates.push(update));
+
+  await store.init();
+  await store.refresh();
+
+  expect(updates).toEqual([
+    { before: PAGE, after: checked },
+    { before: checked, after: fresh },
+  ]);
+});
+
+it("the first fetch, with nothing shown before, is not an update", async () => {
+  const { useNotes } = setup([PAGE]);
+  const store = useNotes();
+  const updates: unknown[] = [];
+  store.onUpdated((update) => updates.push(update));
+
+  await store.init();
+
+  expect(updates).toEqual([]);
+});
+
 it("a failed refresh keeps the data and tells the user, passing the error along", async () => {
   const { useNotes, notices } = setup([], { stored: PAGE });
   const store = useNotes();

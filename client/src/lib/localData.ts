@@ -53,6 +53,9 @@ const CHECKED_AT_KEY = "local_data_checked_at";
 /** How long an automatic check waits after the last check or refresh of the same kind. */
 const CHECK_COOLDOWN_MS = 60_000;
 
+/** What a check or refresh changed: the data shown before it, and the data shown now. */
+export type Update<Data> = { before: Data; after: Data };
+
 export interface LocalDataDeps {
   storage: LocalStorage;
   connection: () => Connection;
@@ -109,6 +112,14 @@ export interface LocalDataContext<Data, Source> {
   onErase(listener: () => void): void;
 }
 
+/** One storage key of Local data kept outside the defined kinds; see `keep`. */
+export interface KeptData {
+  read(): string | null;
+  write(value: string): void;
+  /** Runs when Local data is erased, after the key is removed from storage. */
+  onErase(forget: () => void): void;
+}
+
 export function createLocalData(deps: LocalDataDeps) {
   // Every kind registers when it is defined, not when its store is first used, so erasing
   // also reaches data of kinds no page has used since the app started.
@@ -146,10 +157,18 @@ export function createLocalData(deps: LocalDataDeps) {
       const source = () => definition.sources[deps.mode()];
       const refreshListeners: ((data: Data) => void)[] = [];
       const eraseListeners: (() => void)[] = [];
+      const updateListeners: ((update: Update<Data>) => void)[] = [];
 
       function save(next: Data) {
         data.value = next;
         deps.storage.write(definition.key, JSON.stringify(definition.serialize ? definition.serialize(next) : next));
+      }
+
+      /** Saves what a check or refresh brought, telling update listeners what it replaced, if anything. */
+      function saveUpdate(next: Data) {
+        const before = data.value;
+        save(next);
+        if (before !== null) for (const listener of updateListeners) listener({ before, after: next });
       }
 
       function recordCheck() {
@@ -212,7 +231,7 @@ export function createLocalData(deps: LocalDataDeps) {
         }
         if (erasures !== startedBefore) return;
         if (checked) {
-          save(checked);
+          saveUpdate(checked);
           return recordCheck();
         }
         // Can't check cheaply: self-heal with one full refresh.
@@ -241,7 +260,7 @@ export function createLocalData(deps: LocalDataDeps) {
       function saveRefreshed(next: Data, startedBefore: number) {
         // Local data was erased while fetching (say, a disconnect): keep it erased.
         if (erasures !== startedBefore) return;
-        save(next);
+        saveUpdate(next);
         recordCheck();
         for (const listener of refreshListeners) listener(next);
       }
@@ -300,9 +319,31 @@ export function createLocalData(deps: LocalDataDeps) {
         onErase: (listener) => void eraseListeners.push(listener),
       });
 
-      return { data, status, hasData, isLoading, isChecking, isBusy, checkedAt, init, refresh, ...(own as Extra) };
+      /**
+       * Runs after every successful check or refresh that replaced data already shown, with what
+       * was shown before and what is shown now. Not for the first fetch, which replaces nothing.
+       */
+      function onUpdated(listener: (update: Update<Data>) => void) {
+        updateListeners.push(listener);
+      }
+
+      return { data, status, hasData, isLoading, isChecking, isBusy, checkedAt, init, refresh, onUpdated, ...(own as Extra) };
     });
   }
 
-  return { define, eraseAll };
+  /**
+   * Registers a storage key holding Local data outside the defined kinds (what changed, say), so
+   * erasing reaches it too. The returned handle reads and writes that key; `onErase` listeners
+   * clear what is kept of it in memory.
+   */
+  function keep(key: string): KeptData {
+    storedKeys.push(key);
+    return {
+      read: () => deps.storage.read(key),
+      write: (value) => deps.storage.write(key, value),
+      onErase: (forget) => void forgetInMemory.add(forget),
+    };
+  }
+
+  return { define, keep, eraseAll };
 }
