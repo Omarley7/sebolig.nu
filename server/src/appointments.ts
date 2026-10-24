@@ -108,6 +108,6 @@ export async function getAppointmentUpdates(
   cached: CachedAppointmentEntry[],
 ): Promise<AppointmentDelta> {
   const walked = await walkOfferListing(client, cursors.listing, appointmentsView(client, extractor, cached), cursors.threads);
-  const { items, removedIds, latestUpdated, latestUpdatedIds } = walked;
-  return { items, removedIds, latestUpdated, latestUpdatedIds, ...threadCursorFields(walked) };
+  const { items, removedIds, removedStates, latestUpdated, latestUpdatedIds } = walked;
+  return { items, removedIds, removedStates, latestUpdated, latestUpdatedIds, ...threadCursorFields(walked) };
 }

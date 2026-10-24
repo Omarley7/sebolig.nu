@@ -124,6 +124,27 @@ test("changed offers that don't belong in the view are reported as removed, with
   assert.deepEqual(enriched, ["kept"]);
 });
 
+test("a removed offer's state says why it left the view, and an offer awarded to the user says so", async () => {
+  const T = "2026-01-10T00:00:00.000Z";
+  const you = { userId: "user-1" } as NonNullable<ApiOffer["recipients"]>[number];
+  const client = await clientWithOffers([
+    offer("withdrawn", T, { state: "Released", recipients: [you] }),
+    offer("lost", T, { state: "Awarded", winnerId: "user-2", recipients: [you] }),
+    offer("won", T, { state: "Awarded", winnerId: "user-1", recipients: [you] }),
+    offer("no-residence", T, { state: "Published" }),
+  ]);
+
+  const delta = await walkOfferListing(client, { since: "2026-01-01T00:00:00.000Z", sinceIds: [] }, {
+    name: "test",
+    belongs: (o) => o.state === "Published",
+    enrich: async () => gone,
+  });
+
+  assert.deepEqual(ids(delta.removedIds), ["lost", "no-residence", "withdrawn", "won"]);
+  // An offer gone for want of a residence did not change state: no reason to give.
+  assert.deepEqual(delta.removedStates, { withdrawn: "Released", lost: "Awarded", won: "AwardedToYou" });
+});
+
 test("an offer whose enrichment is gone is reported as removed, and the cursor still advances", async () => {
   const T = "2026-01-10T00:00:00.000Z";
   const client = await clientWithOffers([offer("ok", T), offer("no-residence", T), offer("refused", T)]);
