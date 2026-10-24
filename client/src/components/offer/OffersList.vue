@@ -6,13 +6,17 @@ import OfferDetailSheet from "~/components/offer/detail/OfferDetailSheet.vue";
 import CompactCardSkeleton from "~/components/shared/CompactCardSkeleton.vue";
 import { useDetailSheet } from "~/composables/useDetailSheet";
 import { useGroupOffers } from "~/composables/useGroupOffers";
+import { useChangesStore } from "~/stores/changes";
 import { useOffersStore } from "~/stores/offers";
 
 const { t } = useI18n();
 const store = useOffersStore();
 const { offers, isLoading } = storeToRefs(store);
 const { groupedOffers } = useGroupOffers(offers, t);
-const detail = useDetailSheet((id) => offers.value.find((o) => o.id === id));
+const changes = useChangesStore();
+const detail = useDetailSheet((id) => offers.value.find((o) => o.id === id), {
+  onOpen: (id) => changes.markSeen("offer", id),
+});
 </script>
 
 <template>

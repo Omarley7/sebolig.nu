@@ -257,5 +257,35 @@
     "floorPlanFile": "plantegning",
     "button": "Del",
     "floorPlanFailed": "kunne ikke hentes"
+  },
+  "changes": {
+    "title": "Ændringer",
+    "open": "Ændringer | Ændringer, {count} ny | Ændringer, {count} nye",
+    "markAllSeen": "Markér alle som set",
+    "empty": "Ingen ændringer endnu. Når SeBolig opdager noget nyt på dine fremvisninger eller tilbud, kommer det her.",
+    "changed": "Ændret",
+    "invited": "Ny invitation til fremvisning",
+    "newOffer": "Nyt boligtilbud",
+    "viewingSet": "Fremvisning fastsat: {when}",
+    "viewingMoved": "Fremvisning flyttet: {from} → {to}",
+    "cancelled": "Fremvisningen er aflyst",
+    "backOn": "Fremvisningen er genoptaget",
+    "message": "Ny besked fra {sender}",
+    "messages": "{count} nye beskeder, senest fra {sender}",
+    "position": "Placering {from} → {to}",
+    "rent": "Husleje {from} → {to}",
+    "deposit": "Depositum {from} → {to}",
+    "accepted": "Accepteret på findbolig.nu",
+    "declined": "Afvist på findbolig.nu",
+    "deadline": "Svarfrist ændret: {from} → {to}",
+    "moveIn": "Indflytning ændret: {from} → {to}",
+    "removed": {
+      "won": "Du fik den! 🎉",
+      "rentedToOthers": "Udlejet til en anden",
+      "withdrawn": "Trukket tilbage af udlejer",
+      "movedToAppointments": "Flyttet til fremvisninger",
+      "appointment": "Ikke længere blandt dine fremvisninger",
+      "offer": "Ikke længere blandt dine tilbud"
+    }
   }
 }

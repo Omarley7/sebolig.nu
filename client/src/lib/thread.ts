@@ -35,7 +35,7 @@ export function withLinks(body: string): BodyPart[] {
 }
 
 /** Who wrote a message, as the thread and the card name them. */
-export function senderLabel(message: ThreadMessage, t: (key: string) => string): string {
+export function senderLabel(message: Pick<ThreadMessage, "from" | "senderName">, t: (key: string) => string): string {
   if (message.from === "landlord") return message.senderName ?? t("appointments.thread.landlord");
   return t(`appointments.thread.${message.from}`);
 }

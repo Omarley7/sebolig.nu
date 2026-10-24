@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ChangesBell from "~/components/changes/ChangesBell.vue";
+import { useAuth } from "~/composables/useAuth";
 import { useDarkMode } from "~/composables/useDarkMode";
 import { useI18n } from "../i18n";
 import LanguageSwitcher from "./LanguageSwitcher.vue";
@@ -6,10 +8,11 @@ import ConnectionControl from "./ConnectionControl.vue";
 
 const { t } = useI18n();
 const { isDark, toggle: toggleDarkMode } = useDarkMode();
+const auth = useAuth();
 </script>
 
 <template>
-  <nav class="flex items-center gap-3">
+  <nav class="flex items-center gap-2 sm:gap-3">
     <!-- Left: logo (equal width to right for centering) -->
     <router-link to="/" class="flex-1 flex items-center">
       <img v-if="isDark" src="/sebolig_logo_dark.svg" alt="SeBolig.nu" class="h-8" />
@@ -23,8 +26,10 @@ const { isDark, toggle: toggleDarkMode } = useDarkMode();
       </h1>
     </router-link>
 
-    <!-- Right: dark mode toggle + connect (equal width to left for centering) -->
-    <div class="flex-1 flex items-center justify-end gap-2">
+    <!-- Right: what changed, language, dark mode toggle + connect (equal width to left for centering;
+         on phones it takes the width it needs, the title moving off center rather than the icons shrinking) -->
+    <div class="flex-1 max-sm:flex-none flex items-center justify-end gap-1 sm:gap-2 *:shrink-0">
+      <ChangesBell v-if="auth.isAuthenticated" />
       <LanguageSwitcher />
       <button
         @click="toggleDarkMode"

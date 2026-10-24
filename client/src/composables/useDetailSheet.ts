@@ -1,4 +1,5 @@
 import { computed, inject, nextTick, provide, reactive, ref, shallowRef, watch, type InjectionKey } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 /** Opens an item's detail sheet, at the top or scrolled to a section the sheet names (like "thread"). */
 type OpenDetail = (id: string, section?: string) => void;
@@ -16,8 +17,12 @@ const OPEN_DETAIL: InjectionKey<OpenDetail> = Symbol("openDetail");
  * The sheet passes `gone` to useSheet({ closeWhen }), so an item that disappears from
  * the store slides out the normal way, still showing its last-known state. A card can open
  * the sheet at a section (`openDetail(id, "thread")`); the sheet gets it as `detail.section`.
+ *
+ * A link to the list's page can name an item to open, `?open=<id>` (the changes panel does): the
+ * sheet opens once the item is there, and the query is dropped first, so back closes the sheet.
+ * `onOpen` runs for every item a sheet opens for, however it was opened.
  */
-export function useDetailSheet<T>(lookup: (id: string) => T | undefined) {
+export function useDetailSheet<T>(lookup: (id: string) => T | undefined, { onOpen }: { onOpen?(id: string): void } = {}) {
   const mounted = ref(false);
   const shownId = ref<string | null>(null);
   const shownSection = ref<string | null>(null);
@@ -37,6 +42,7 @@ export function useDetailSheet<T>(lookup: (id: string) => T | undefined) {
     shownSection.value = section;
     lastKnown.value = item;
     mounted.value = true;
+    onOpen?.(id);
   }
 
   const openDetail: OpenDetail = (id, section) => {
@@ -46,6 +52,24 @@ export function useDetailSheet<T>(lookup: (id: string) => T | undefined) {
   };
 
   provide(OPEN_DETAIL, openDetail);
+
+  const route = useRoute();
+  const router = useRouter();
+  const linked = computed(() => {
+    const id = route.query.open;
+    return typeof id === "string" && lookup(id) !== undefined ? id : null;
+  });
+  watch(
+    linked,
+    async (id) => {
+      if (id === null) return;
+      const { open: _, ...query } = route.query;
+      // Before the sheet adds its history entry, which replacing the route would overwrite.
+      await router.replace({ query });
+      openDetail(id);
+    },
+    { immediate: true },
+  );
 
   return reactive({
     /** The item to show, its last-known state once it is gone; undefined when no sheet is mounted. */

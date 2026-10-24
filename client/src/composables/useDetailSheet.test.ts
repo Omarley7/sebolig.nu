@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp, defineComponent, h, nextTick, ref, type PropType } from "vue";
 import { createRouter, createWebHistory, type Router } from "vue-router";
 import BottomSheet from "~/components/shared/BottomSheet.vue";
@@ -17,6 +17,7 @@ const items = ref<Item[]>([]);
 let router: Router;
 let sheet: Sheet | undefined;
 let mounts: number;
+let opened: string[];
 let unmount = () => {};
 
 const Detail = defineComponent({
@@ -54,7 +55,7 @@ const Card = defineComponent({
 
 const List = defineComponent({
   setup() {
-    const detail = useDetailSheet((id) => items.value.find((i) => i.id === id));
+    const detail = useDetailSheet((id) => items.value.find((i) => i.id === id), { onOpen: (id) => opened.push(id) });
     return () => [
       ...(["new", "accepted"] as const).map((group) =>
         h("ul", { key: group }, items.value.filter((i) => i.group === group).map((item) => h(Card, { key: item.id, item }))),
@@ -98,6 +99,7 @@ beforeEach(async () => {
   ];
   sheet = undefined;
   mounts = 0;
+  opened = [];
   router = createRouter({
     history: createWebHistory(),
     routes: [
@@ -123,6 +125,33 @@ afterEach(() => unmount());
 const section = () => document.querySelector<HTMLElement>(".detail")?.dataset.section;
 
 describe("useDetailSheet", () => {
+  it("every item opened is reported, however it was opened", async () => {
+    await tap("a");
+    sheet!.close();
+    await nextTick();
+    await slideOut();
+    card("b").querySelector<HTMLElement>(".card-thread")!.click();
+    await nextTick();
+
+    expect(opened).toEqual(["a", "b"]);
+  });
+
+  it("a link naming an item opens its sheet once the item is there, and leaves no trace in the address", async () => {
+    items.value = [];
+    await router.push({ path: "/offers", query: { open: "b", tab: "x" } });
+    await nextTick();
+    expect(shown()).toBeUndefined();
+
+    items.value = [{ id: "b", group: "new", name: "Beta" }];
+    await vi.waitFor(() => expect(shown()).toBe("Beta"));
+    expect(router.currentRoute.value.query).toEqual({ tab: "x" });
+
+    // Back closes the sheet and stays on the page
+    history.back();
+    await vi.waitFor(() => expect(sheet!.visible).toBe(false));
+    expect(router.currentRoute.value.path).toBe("/offers");
+  });
+
   it("a card can open its sheet at a section, and tapping the card itself opens it at the top", async () => {
     card("a").querySelector<HTMLElement>(".card-thread")!.click();
     await nextTick();
