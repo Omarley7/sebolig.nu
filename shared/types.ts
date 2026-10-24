@@ -84,12 +84,25 @@ export type Offer = {
 export type Delta<T> = {
   items: T[]; // new/updated items that still belong in the active view
   removedIds: string[]; // previously-cached items that changed out of the active view
+  /**
+   * Why removed items left the view: the offer's state when it did, by id. Missing for an item
+   * removed without changing state (findbolig.nu no longer has its residence or thread). Optional
+   * because clients that predate it, and their deltas, still run.
+   */
+  removedStates?: Record<string, RemovedState>;
   latestUpdated: string | null; // new cursor to persist for the next delta check
   // Every item id already reported at exactly `latestUpdated`. Pass both back as `since`/
   // `sinceIds` on the next delta call so items sharing that same timestamp are told apart
   // by id rather than by fetch order — see the cursor rule in server/src/offer-listing.ts.
   latestUpdatedIds: string[];
 };
+
+/**
+ * findbolig.nu's state of an offer that left a view ('Awarded', 'AwardedExternally', 'Released',
+ * 'RetiredFromAwarded', 'Finished', ...), except that an offer awarded to the user is
+ * 'AwardedToYou': findbolig.nu says 'Awarded' either way, and only the server knows who the user is.
+ */
+export type RemovedState = string;
 
 export type OfferDelta = Delta<Offer>;
 

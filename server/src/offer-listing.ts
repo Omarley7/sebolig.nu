@@ -1,4 +1,4 @@
-import type { Delta } from "@/types";
+import type { Delta, RemovedState } from "@/types";
 import { ConnectionEnded, UpstreamError } from "~/lib/errors";
 import type { FindboligClient } from "~/lib/findbolig-client";
 import { limitedFor } from "~/lib/limiter";
@@ -51,7 +51,8 @@ import type { ApiThreadSummary } from "~/types/threads";
  * LLM, runs outside that limit (through `llm`, to be counted), so it holds no slot another offer
  * could be fetching with. An ended Connection fails the whole walk, so the route can clear the
  * Connection cookie. Changed offers that don't belong in the view are reported in `removedIds`
- * without enrichment.
+ * without enrichment, with their state in `removedStates` (why they left; see `RemovedState`). A
+ * gone offer did not change state, so it has none there.
  *
  * ## The summary line
  * Each walk logs one line: offers walked (changed since the cursor), offers enriched (that fetched
@@ -205,7 +206,9 @@ export async function walkOfferListing<T>(
     const { changed, listing, threadCursor: nextThreadCursor, lastMessageAt } = await timed(collectChanged, (ms) => (stats.listingMs = ms));
 
     const belonging = changed.filter((offer) => view.belongs(offer));
-    const removedIds = changed.filter((offer) => !view.belongs(offer)).map((offer) => offer.id);
+    const leaving = changed.filter((offer) => !view.belongs(offer));
+    const removedIds = leaving.map((offer) => offer.id);
+    const removedStates = Object.fromEntries(leaving.map((offer) => [offer.id, removedState(offer)]));
     stats.walked = changed.length;
 
     const enrich = async (offer: ApiOffer): Promise<Outcome<T>> => {
@@ -238,8 +241,8 @@ export async function walkOfferListing<T>(
     }
 
     return failed
-      ? { items, removedIds, latestUpdated: null, latestUpdatedIds: [], threadCursor: null }
-      : { items, removedIds, latestUpdated: listing.latest, latestUpdatedIds: listing.latestIds, threadCursor: nextThreadCursor };
+      ? { items, removedIds, removedStates, latestUpdated: null, latestUpdatedIds: [], threadCursor: null }
+      : { items, removedIds, removedStates, latestUpdated: listing.latest, latestUpdatedIds: listing.latestIds, threadCursor: nextThreadCursor };
   } finally {
     const ms = (n: number) => Math.round(n);
     console.info(
@@ -249,6 +252,12 @@ export async function walkOfferListing<T>(
         `llmMs=${ms(stats.llmMs)} findboligMs=${ms(stats.findboligMs)}`,
     );
   }
+}
+
+/** Why an offer left a view: its state, or 'AwardedToYou' when the user is its winner (see `RemovedState`). */
+function removedState(offer: ApiOffer): RemovedState {
+  const userId = offer.recipients?.[0]?.userId;
+  return offer.state === "Awarded" && userId && offer.winnerId === userId ? "AwardedToYou" : offer.state;
 }
 
 /** One page of a listing walked newest first. */

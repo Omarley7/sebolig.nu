@@ -329,7 +329,7 @@ test("a thread whose offer is no longer upcoming is reported removed, and a thre
 
   const delta = await getAppointmentUpdates(client, new FakeExtractor(extracted), SINCE_BOTH, []);
 
-  assert.deepEqual([delta.items, delta.removedIds], [[], ["o1"]]);
+  assert.deepEqual([delta.items, delta.removedIds, delta.removedStates], [[], ["o1"], { o1: "Expired" }]);
   assert.deepEqual(searchesById(fake).map((r) => (r.body as { filters: { id: string[] } }).filters.id), [["o1"]]);
   assert.deepEqual([...delta.latestMessageThreadIds].sort(), ["t0", "t1"]);
 });
