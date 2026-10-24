@@ -1,11 +1,12 @@
-# Runs on every PR and push to main. Merging to main deploys (Cloud Build trigger),
-# so `checks` is meant to be a required status check on main.
+# Runs on every PR and push to main or develop. Merging to main deploys production and
+# pushing to develop deploys test.sebolig.nu (Cloud Build triggers), so `checks` is meant
+# to be a required status check on main.
 name: CI
 
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
   checks:
