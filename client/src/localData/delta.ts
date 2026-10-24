@@ -1,4 +1,4 @@
-import type { Delta } from "@/types";
+import type { Delta, RemovedState } from "@/types";
 import { cursorFrom, type Cursor, type FullFetchCursor } from "~/data/cursor";
 
 /**
@@ -6,7 +6,16 @@ import { cursorFrom, type Cursor, type FullFetchCursor } from "~/data/cursor";
  * and appointments. `cursor` is null until a fetch has handed one out (or for data stored
  * before cursors existed).
  */
-export type CursorData<T> = { updatedAt: Date; items: T[]; cursor: Cursor | null };
+export type CursorData<T> = {
+  updatedAt: Date;
+  items: T[];
+  cursor: Cursor | null;
+  /**
+   * Why items left in the delta that made this data, by key (see `Delta.removedStates`). Never
+   * stored: only the update listeners of the check that applied the delta read it.
+   */
+  removedStates?: Record<string, RemovedState>;
+};
 
 /**
  * Merges a delta into cursor data: upserts changed items by key, drops removed ones. A delta
@@ -15,12 +24,12 @@ export type CursorData<T> = { updatedAt: Date; items: T[]; cursor: Cursor | null
  */
 export function applyDelta<T>(data: CursorData<T>, delta: Delta<T> & FullFetchCursor, keyOf: (item: T) => string): CursorData<T> {
   const cursor = cursorFrom(delta) ?? data.cursor;
-  if (delta.items.length === 0 && delta.removedIds.length === 0) return { ...data, cursor };
+  if (delta.items.length === 0 && delta.removedIds.length === 0) return { updatedAt: data.updatedAt, items: data.items, cursor };
 
   const removed = new Set(delta.removedIds);
   const byKey = new Map(data.items.filter((item) => !removed.has(keyOf(item))).map((item) => [keyOf(item), item]));
   for (const item of delta.items) byKey.set(keyOf(item), item);
-  return { updatedAt: new Date(), items: Array.from(byKey.values()), cursor };
+  return { updatedAt: new Date(), items: Array.from(byKey.values()), cursor, removedStates: delta.removedStates ?? {} };
 }
 
 /**

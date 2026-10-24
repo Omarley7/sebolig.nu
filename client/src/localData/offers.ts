@@ -30,6 +30,7 @@ export function offersKind(sources: Record<Mode, OffersSource>) {
 
 function exposeOffers(ctx: LocalDataContext<Offers, OffersSource>) {
   const isActioning = ref(false);
+  const answeredListeners: ((offerId: string, state: RecipientState) => void)[] = [];
 
   async function respond(offerId: string, answer: OfferAnswer): Promise<boolean> {
     isActioning.value = true;
@@ -39,6 +40,7 @@ function exposeOffers(ctx: LocalDataContext<Offers, OffersSource>) {
         ...offers,
         items: offers.items.map((o) => (o.id === offerId ? { ...o, recipientState } : o)),
       }));
+      for (const listener of answeredListeners) listener(offerId, recipientState);
       ctx.notify({ level: "success", key: answer === "accept" ? "offers.acceptSuccess" : "offers.declineSuccess" });
       return true;
     } catch (error) {
@@ -55,5 +57,7 @@ function exposeOffers(ctx: LocalDataContext<Offers, OffersSource>) {
     isActioning,
     acceptOffer: (offerId: string) => respond(offerId, "accept"),
     declineOffer: (offerId: string) => respond(offerId, "decline"),
+    /** Runs after the user answered an offer in SeBolig, with the offer's new recipient state. */
+    onAnswered: (listener: (offerId: string, state: RecipientState) => void) => void answeredListeners.push(listener),
   };
 }

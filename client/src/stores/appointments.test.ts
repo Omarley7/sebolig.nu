@@ -79,6 +79,20 @@ it("the cheap check merges changed appointments by offer id, drops removed ones 
   });
 });
 
+it("the cheap check's update says why removed appointments left, without storing it", async () => {
+  const delta: AppointmentDelta = { ...NO_CHANGES, removedIds: ["1"], removedStates: { "1": "Released" }, latestUpdated: "2026-10-02T00:00:00Z" };
+  const { store, readStored } = setup(fakeSource({ fetchDelta: async () => delta }), {
+    stored: { appointments_cache: storedAppointments([appointment("1"), appointment("2")], { latestUpdated: "2026-10-01T00:00:00Z", ...THREAD_CURSOR }) },
+  });
+  const removedStates: unknown[] = [];
+  store.onUpdated(({ after }) => removedStates.push(after.removedStates));
+
+  await store.init();
+
+  expect(removedStates).toEqual([{ "1": "Released" }]);
+  expect(readStored("appointments_cache")).not.toHaveProperty("removedStates");
+});
+
 it("the cheap check sends what is stored too, so a changed offer with an unchanged thread is not extracted again", async () => {
   const sent: CachedAppointmentEntry[][] = [];
   const stored = appointment("1", { messageCount: 4 });
