@@ -6,14 +6,16 @@ import { useI18n } from "vue-i18n";
 import { useDarkMode } from "~/composables/useDarkMode";
 import { useSheet } from "~/composables/useSheet";
 import { formatCurrency, formatTimeSlot } from "~/lib/formatters";
+import { floorPlanFileName, viewingShareText, type ShareLocale, type ShareOptions } from "~/lib/share";
 import FinancialsModal from "~/components/shared/FinancialsModal.vue";
+import SharePanel from "~/components/shared/SharePanel.vue";
 import BottomSheet from "~/components/shared/BottomSheet.vue";
 import DetailGallery from "~/components/shared/DetailGallery.vue";
 import AppointmentThread from "~/components/appointment/detail/AppointmentThread.vue";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { isDark } = useDarkMode();
 
 const props = defineProps<{
@@ -32,6 +34,14 @@ const emit = defineEmits<{
 
 const sheet = useSheet({ closeWhen: () => props.gone });
 const financials = sheet.popup();
+const sharing = sheet.popup();
+
+// Only a viewing someone can still come along to.
+const canShare = computed(() => !!props.appointment.date && !props.appointment.cancelled);
+
+function shareText(options: ShareOptions) {
+  return viewingShareText(props.appointment, options, t, locale.value as ShareLocale);
+}
 
 const hasValidOfferId = computed(() => UUID_RE.test(props.appointment.offerId ?? ""));
 
@@ -165,6 +175,20 @@ onMounted(async () => {
         </div>
       </div>
 
+      <!-- Share -->
+      <button
+        v-if="canShare"
+        class="w-full flex items-center justify-center gap-2 p-3 rounded-xl
+               border border-neutral-200 dark:border-neutral-700/50
+               hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors"
+        @click="sharing.open()"
+      >
+        <img src="/icons/share.svg" alt="" class="size-4 opacity-50 dark:invert" />
+        <span class="text-sm font-medium text-neutral-600 dark:text-neutral-300">
+          {{ t("share.button") }}
+        </span>
+      </button>
+
       <hr class="border-neutral-200 dark:border-neutral-700/50" />
 
       <!-- Financials summary -->
@@ -231,6 +255,15 @@ onMounted(async () => {
         v-if="financials.isOpen"
         :financials="appointment.financials"
         @close="financials.close()"
+      />
+
+      <SharePanel
+        v-if="sharing.isOpen"
+        kind="viewing"
+        :text="shareText"
+        :floor-plan="blueprints[0] ?? null"
+        :file-name="floorPlanFileName(appointment.residence.addressLine1, t)"
+        @close="sharing.close()"
       />
     </template>
   </BottomSheet>

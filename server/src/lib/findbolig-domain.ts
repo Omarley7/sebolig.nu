@@ -79,6 +79,8 @@ export function mapAppointmentToDomain({
       addressLine2: residence.addressLine2,
       location: residence.location,
     },
+    rooms: residence.rooms ?? null,
+    area: residence.area ?? null,
     financials: {
       monthlyRentIncludingAconto: residence.monthlyRentIncludingAconto,
       monthlyRentExcludingAconto: residence.monthlyRentExcludingAconto,

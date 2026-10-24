@@ -7,6 +7,8 @@ export type Appointment = {
   end: string | null; // Appointment end time
   cancelled: boolean;
   residence: Residence;
+  rooms: number | null;
+  area: number | null; // m²
   financials: Financials;
   imageUrl: string;
   images: string[];

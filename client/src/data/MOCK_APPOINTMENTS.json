@@ -15,6 +15,8 @@
         "longitude": 12.53398
       }
     },
+    "rooms": 3,
+    "area": 83,
     "financials": {
       "monthlyRentIncludingAconto": 14288,
       "monthlyRentExcludingAconto": 13488,
@@ -52,6 +54,8 @@
         "longitude": 12.50502
       }
     },
+    "rooms": 3,
+    "area": 79,
     "financials": {
       "monthlyRentIncludingAconto": 13564.45,
       "monthlyRentExcludingAconto": 12564.45,
@@ -100,6 +104,8 @@
         "longitude": 12.53216
       }
     },
+    "rooms": 3,
+    "area": 74,
     "financials": {
       "monthlyRentIncludingAconto": 13174,
       "monthlyRentExcludingAconto": 12074,
@@ -146,6 +152,8 @@
         "longitude": 12.59881
       }
     },
+    "rooms": 2,
+    "area": 65,
     "financials": {
       "monthlyRentIncludingAconto": 11225.17,
       "monthlyRentExcludingAconto": 10525.17,
@@ -189,6 +197,8 @@
         "longitude": 12.5318
       }
     },
+    "rooms": 2,
+    "area": 60,
     "financials": {
       "monthlyRentIncludingAconto": 10799,
       "monthlyRentExcludingAconto": 9799,

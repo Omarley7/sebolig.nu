@@ -1,4 +1,5 @@
 import posthog from "posthog-js";
+import type { ShareKind, ShareMethod } from "~/lib/share";
 
 const USER_ID_KEY = "sebolig_uid";
 
@@ -47,4 +48,9 @@ export function usePostHog() {
  */
 export function identify(properties?: { name?: string }) {
   posthog.identify(getOrCreateUserId(), properties);
+}
+
+/** After a successful share or copy. Says how, never what was shared. */
+export function captureItemShared(kind: ShareKind, method: ShareMethod) {
+  posthog.capture("item_shared", { kind, method });
 }

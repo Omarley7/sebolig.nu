@@ -102,6 +102,14 @@ test("an extraction with no date is still an appointment, without a date", async
   assert.equal(delta.latestUpdated, T);
 });
 
+test("an appointment carries its residence's rooms and size, for sharing", async () => {
+  const client = await clientWithOneOffer(1);
+
+  const delta = await getAppointmentUpdates(client, new FakeExtractor(extracted), BEFORE, []);
+
+  assert.deepEqual({ rooms: delta.items[0].rooms, area: delta.items[0].area }, { rooms: 2, area: 60 });
+});
+
 test("a full sync leaves out offers that are not upcoming and hands out latestUpdatedIds", async () => {
   const client = await clientWithOneOffer(3, [OFFER, { id: "o2", residenceId: "r2", state: "Expired", updated: T }]);
 

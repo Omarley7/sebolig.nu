@@ -241,5 +241,21 @@
       "p1": "SeBolig.nu is an independent project and is not affiliated with findbolig.nu or DEAS.",
       "p2": "The code is open. You can read it and ask questions on GitHub."
     }
+  },
+  "share": {
+    "viewing": "Viewing: {address}",
+    "mapLine": "Map: {url}",
+    "title": "Share with someone",
+    "mapLink": "Map link",
+    "send": "Share",
+    "copy": "Copy",
+    "copied": "Text copied",
+    "failed": "Could not share. Please try again.",
+    "floorPlan": "Floor plan",
+    "floorPlanLoading": "loading…",
+    "floorPlanLeftOut": "Shared without the floor plan",
+    "floorPlanFile": "floor-plan",
+    "button": "Share",
+    "floorPlanFailed": "could not be fetched"
   }
 }
