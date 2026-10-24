@@ -155,6 +155,13 @@ it("a refresh that withheld its cursor left failed items out: their absence is n
   expect(appointmentChanges(before, after)).toEqual([]);
 });
 
+it("after a refresh that withheld its cursor, items it left out coming back are not new", () => {
+  const before = data([appointment("1")], { cursor: null });
+  const after = data([appointment("1"), appointment("2")]);
+
+  expect(appointmentChanges(before, after)).toEqual([]);
+});
+
 it("an appointment stored before threads were kept gets no message change when its thread arrives", () => {
   const before = data([appointment("1", { messages: undefined })]);
   const after = data([appointment("1", { messages: [INVITATION, message("landlord", "2026-10-03T09:00:00Z", "Hej")] })]);

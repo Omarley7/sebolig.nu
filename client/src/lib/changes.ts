@@ -50,12 +50,13 @@ export type FoundChange = {
 /** How long a message excerpt is kept; the panel cuts it shorter. */
 const EXCERPT_LENGTH = 140;
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+/** Whether two plain values (JSON, as Local data holds them) are the same. */
+export const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 const money = ({ monthlyRentIncludingAconto, deposit }: Financials): Money => ({ rent: monthlyRentIncludingAconto, deposit });
 
 /** A value that changed, as a change of `field`; nothing when it didn't. */
-function changed<F extends ChangeField, V>(field: F, from: V, to: V) {
+function fieldChange<F extends ChangeField, V>(field: F, from: V, to: V) {
   return same(from, to) ? [] : [{ field, from, to } as unknown as Extract<ChangeDetail, { field: F }>];
 }
 
@@ -71,7 +72,7 @@ function copyCard({ residence, imageUrl }: Pick<Appointment, "residence" | "imag
 /**
  * Compares two versions of a list by `keyOf`: what changed on each card still there, new cards,
  * and cards that left. A full fetch that withheld its cursor left out the items it failed to
- * fetch, so their absence is not taken as leaving.
+ * fetch, so their absence is not taken as leaving, nor their coming back after it as new.
  */
 function compare<T>(
   before: CursorData<T>,
@@ -90,7 +91,8 @@ function compare<T>(
 
   const changes = after.items.flatMap((item) => {
     const old = beforeByKey.get(keyOf(item));
-    return old ? fieldChanges(old, item).map((detail) => found(item, detail)) : [found(item, { field: "added" })];
+    if (old) return fieldChanges(old, item).map((detail) => found(item, detail));
+    return before.cursor === null ? [] : [found(item, { field: "added" })];
   });
   if (after.cursor === null) return changes;
   const removedStates = after.removedStates ?? {};
@@ -135,11 +137,11 @@ export function appointmentChanges(before: CursorData<Appointment>, after: Curso
     cardOf: copyCard,
     fieldChanges: (old, now) => [
       // A viewing losing its date is the extractor reading less, not news.
-      ...(now.date ? changed("viewing", viewing(old), viewing(now)) : []),
-      ...changed("cancelled", old.cancelled, now.cancelled),
+      ...(now.date ? fieldChange("viewing", viewing(old), viewing(now)) : []),
+      ...fieldChange("cancelled", old.cancelled, now.cancelled),
       ...newMessages(old, now),
-      ...changed("position", old.position, now.position),
-      ...changed("financials", money(old.financials), money(now.financials)),
+      ...fieldChange("position", old.position, now.position),
+      ...fieldChange("financials", money(old.financials), money(now.financials)),
       ...answered(answerOf(old), answerOf(now)),
     ],
   });
@@ -153,10 +155,10 @@ export function offerChanges(before: CursorData<Offer>, after: CursorData<Offer>
     idOf: (offer) => offer.id,
     cardOf: copyCard,
     fieldChanges: (old, now) => [
-      ...changed("deadline", old.deadline, now.deadline),
-      ...changed("moveIn", old.availableFrom, now.availableFrom),
-      ...changed("position", old.position, now.position),
-      ...changed("financials", money(old.financials), money(now.financials)),
+      ...fieldChange("deadline", old.deadline, now.deadline),
+      ...fieldChange("moveIn", old.availableFrom, now.availableFrom),
+      ...fieldChange("position", old.position, now.position),
+      ...fieldChange("financials", money(old.financials), money(now.financials)),
       ...answered(old.recipientState, now.recipientState),
     ],
   });

@@ -1,7 +1,7 @@
 import type { Appointment, Offer, RecipientState } from "@/types";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { appointmentChanges, offerChanges, type ChangeKind, type FoundChange } from "~/lib/changes";
+import { appointmentChanges, offerChanges, same, type ChangeKind, type FoundChange } from "~/lib/changes";
 import type { KeptData, Update } from "~/lib/localData";
 import type { CursorData } from "./delta";
 
@@ -21,12 +21,11 @@ type OwnAnswer = { offerId: string; state: RecipientState; at: string };
 /** The log as stored, under its own key of Local data. */
 type StoredChanges = { changes: Change[]; ownAnswers: OwnAnswer[] };
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const ageOf = (iso: string, now: Date) => now.getTime() - new Date(iso).getTime();
 const newestFirst = (a: Change, b: Change) => new Date(b.at).getTime() - new Date(a.at).getTime();
 
 /** Merges a change found again on a card into its unseen entry: the first value to the latest. Null once nothing is left of it. */
-function merged(entry: Change, change: FoundChange): FoundChange["detail"] | null {
+function mergedDetail(entry: Change, change: FoundChange): FoundChange["detail"] | null {
   const [old, now] = [entry.detail, change.detail];
   if (old.field === "message" && now.field === "message") return { ...now, count: old.count + now.count };
   if ("from" in old && "to" in now) {
@@ -95,7 +94,7 @@ export function changesStore(kept: KeptData) {
           log.value.push({ ...change, id: `${now.getTime()}-${ids++}`, at, seenAt: null });
           continue;
         }
-        const next = merged(entry, change);
+        const next = mergedDetail(entry, change);
         if (next) Object.assign(entry, { detail: next, card: change.card, at });
         else log.value = log.value.filter((c) => c !== entry);
       }
