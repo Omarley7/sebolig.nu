@@ -93,6 +93,18 @@ export function blueprintImage(url: string): string {
     return resolve(url, BLUEPRINT_PARAMS);
 }
 
+const SHARED_FLOOR_PLAN_PARAMS: ImageParams = {
+    w: 1600,
+    h: 1600,
+    fit: "inside",
+    output: "png",
+};
+
+/** A floor plan as a PNG to attach to a share: every share target takes PNG. */
+export function sharedFloorPlanImage(url: string): string {
+    return resolve(url, SHARED_FLOOR_PLAN_PARAMS);
+}
+
 const COMPACT_THUMB_PARAMS: ImageParams = {
     w: 400,
     h: 300,

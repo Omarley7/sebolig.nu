@@ -241,5 +241,21 @@
       "p1": "SeBolig.nu er et uafhængigt projekt og er ikke tilknyttet findbolig.nu eller DEAS.",
       "p2": "Koden er åben. Du kan læse den og stille spørgsmål på GitHub."
     }
+  },
+  "share": {
+    "viewing": "Fremvisning: {address}",
+    "mapLine": "Kort: {url}",
+    "title": "Del med en anden",
+    "mapLink": "Kortlink",
+    "send": "Del",
+    "copy": "Kopiér",
+    "copied": "Tekst kopieret",
+    "failed": "Kunne ikke dele. Prøv igen.",
+    "floorPlan": "Plantegning",
+    "floorPlanLoading": "henter…",
+    "floorPlanLeftOut": "Delt uden plantegningen",
+    "floorPlanFile": "plantegning",
+    "button": "Del",
+    "floorPlanFailed": "kunne ikke hentes"
   }
 }

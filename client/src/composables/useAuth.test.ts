@@ -20,6 +20,7 @@ const CONNECTED_USER = { fullName: "Test Person" };
 const PREFERENCE_KEYS: Record<string, string> = {
   "locale-preference": "en",
   "theme-preference": "dark",
+  "share-preference": JSON.stringify({ mapLink: true, floorPlan: true }),
 };
 
 function jsonResponse(body: unknown) {
