@@ -15,6 +15,7 @@ describe("getDeadlineUrgency", () => {
     vi.setSystemTime(new Date(2026, 9, 18, 14, 0));
 
     expect(getDeadlineUrgency("2026-10-28", t)).toEqual({ color: "green", relative: "10 dage" });
+    expect(getDeadlineUrgency("2026-10-23", t)).toEqual({ color: "amber", relative: "5 dage" });
   });
 
   it("turns amber five days out, even across the clock change", () => {
