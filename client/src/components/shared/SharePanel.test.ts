@@ -14,15 +14,17 @@ const MAP_LINE = "Kort: https://maps.example/x";
 const text = ({ mapLink }: ShareOptions) => (mapLink ? `${TEXT}\n${MAP_LINE}` : TEXT);
 
 let unmount = () => {};
+let onClose = vi.fn();
 
 function mount(props: { floorPlan?: string | null } = {}) {
   unmount();
   const pinia = createPinia();
   setActivePinia(pinia);
+  onClose = vi.fn();
   const host = document.createElement("div");
   document.body.appendChild(host);
   const app = createApp({
-    render: () => h(SharePanel, { kind: "viewing", text, floorPlan: props.floorPlan ?? null, fileName: "plantegning-alekistevej-59.png" }),
+    render: () => h(SharePanel, { kind: "viewing", text, floorPlan: props.floorPlan ?? null, fileName: "plantegning-alekistevej-59.png", onClose }),
   })
     .use(pinia)
     .use(i18n);
@@ -42,6 +44,7 @@ const option = (label: string) =>
 
 const button = (label: string) =>
   [...panel().querySelectorAll("button")].find((b) => b.textContent?.trim() === label) ?? null;
+const copyIcon = () => panel().querySelector<HTMLButtonElement>("[data-testid=share-copy]");
 const toasts = () => useToastStore().toasts.map((toast) => toast.message);
 
 /** A device with a share menu; `share` resolves or rejects as the user finishes it. */
@@ -125,6 +128,25 @@ describe("SharePanel", () => {
     expect(writeText).toHaveBeenCalledWith(TEXT);
     expect(toasts()).toEqual(["Tekst kopieret"]);
     expect(posthog.capture).toHaveBeenCalledExactlyOnceWith("item_shared", { kind: "viewing", method: "clipboard" });
+    expect(onClose).toHaveBeenCalled();
+    expect(copyIcon()).toBeNull();
+  });
+
+  it("can also copy beside the share menu: the text as previewed, and the panel stays open", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    const share = stubShareMenu();
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    mount();
+    await toggle(option("Kortlink")!);
+
+    copyIcon()!.click();
+    await settle();
+
+    expect(writeText).toHaveBeenCalledWith(`${TEXT}\n${MAP_LINE}`);
+    expect(share).not.toHaveBeenCalled();
+    expect(toasts()).toEqual(["Tekst kopieret"]);
+    expect(posthog.capture).toHaveBeenCalledExactlyOnceWith("item_shared", { kind: "viewing", method: "clipboard" });
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   describe("floor plan", () => {
