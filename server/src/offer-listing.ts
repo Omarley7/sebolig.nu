@@ -254,7 +254,11 @@ export async function walkOfferListing<T>(
   }
 }
 
-/** Why an offer left a view: its state, or 'AwardedToYou' when the user is its winner (see `RemovedState`). */
+/**
+ * Why an offer left a view: its state, or 'AwardedToYou' when the user is its winner (see `RemovedState`).
+ * Unverified: that `winnerId` is a user id, comparable to the recipient's `userId`, is an assumption. The
+ * account snapshot (#88) had no offer the user won, so a real win may still read as rented to someone else.
+ */
 function removedState(offer: ApiOffer): RemovedState {
   const userId = offer.recipients?.[0]?.userId;
   return offer.state === "Awarded" && userId && offer.winnerId === userId ? "AwardedToYou" : offer.state;
