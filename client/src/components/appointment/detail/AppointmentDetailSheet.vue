@@ -42,7 +42,7 @@ const financials = sheet.popup();
 const sharing = sheet.popup();
 
 // Only a viewing someone can still come along to.
-const canShare = computed(() => !!props.appointment.date && !props.appointment.cancelled);
+const canShare = computed(() => !!props.appointment.date && !props.appointment.cancelled && !props.outcome);
 
 function shareText(options: ShareOptions) {
   return viewingShareText(props.appointment, options, t, locale.value as ShareLocale);
