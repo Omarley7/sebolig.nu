@@ -25,6 +25,8 @@ function appointment(offerId: string, overrides: Partial<Appointment> = {}): App
     id: `DEAS-O-${offerId}`,
     offerId,
     title: "Showing",
+    rooms: 2,
+    area: 60,
     date: "2026-10-10",
     start: "16:00",
     end: "16:20",
