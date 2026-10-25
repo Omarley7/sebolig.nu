@@ -18,6 +18,11 @@ const props = defineProps<{
   offer: Offer;
   /** The item has disappeared from the store; the sheet slides out showing its last-known state. */
   gone?: boolean;
+  /**
+   * Why the card left its list, when the sheet shows the copy the changes panel kept of it. The
+   * sheet is read-only then: nothing in it can be answered or booked any more.
+   */
+  outcome?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -78,6 +83,12 @@ async function handleConfirm() {
 
     <!-- Content -->
     <div class="p-5 space-y-5">
+      <!-- A card that has left its list, opened from the changes panel: why, and that this is how it was -->
+      <div v-if="outcome" class="rounded-xl px-3 py-2.5 bg-neutral-100 dark:bg-white/5">
+        <p class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{{ outcome }}</p>
+        <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ t("changes.keptCopy") }}</p>
+      </div>
+
       <!-- Address -->
       <div>
         <h2 class="text-lg font-bold text-neutral-900 dark:text-white leading-snug">
@@ -180,7 +191,7 @@ async function handleConfirm() {
       </button>
     </div>
 
-    <template #footer>
+    <template v-if="!outcome" #footer>
       <!-- Sticky action footer — always visible without scrolling -->
       <div
         class="shrink-0 px-5 pt-3 action-footer

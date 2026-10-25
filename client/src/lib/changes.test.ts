@@ -130,7 +130,7 @@ it("position, rent or deposit, and an answer given on findbolig.nu are changes",
   ]);
 });
 
-it("a new appointment is an invitation, and a removed one keeps its card and says why it left", () => {
+it("a new appointment is an invitation, and a removed one keeps its card as it was and says why it left", () => {
   const before = data([appointment("gone"), appointment("withdrawn")]);
   const after = data([appointment("new")], { removedStates: { withdrawn: "Released" } });
 
@@ -138,8 +138,8 @@ it("a new appointment is an invitation, and a removed one keeps its card and say
 
   expect(details(changes)).toEqual([
     ["DEAS-O-new", { field: "added" }],
-    ["DEAS-O-gone", { field: "removed", state: null }],
-    ["DEAS-O-withdrawn", { field: "removed", state: "Released" }],
+    ["DEAS-O-gone", { field: "removed", state: null, last: before.items[0] }],
+    ["DEAS-O-withdrawn", { field: "removed", state: "Released", last: before.items[1] }],
   ]);
   expect(changes[2]).toMatchObject({
     kind: "appointment",
@@ -187,7 +187,7 @@ it("an offer's deadline, move-in date, rent, position and answer are changes; ne
     ["2", { field: "financials", from: { rent: 8000, deposit: 24000 }, to: { rent: 8100, deposit: 24000 } }],
     ["2", { field: "answer", from: "OfferReceived", to: "OfferAccepted" }],
     ["new", { field: "added" }],
-    ["moved", { field: "removed", state: "Finished" }],
-    ["lost", { field: "removed", state: "AwardedExternally" }],
+    ["moved", { field: "removed", state: "Finished", last: before.items[2] }],
+    ["lost", { field: "removed", state: "AwardedExternally", last: before.items[3] }],
   ]);
 });

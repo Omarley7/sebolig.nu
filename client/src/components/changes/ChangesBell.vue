@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import type { Appointment, Offer } from "@/types";
+import { ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import type { Change } from "~/localData/changes";
+import AppointmentDetailSheet from "~/components/appointment/detail/AppointmentDetailSheet.vue";
+import OfferDetailSheet from "~/components/offer/detail/OfferDetailSheet.vue";
+import { removalText } from "~/lib/changeText";
+import type { RowTarget } from "~/localData/changes";
 import { useChangesStore } from "~/stores/changes";
 import ChangesSheet from "./ChangesSheet.vue";
 
@@ -12,19 +16,28 @@ const route = useRoute();
 const router = useRouter();
 
 const isOpen = ref(false);
-// The card to open once the panel has slid out and given back its history entry.
-let toOpen: Change | null = null;
+// What to open once the panel has slid out and given back its history entry.
+let toOpen: NonNullable<RowTarget> | null = null;
+// The copy of a card that left its list, shown read-only, with why it left.
+const copy = shallowRef<{ appointment?: Appointment; offer?: Offer; outcome: string } | null>(null);
 
-/** Opens the card's detail sheet on its list's page, through the list's `?open=` link. */
+/**
+ * Opens what the tapped row is about: a card still in its list on its list's page, through the
+ * list's `?open=` link, or the copy of a card that left, right here.
+ */
 async function onAfterLeave() {
   isOpen.value = false;
-  const change = toOpen;
+  const target = toOpen;
   toOpen = null;
-  if (!change) return;
-  const name = change.kind === "appointment" ? "appointments" : "offers";
-  const target = { name, query: { open: change.itemId } };
+  if (!target) return;
+  if ("copy" in target) {
+    const outcome = removalText(target.kind, target.state, t);
+    copy.value = target.kind === "appointment" ? { appointment: target.copy as Appointment, outcome } : { offer: target.copy as Offer, outcome };
+    return;
+  }
+  const to = { name: target.page, query: { open: target.itemId } };
   // On the list's own page already: no extra step back to the same page.
-  await (route.name === name ? router.replace(target) : router.push(target));
+  await (route.name === target.page ? router.replace(to) : router.push(to));
 }
 </script>
 
@@ -44,6 +57,14 @@ async function onAfterLeave() {
         {{ changes.unseenCount > 99 ? "99+" : changes.unseenCount }}
       </span>
     </button>
-    <ChangesSheet v-if="isOpen" @open-card="(change) => (toOpen = change)" @after-leave="onAfterLeave" />
+    <ChangesSheet v-if="isOpen" @open-row="(target) => (toOpen = target)" @after-leave="onAfterLeave" />
+    <AppointmentDetailSheet
+      v-if="copy?.appointment"
+      :appointment="copy.appointment"
+      include-date
+      :outcome="copy.outcome"
+      @after-leave="copy = null"
+    />
+    <OfferDetailSheet v-if="copy?.offer" :offer="copy.offer" :outcome="copy.outcome" @after-leave="copy = null" />
   </div>
 </template>

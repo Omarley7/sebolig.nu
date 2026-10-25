@@ -128,6 +128,42 @@ it("unseen changes are kept for 30 days, and at most the latest 50", () => {
   expect(changes.changes.some((c) => c.itemId === "old")).toBe(false);
 });
 
+it("a row about a card still in its list opens it on its page, from any of the card's changes", () => {
+  const { changes } = setup();
+  changes.record([found("a", position(5, 4)), found("o", { field: "added" }, "offer")]);
+
+  expect(changes.changes.map((c) => changes.rowTarget(c))).toEqual([
+    { page: "appointments", itemId: "a" },
+    { page: "offers", itemId: "o" },
+  ]);
+});
+
+it("every row about a card that left opens the copy kept from when it left, saying why it left", () => {
+  const { changes } = setup();
+  const last = { id: "DEAS-O-a", offerId: "a" } as Appointment;
+  changes.record([found("a", position(5, 4))]);
+  vi.advanceTimersByTime(1000);
+  changes.record([found("a", { field: "removed", state: "Released", last })]);
+
+  expect(changes.changes.map((c) => changes.rowTarget(c))).toEqual([
+    { copy: last, kind: "appointment", state: "Released" },
+    { copy: last, kind: "appointment", state: "Released" },
+  ]);
+});
+
+it("an offer that moved to appointments opens its appointment, and a card that left without a copy opens nothing", () => {
+  const { changes } = setup();
+  changes.record([
+    { ...found("o", { field: "removed", state: "Finished" }, "offer"), offerId: "o-1" },
+    found("old", { field: "removed", state: "Awarded" }),
+  ]);
+
+  expect(changes.changes.map((c) => changes.rowTarget(c))).toEqual([
+    { page: "appointments", itemId: "DEAS-O-o-1" },
+    null,
+  ]);
+});
+
 it("changes survive a reload and are erased with the rest of Local data", () => {
   const first = setup();
   first.changes.record([found("a", position(5, 4))]);
@@ -197,7 +233,9 @@ it("a check's changes are recorded, but the first fetch after connecting finds n
   );
   await appointmentsStore.init();
 
-  expect(changes.changes.map((c) => [c.itemId, c.detail])).toEqual([["DEAS-O-1", { field: "removed", state: "Awarded" }]]);
+  expect(changes.changes.map((c) => [c.itemId, c.detail])).toEqual([
+    ["DEAS-O-1", { field: "removed", state: "Awarded", last: expect.objectContaining({ offerId: "1" }) }],
+  ]);
 });
 
 it("an offer answered in SeBolig is not reported as answered on findbolig.nu when its appointment catches up", async () => {
@@ -241,7 +279,7 @@ it("in the Demo, the first check brings a viewing date, a landlord message and a
 
   expect(changes.changes.map((c) => c.detail).sort((a, b) => a.field.localeCompare(b.field))).toEqual([
     expect.objectContaining({ field: "message", count: 1, latest: expect.objectContaining({ from: "landlord" }) }),
-    { field: "removed", state: "Awarded" },
+    expect.objectContaining({ field: "removed", state: "Awarded" }),
     expect.objectContaining({ field: "viewing", from: { date: null, start: null, end: null } }),
   ]);
 });

@@ -1,5 +1,5 @@
 import type { RemovedState } from "@/types";
-import type { ChangeKind, FoundChange, Money } from "./changes";
+import { movedToAppointments, type ChangeKind, type FoundChange, type Money } from "./changes";
 import { formatCurrency, formatDate, formatTimeSlot } from "./formatters";
 import { senderLabel } from "./thread";
 
@@ -22,7 +22,7 @@ function removalKey(state: RemovedState | null, kind: ChangeKind): string {
   if (state === "AwardedToYou") return "changes.removed.won";
   if (state === "Awarded" || state === "AwardedExternally") return "changes.removed.rentedToOthers";
   if (state === "Released") return "changes.removed.withdrawn";
-  if (kind === "offer" && (state === "Finished" || state === "Published")) return "changes.removed.movedToAppointments";
+  if (movedToAppointments(kind, state)) return "changes.removed.movedToAppointments";
   return `changes.removed.${kind}`;
 }
 
@@ -31,6 +31,11 @@ function moneyText(from: Money, to: Money, t: Translate): string {
   if (from.rent !== to.rent) parts.push(t("changes.rent", { from: formatCurrency(from.rent), to: formatCurrency(to.rent) }));
   if (from.deposit !== to.deposit) parts.push(t("changes.deposit", { from: formatCurrency(from.deposit), to: formatCurrency(to.deposit) }));
   return parts.join(" · ");
+}
+
+/** Why a card left its list, in the user's language. */
+export function removalText(kind: ChangeKind, state: RemovedState | null, t: Translate): string {
+  return t(removalKey(state, kind));
 }
 
 /** What a change says, in the user's language. */
@@ -65,6 +70,6 @@ export function changeText({ kind, detail }: FoundChange, t: Translate): ChangeT
     case "moveIn":
       return line(t("changes.moveIn", { from: orDash(day(detail.from)), to: orDash(day(detail.to)) }));
     case "removed":
-      return line(t(removalKey(detail.state, kind)));
+      return line(removalText(kind, detail.state, t));
   }
 }

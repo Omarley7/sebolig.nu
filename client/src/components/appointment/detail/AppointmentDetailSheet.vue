@@ -25,6 +25,11 @@ const props = defineProps<{
   gone?: boolean;
   /** Where to open: "thread" scrolls to the messages. */
   section?: string | null;
+  /**
+   * Why the card left its list, when the sheet shows the copy the changes panel kept of it. The
+   * sheet is read-only then: nothing in it can be answered or booked any more.
+   */
+  outcome?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -98,6 +103,12 @@ onMounted(async () => {
 
     <!-- Content -->
     <div class="p-5 space-y-5">
+      <!-- A card that has left its list, opened from the changes panel: why, and that this is how it was -->
+      <div v-if="outcome" class="rounded-xl px-3 py-2.5 bg-neutral-100 dark:bg-white/5">
+        <p class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{{ outcome }}</p>
+        <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ t("changes.keptCopy") }}</p>
+      </div>
+
       <!-- Title + Address -->
       <div>
         <h2 class="text-lg font-bold text-neutral-900 dark:text-white leading-snug">
@@ -139,7 +150,7 @@ onMounted(async () => {
           </p>
 
           <!-- Calendar button -->
-          <div v-if="appointment.date" class="mt-3">
+          <div v-if="appointment.date && !outcome" class="mt-3">
             <add-to-calendar-button
               :name="appointment.title"
               options="'Apple','Google','Microsoft365','Outlook.com'"
@@ -228,7 +239,7 @@ onMounted(async () => {
       <!-- Thread -->
       <template v-if="messages.length">
         <div ref="threadEl">
-          <AppointmentThread :messages="messages" :reply-url="threadUrl" />
+          <AppointmentThread :messages="messages" :reply-url="outcome ? null : threadUrl" />
         </div>
 
         <hr class="border-neutral-200 dark:border-neutral-700/50" />
