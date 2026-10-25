@@ -1,4 +1,4 @@
-import type { Appointment, Residence } from "@/types";
+import type { Appointment, Offer, Residence } from "@/types";
 import { formatCurrency, formatOfferFacts } from "~/lib/formatters";
 
 type Translate = (key: string, params?: Record<string, unknown>) => string;
@@ -38,12 +38,22 @@ function whenLine(appointment: Appointment, t: Translate, locale: ShareLocale): 
   return time ? `${date}, ${time}` : date;
 }
 
+/** "1. april 2027", in the share's language and Danish time, as the app shows dates. */
+function longDate(date: string, locale: ShareLocale): string {
+  return new Date(date).toLocaleDateString(INTL_LOCALE[locale], {
+    timeZone: "Europe/Copenhagen",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 /** "12.564 kr./md · 3 værelser · 83 m²"; a missing part is left out. */
-function factsLine(appointment: Appointment, t: Translate): string {
-  const rent = appointment.financials?.monthlyRentIncludingAconto;
+function factsLine(home: Pick<Appointment, "financials" | "rooms" | "area">, t: Translate): string {
+  const rent = home.financials?.monthlyRentIncludingAconto;
   const parts = [
     rent ? `${formatCurrency(rent)}/${t("financials.shortMonth")}` : "",
-    formatOfferFacts({ rooms: appointment.rooms ?? null, area: appointment.area ?? null }, t),
+    formatOfferFacts({ rooms: home.rooms ?? null, area: home.area ?? null }, t),
   ];
   return parts.filter(Boolean).join(" · ");
 }
@@ -59,6 +69,23 @@ export function viewingShareText(appointment: Appointment, options: ShareOptions
     t("share.viewing", { address }).trim(),
     whenLine(appointment, t, locale),
     factsLine(appointment, t),
+    options.mapLink && address ? t("share.mapLine", { url: mapUrl(address) }) : "",
+  ];
+  return lines.filter(Boolean).join("\n");
+}
+
+/**
+ * An offer as the text sent to someone without SeBolig, in the app language, to decide on it
+ * together. Dates are absolute, because the text is read later. Never the queue position, the
+ * company, the user's name or the findbolig.nu link.
+ */
+export function offerShareText(offer: Offer, options: ShareOptions, t: Translate, locale: ShareLocale): string {
+  const address = addressOf(offer.residence);
+  const lines = [
+    t("share.offer", { address }).trim(),
+    factsLine(offer, t),
+    offer.availableFrom ? `${t("offers.availableFrom")}: ${longDate(offer.availableFrom, locale)}` : "",
+    offer.deadline ? `${t("offers.deadline")}: ${longDate(offer.deadline, locale)}` : "",
     options.mapLink && address ? t("share.mapLine", { url: mapUrl(address) }) : "",
   ];
   return lines.filter(Boolean).join("\n");

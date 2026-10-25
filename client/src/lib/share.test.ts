@@ -1,8 +1,8 @@
-import type { Appointment } from "@/types";
+import type { Appointment, Offer } from "@/types";
 import { afterEach, describe, expect, it } from "vitest";
 import type { WritableComputedRef } from "vue";
 import i18n from "~/i18n";
-import { floorPlanFileName, viewingShareText } from "~/lib/share";
+import { floorPlanFileName, offerShareText, viewingShareText } from "~/lib/share";
 
 // Same cast the app uses in useLocale.ts; vue-i18n types the global locale loosely.
 const locale = i18n.global.locale as unknown as WritableComputedRef<"da" | "en">;
@@ -36,6 +36,32 @@ function viewing(overrides: Partial<Appointment> = {}): Appointment {
     accepted: null,
     declined: null,
     messages: [{ from: "landlord", senderName: "Udlejer A/S", sentAt: "2026-10-01T09:00:00Z", body: "Hej Test Person", hasAttachments: false }],
+    ...overrides,
+  };
+}
+
+function offer(overrides: Partial<Offer> = {}): Offer {
+  return {
+    id: "o1",
+    residence: { addressLine1: "Philip Schous Vej 21, 3. TH.", addressLine2: "2000 Frederiksberg", location: null },
+    deadline: "2026-10-28",
+    availableFrom: "2027-04-01",
+    rooms: 3,
+    area: 83,
+    recipientState: "OfferReceived",
+    company: "Boligselskabet Test",
+    financials: {
+      monthlyRentIncludingAconto: 12564,
+      monthlyRentExcludingAconto: 11800,
+      utilityCosts: 764,
+      deposit: 35400,
+      prepaidRent: 0,
+      firstPayment: 47964,
+    },
+    imageUrl: "",
+    images: [],
+    blueprints: [],
+    position: 7,
     ...overrides,
   };
 }
@@ -109,6 +135,61 @@ describe("viewingShareText", () => {
     const text = viewingShareText(viewing(), { mapLink: true }, t, "da");
 
     expect(text).not.toMatch(/#12|findbolig|Udlejer|Test Person/);
+  });
+});
+
+describe("offerShareText", () => {
+  it("lays an offer out in Danish, with every part", () => {
+    expect(offerShareText(offer(), { mapLink: true }, t, "da")).toBe(
+      [
+        "Boligtilbud: Philip Schous Vej 21, 3. TH., 2000 Frederiksberg",
+        "12.564\u00a0kr./md · 3 værelser · 83 m²",
+        "Ledig fra: 1. april 2027",
+        "Svarfrist: 28. oktober 2026",
+        "Kort: https://www.google.com/maps/search/?api=1&query=Philip%20Schous%20Vej%2021%2C%203.%20TH.%2C%202000%20Frederiksberg",
+      ].join("\n"),
+    );
+  });
+
+  it("leaves out the map line unless it is chosen", () => {
+    expect(offerShareText(offer(), { mapLink: false }, t, "da")).not.toContain("Kort:");
+  });
+
+  it("leaves out a missing line instead of leaving a gap", () => {
+    const text = offerShareText(
+      offer({ availableFrom: null, deadline: null, rooms: null, area: null }),
+      { mapLink: false },
+      t,
+      "da",
+    );
+
+    expect(text).toBe(["Boligtilbud: Philip Schous Vej 21, 3. TH., 2000 Frederiksberg", "12.564\u00a0kr./md"].join("\n"));
+  });
+
+  it("gives a deadline stored as a UTC midnight the day it names", () => {
+    expect(offerShareText(offer({ deadline: "2026-10-28T00:00:00Z" }), { mapLink: false }, t, "da")).toContain(
+      "Svarfrist: 28. oktober 2026",
+    );
+  });
+
+  it("is written in English when the app is", () => {
+    locale.value = "en";
+
+    expect(offerShareText(offer(), { mapLink: true }, t, "en")).toBe(
+      [
+        "Housing offer: Philip Schous Vej 21, 3. TH., 2000 Frederiksberg",
+        "12.564\u00a0kr./mo · 3 rooms · 83 m²",
+        "Available from: 1 April 2027",
+        "Deadline: 28 October 2026",
+        "Map: https://www.google.com/maps/search/?api=1&query=Philip%20Schous%20Vej%2021%2C%203.%20TH.%2C%202000%20Frederiksberg",
+      ].join("\n"),
+    );
+  });
+
+  it("never shares the queue position, the company or the findbolig.nu link", () => {
+    const text = offerShareText(offer(), { mapLink: true }, t, "da");
+
+    expect(text).not.toMatch(/#7|Boligselskabet|findbolig|o1/);
   });
 });
 
