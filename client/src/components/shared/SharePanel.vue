@@ -27,6 +27,8 @@ useScrollLock();
 
 /** Without a share menu (most desktop browsers) the panel copies the text instead. */
 const hasShareMenu = typeof navigator.share === "function";
+/** With one, a copy button sits beside it, for pasting on the same device. */
+const canCopyBeside = hasShareMenu && !!navigator.clipboard;
 
 /** What the user last chose to send along: a preference like language and theme, not Local data. */
 const PREFERENCE_KEY = "share-preference";
@@ -83,19 +85,29 @@ function shared(method: ShareMethod) {
   emit("close");
 }
 
+/** Copies the text only, never the floor plan. */
+function copy(then: () => void) {
+  navigator.clipboard.writeText(text.value).then(
+    () => {
+      toast.success(t("share.copied"));
+      then();
+    },
+    () => toast.error(t("share.failed")),
+  );
+}
+
+/** Beside the share menu: the panel stays open, so the user can still share. */
+function copyBeside() {
+  copy(() => captureItemShared(props.kind, "clipboard"));
+}
+
 /**
  * Runs straight in the tap: the share menu only opens within the tap's activation. Never passes
  * `title`: iPhone turns it into extra text and Android drops it.
  */
 function send() {
   if (!hasShareMenu) {
-    navigator.clipboard.writeText(text.value).then(
-      () => {
-        toast.success(t("share.copied"));
-        shared("clipboard");
-      },
-      () => toast.error(t("share.failed")),
-    );
+    copy(() => shared("clipboard"));
     return;
   }
   const file = floorPlanSent.value?.file;
@@ -133,8 +145,18 @@ function send() {
         <h2 class="text-lg font-semibold mb-4">{{ t("share.title") }}</h2>
 
         <!-- Preview: what is sent, not how each app shows it -->
-        <div class="rounded-2xl bg-neutral-100 dark:bg-white/5 p-3 text-sm">
-          <p data-testid="share-preview" class="whitespace-pre-wrap break-words">{{ text }}</p>
+        <div class="relative rounded-2xl bg-neutral-100 dark:bg-white/5 p-3 text-sm">
+          <button
+            v-if="canCopyBeside"
+            data-testid="share-copy"
+            :aria-label="t('share.copy')"
+            :title="t('share.copy')"
+            class="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            @click="copyBeside"
+          >
+            <img src="/icons/copy.svg" alt="" class="size-4 opacity-60 dark:invert" />
+          </button>
+          <p data-testid="share-preview" class="whitespace-pre-wrap break-words" :class="{ 'pr-8': canCopyBeside }">{{ text }}</p>
           <img
             v-if="floorPlanSent"
             data-testid="share-preview-floor-plan"
