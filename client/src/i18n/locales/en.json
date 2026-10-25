@@ -244,6 +244,7 @@
   },
   "share": {
     "viewing": "Viewing: {address}",
+    "offer": "Housing offer: {address}",
     "mapLine": "Map: {url}",
     "title": "Share with someone",
     "mapLink": "Map link",

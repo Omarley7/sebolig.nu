@@ -244,6 +244,7 @@
   },
   "share": {
     "viewing": "Fremvisning: {address}",
+    "offer": "Boligtilbud: {address}",
     "mapLine": "Kort: {url}",
     "title": "Del med en anden",
     "mapLink": "Kortlink",

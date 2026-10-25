@@ -5,13 +5,15 @@ import { useI18n } from "vue-i18n";
 import { useSheet } from "~/composables/useSheet";
 import { formatCurrency, formatDate, formatOfferFacts } from "~/lib/formatters";
 import { getDeadlineUrgency, urgencyColors } from "~/lib/deadlineUrgency";
+import { floorPlanFileName, offerShareText, type ShareLocale, type ShareOptions } from "~/lib/share";
 import { useOffersStore } from "~/stores/offers";
 import FinancialsModal from "~/components/shared/FinancialsModal.vue";
+import SharePanel from "~/components/shared/SharePanel.vue";
 import BottomSheet from "~/components/shared/BottomSheet.vue";
 import DetailGallery from "~/components/shared/DetailGallery.vue";
 import ConfirmActionDialog from "./ConfirmActionDialog.vue";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const store = useOffersStore();
 
 const props = defineProps<{
@@ -32,6 +34,7 @@ const emit = defineEmits<{
 
 const sheet = useSheet({ closeWhen: () => props.gone });
 const financials = sheet.popup();
+const sharing = sheet.popup();
 const confirm = sheet.popup({ escapable: () => !store.isActioning });
 const confirmAction = ref<"accept" | "decline">("accept");
 
@@ -41,6 +44,10 @@ const allImages = computed(() => {
 });
 
 const blueprints = computed(() => props.offer.blueprints ?? []);
+
+function shareText(options: ShareOptions) {
+  return offerShareText(props.offer, options, t, locale.value as ShareLocale);
+}
 
 const facts = computed(() => formatOfferFacts(props.offer, t));
 
@@ -147,6 +154,20 @@ async function handleConfirm() {
           {{ availableFromFormatted }}
         </p>
       </div>
+
+      <!-- Share: not on the kept copy of an offer that has left -->
+      <button
+        v-if="!outcome"
+        class="w-full flex items-center justify-center gap-2 p-3 rounded-xl
+               border border-neutral-200 dark:border-neutral-700/50
+               hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors"
+        @click="sharing.open()"
+      >
+        <img src="/icons/share.svg" alt="" class="size-4 opacity-50 dark:invert" />
+        <span class="text-sm font-medium text-neutral-600 dark:text-neutral-300">
+          {{ t("share.button") }}
+        </span>
+      </button>
 
       <hr class="border-neutral-200 dark:border-neutral-700/50" />
 
@@ -263,6 +284,15 @@ async function handleConfirm() {
         v-if="financials.isOpen"
         :financials="offer.financials"
         @close="financials.close()"
+      />
+
+      <SharePanel
+        v-if="sharing.isOpen"
+        kind="offer"
+        :text="shareText"
+        :floor-plan="blueprints[0] ?? null"
+        :file-name="floorPlanFileName(offer.residence.addressLine1, t)"
+        @close="sharing.close()"
       />
 
       <!-- Confirm action dialog -->
