@@ -17,13 +17,10 @@ export function getDeadlineUrgency(
     return { color: "neutral", relative: t("offers.noDeadline") };
   }
 
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const deadlineDate = new Date(deadline);
-  deadlineDate.setHours(0, 0, 0, 0);
-
-  const diffMs = deadlineDate.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  // Calendar days between the two local dates. Counted as UTC days, because across a clock
+  // change two local midnights are 23 or 25 hours apart.
+  const dayNumber = (date: Date) => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / (1000 * 60 * 60 * 24);
+  const diffDays = dayNumber(new Date(deadline)) - dayNumber(new Date());
 
   if (diffDays <= 0) {
     return { color: "red", relative: t("offers.today") };
