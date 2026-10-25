@@ -1,7 +1,7 @@
-import type { Appointment, Offer, RecipientState } from "@/types";
+import type { Appointment, Offer, RecipientState, RemovedState } from "@/types";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { appointmentChanges, offerChanges, same, type ChangeKind, type FoundChange } from "~/lib/changes";
+import { appointmentChanges, movedToAppointments, offerChanges, same, type ChangeKind, type FoundChange } from "~/lib/changes";
 import type { KeptData, Update } from "~/lib/localData";
 import type { CursorData } from "./delta";
 
@@ -14,6 +14,15 @@ const SEEN_KEPT_MS = 7 * DAY_MS;
 
 /** A change in the log: what was found, when it was last found, and when the user saw it. */
 export type Change = FoundChange & { id: string; at: string; seenAt: string | null };
+
+/**
+ * What a row in the panel opens: its card on its list's page, the copy of a card that left (kept
+ * on its removal, with why it left), or nothing for a card that left before copies were kept.
+ */
+export type RowTarget =
+  | { page: "appointments" | "offers"; itemId: string }
+  | { copy: Appointment | Offer; kind: ChangeKind; state: RemovedState | null }
+  | null;
 
 /** An answer the user gave in SeBolig itself; see `answeredHere`. */
 type OwnAnswer = { offerId: string; state: RecipientState; at: string };
@@ -124,6 +133,20 @@ export function changesStore(kept: KeptData) {
       save();
     }
 
+    /**
+     * What tapping a change's row opens, going by the card's latest change: once a card has left,
+     * every row about it opens the copy kept from then. An offer that moved to appointments opens
+     * its appointment instead.
+     */
+    function rowTarget(change: Change): RowTarget {
+      const latest = log.value.filter((c) => c.kind === change.kind && c.itemId === change.itemId).sort(newestFirst)[0] ?? change;
+      if (latest.detail.field !== "removed") return { page: change.kind === "appointment" ? "appointments" : "offers", itemId: change.itemId };
+      const { state, last } = latest.detail;
+      // An appointment's id, as findbolig.nu's offer id makes it (see mapAppointmentToDomain).
+      if (movedToAppointments(change.kind, state)) return { page: "appointments", itemId: `DEAS-O-${change.offerId}` };
+      return last ? { copy: last, kind: change.kind, state } : null;
+    }
+
     kept.onErase(() => {
       log.value = [];
       ownAnswers.value = [];
@@ -137,6 +160,7 @@ export function changesStore(kept: KeptData) {
       unseenCount: computed(() => log.value.filter((c) => c.seenAt === null).length),
       /** Whether the card has a change the user has not seen: it gets a dot. */
       hasUnseen: (kind: ChangeKind, itemId: string) => unseenOf(kind, itemId).length > 0,
+      rowTarget,
       record,
       markSeen,
       markAllSeen,

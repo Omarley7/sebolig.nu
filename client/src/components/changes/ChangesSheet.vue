@@ -7,7 +7,7 @@ import { changeText } from "~/lib/changeText";
 import { formatSentAt } from "~/lib/formatters";
 import { compactThumb } from "~/lib/imageTransform";
 import { imageUrl } from "~/lib/imageUrl";
-import type { Change } from "~/localData/changes";
+import type { Change, RowTarget } from "~/localData/changes";
 import { useChangesStore } from "~/stores/changes";
 
 const { t } = useI18n();
@@ -16,34 +16,24 @@ const changes = useChangesStore();
 const emit = defineEmits<{
   close: [];
   "after-leave": [];
-  /** A row about a card still in its list was tapped: the sheet closes, and the card should open. */
-  "open-card": [change: Change];
+  /** A row that opens something was tapped: the sheet closes, and `target` should open. */
+  "open-row": [target: NonNullable<RowTarget>];
 }>();
 
 const sheet = useSheet();
-
-// A card whose latest change is that it left can't be opened any more, from any of its rows.
-const goneCards = computed(() => {
-  const latest = new Map<string, Change>();
-  for (const change of changes.changes) {
-    const card = `${change.kind}:${change.itemId}`;
-    if (!latest.has(card)) latest.set(card, change);
-  }
-  return new Set([...latest].filter(([, change]) => change.detail.field === "removed").map(([card]) => card));
-});
 
 const rows = computed(() =>
   changes.changes.map((change) => ({
     change,
     ...changeText(change, t),
     thumb: change.card.imageUrl ? compactThumb(imageUrl(change.card.imageUrl)) : undefined,
-    opens: !goneCards.value.has(`${change.kind}:${change.itemId}`),
+    target: changes.rowTarget(change),
   })),
 );
 
-function open(change: Change) {
+function open(change: Change, target: NonNullable<RowTarget>) {
   changes.markSeen(change.kind, change.itemId);
-  emit("open-card", change);
+  emit("open-row", target);
   sheet.close();
 }
 </script>
@@ -69,14 +59,14 @@ function open(change: Change) {
       <ul class="space-y-1">
         <li v-for="row in rows" :key="row.change.id">
           <component
-            :is="row.opens ? 'button' : 'div'"
-            :type="row.opens ? 'button' : undefined"
-            class="w-full flex gap-3 p-2 rounded-xl text-left transition-colors"
+            :is="row.target ? 'button' : 'div'"
+            :type="row.target ? 'button' : undefined"
+            class="w-full flex items-center gap-3 p-2 rounded-xl text-left transition-colors"
             :class="[
-              row.opens && 'hover:bg-neutral-100 dark:hover:bg-white/[0.06] cursor-pointer',
+              row.target && 'hover:bg-neutral-100 dark:hover:bg-white/[0.06] cursor-pointer',
               row.change.seenAt !== null && 'opacity-50',
             ]"
-            @click="row.opens && open(row.change)"
+            @click="row.target && open(row.change, row.target)"
           >
             <div class="relative w-16 shrink-0 aspect-[3/2] rounded-md overflow-hidden bg-neutral-200 dark:bg-white/10">
               <img v-if="row.thumb" :src="row.thumb" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" />
@@ -99,6 +89,7 @@ function open(change: Change) {
               </p>
               <p v-if="row.quote" class="text-xs text-neutral-500 dark:text-neutral-400 truncate">“{{ row.quote }}”</p>
             </div>
+            <img v-if="row.target" src="/icons/chevron-down.svg" alt="" class="size-4 -rotate-90 opacity-30 dark:invert shrink-0" />
           </component>
         </li>
       </ul>

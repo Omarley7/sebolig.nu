@@ -264,6 +264,7 @@
     "markAllSeen": "Mark all as seen",
     "empty": "Nothing has changed yet. When SeBolig notices something new on your viewings or offers, it shows up here.",
     "changed": "Changed",
+    "keptCopy": "Shown as it was when it left your list.",
     "invited": "New viewing invitation",
     "newOffer": "New offer",
     "viewingSet": "Viewing date set: {when}",

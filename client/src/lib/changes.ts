@@ -31,8 +31,12 @@ export type ChangeDetail =
   | { field: "answer"; from: RecipientState | null; to: RecipientState }
   | { field: "deadline"; from: string | null; to: string | null }
   | { field: "moveIn"; from: string | null; to: string | null }
-  /** Left the list; `state` says why (see `RemovedState`), null when unknown, as after a Refresh. */
-  | { field: "removed"; state: RemovedState | null };
+  /**
+   * Left the list; `state` says why (see `RemovedState`), null when unknown, as after a Refresh.
+   * `last` is the card as it was when it left, so it can still be opened; changes recorded before
+   * cards were kept have none.
+   */
+  | { field: "removed"; state: RemovedState | null; last?: Appointment | Offer };
 
 export type ChangeField = ChangeDetail["field"];
 
@@ -46,6 +50,14 @@ export type FoundChange = {
   card: CardCopy;
   detail: ChangeDetail;
 };
+
+/**
+ * Whether an offer left the offers list for appointments: the user can no longer answer it, but it
+ * still has a viewing (an offer that is Finished, or Published but no longer the user's to answer).
+ */
+export function movedToAppointments(kind: ChangeKind, state: RemovedState | null): boolean {
+  return kind === "offer" && (state === "Finished" || state === "Published");
+}
 
 /** How long a message excerpt is kept; the panel cuts it shorter. */
 const EXCERPT_LENGTH = 140;
@@ -74,7 +86,7 @@ function copyCard({ residence, imageUrl }: Pick<Appointment, "residence" | "imag
  * and cards that left. A full fetch that withheld its cursor left out the items it failed to
  * fetch, so their absence is not taken as leaving, nor their coming back after it as new.
  */
-function compare<T>(
+function compare<T extends Appointment | Offer>(
   before: CursorData<T>,
   after: CursorData<T>,
   { kind, keyOf, idOf, cardOf, fieldChanges }: {
@@ -97,7 +109,7 @@ function compare<T>(
   if (after.cursor === null) return changes;
   const removedStates = after.removedStates ?? {};
   for (const item of before.items) {
-    if (!afterKeys.has(keyOf(item))) changes.push(found(item, { field: "removed", state: removedStates[keyOf(item)] ?? null }));
+    if (!afterKeys.has(keyOf(item))) changes.push(found(item, { field: "removed", state: removedStates[keyOf(item)] ?? null, last: item }));
   }
   return changes;
 }
