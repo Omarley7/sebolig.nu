@@ -9,7 +9,7 @@ import { ENRICHMENT_CONCURRENCY } from "./lib/limiter";
 import type { ShowingContext } from "./lib/llm/appointment-extractor";
 import { FakeExtractor } from "./lib/llm/fake-extractor";
 import { apiResidence } from "./lib/test-fixtures";
-import type { ApiOffer } from "./types/offers";
+import type { ApiOffer, ApiOfferRecipient } from "./types/offers";
 
 const T = "2026-01-10T00:00:00.000Z";
 const BEFORE = { listing: { since: "2026-01-01T00:00:00.000Z", sinceIds: [] }, threads: { since: "2026-01-01T00:00:00.000Z", sinceIds: [] } };
@@ -17,7 +17,12 @@ const BEFORE = { listing: { since: "2026-01-01T00:00:00.000Z", sinceIds: [] }, t
 const NO_THREADS = () => ({ json: { totalResults: 0, page: 0, pageSize: 100, results: [] } });
 const FUTURE = "2099-06-01";
 
-const OFFER: Partial<ApiOffer> = { id: "o1", residenceId: "r1", state: "Published", updated: T, showingText: null };
+/** The user's answer to an offer, as findbolig.nu lists it on the offer's (one) recipient. */
+function answer(state: ApiOfferRecipient["state"], stamps: Partial<ApiOfferRecipient> = {}): Pick<ApiOffer, "recipients"> {
+  return { recipients: [{ userId: "u1", state, accepted: null, declined: null, ...stamps } as ApiOfferRecipient] };
+}
+
+const OFFER: Partial<ApiOffer> = { id: "o1", residenceId: "r1", state: "Published", updated: T, showingText: null, ...answer("OfferAccepted") };
 
 function thread(messageCount: number) {
   return {
@@ -118,6 +123,33 @@ test("a full sync leaves out offers that are not upcoming and hands out latestUp
   assert.deepEqual(sync.appointments.map((a) => a.offerId), ["o1"]);
   assert.equal(sync.latestUpdated, T);
   assert.deepEqual(sync.latestUpdatedIds, ["o1", "o2"]);
+});
+
+test("only offers the user accepted are appointments: pending and declined ones are not, whatever their stamps say", async () => {
+  const offers = [
+    { ...OFFER, id: "accepted" },
+    { ...OFFER, id: "finished", state: "Finished" },
+    { ...OFFER, id: "pending", ...answer("OfferReceived") },
+    { ...OFFER, id: "declined", ...answer("OfferDeclined", { declined: T }) },
+    // Declined, then accepted: both stamps are set, and the state is the later answer.
+    { ...OFFER, id: "reconsidered", ...answer("OfferAccepted", { declined: T, accepted: T }) },
+    { ...OFFER, id: "unanswered", state: "Finished", ...answer("OfferReceived") },
+  ];
+  const { client } = await account({ offers, threads: [] });
+  const extractor = new FakeExtractor(extracted);
+
+  const sync = await getUpcomingAppointments(client, extractor, []);
+
+  assert.deepEqual(sync.appointments.map((a) => a.offerId).sort(), ["accepted", "finished", "reconsidered"]);
+  assert.equal(extractor.calls, 3, "offers that are not appointments are not extracted");
+});
+
+test("a delta reports an appointment declined after accepting as removed, still Published", async () => {
+  const { client } = await account({ offers: [{ ...OFFER, ...answer("OfferDeclined", { declined: T }) }], threads: [] });
+
+  const delta = await getAppointmentUpdates(client, new FakeExtractor(extracted), BEFORE, [cachedEntry(1)]);
+
+  assert.deepEqual([delta.items, delta.removedIds, delta.removedStates], [[], ["o1"], { o1: "Published" }]);
 });
 
 /** A client on a fake findbolig.nu with `count` Published offers, each with a showing thread; `allThreadsFetched` settles once every thread has been fetched. */

@@ -53,8 +53,8 @@ export function cursorKind<T, ItemsKey extends string, Source>(kind: {
   /** The field the items are stored under. */
   itemsKey: ItemsKey;
   keyOf(item: T): string;
-  /** Fills in fields that older stored items predate. */
-  reviveItem?(stored: T): T;
+  /** Fills in fields that older stored items predate; null drops an item that no longer belongs. */
+  reviveItem?(stored: T): T | null;
   fetchEverything(current: CursorData<T> | null, source: Source): Promise<{ items: T[] } & FullFetchCursor>;
   /**
    * What changed since `cursor`, a cursor the same source handed out earlier. Null when that
@@ -68,7 +68,7 @@ export function cursorKind<T, ItemsKey extends string, Source>(kind: {
       const items = stored[kind.itemsKey] ?? [];
       return {
         updatedAt: new Date(stored.updatedAt),
-        items: kind.reviveItem ? items.map(kind.reviveItem) : items,
+        items: kind.reviveItem ? items.map(kind.reviveItem).filter((item) => item !== null) : items,
         // Older stored data predates the delta cursor (or the thread cursor): treat it as absent.
         cursor: cursorFrom({
           latestUpdated: stored.latestUpdated ?? null,

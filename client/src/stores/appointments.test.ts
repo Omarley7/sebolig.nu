@@ -1,6 +1,7 @@
 import type { Appointment, AppointmentDelta, CachedAppointmentEntry } from "@/types";
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, expect, it } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
+import { demoAppointments } from "~/data/appointments/demo";
 import type { AppointmentsSource } from "~/data/appointments/source";
 import type { Cursor } from "~/data/cursor";
 import { appointmentsKind } from "~/localData/appointments";
@@ -197,6 +198,37 @@ it("appointments stored with the misspelled address fields still show their addr
   await store.init();
 
   expect(store.appointments[0].residence).toEqual({ addressLine1: "Ålekistevej 59", addressLine2: "2720 Vanløse", location });
+});
+
+it("stored appointments the user hasn't accepted are dropped on load, and those with no answer known are kept", async () => {
+  const { store } = setup(fakeSource(), {
+    connected: false,
+    stored: {
+      appointments_cache: storedAppointments([
+        appointment("accepted", { recipientState: "OfferAccepted" }),
+        appointment("pending", { recipientState: "OfferReceived" }),
+        appointment("declined", { recipientState: "OfferDeclined", declined: "2026-10-01T08:00:00Z" }),
+        // Stored before recipientState was kept: the stamps tell.
+        appointment("stampedAccepted", { accepted: "2026-10-01T08:00:00Z" }),
+        appointment("stampedDeclined", { declined: "2026-10-01T08:00:00Z" }),
+        appointment("unknown"),
+      ]),
+    },
+  });
+
+  await store.init();
+
+  expect(store.appointments.map((a) => a.offerId)).toEqual(["accepted", "stampedAccepted", "unknown"]);
+});
+
+it("the Demo's appointments are all offers the user accepted", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout"] });
+  const syncing = demoAppointments().sync([]);
+  await vi.runAllTimersAsync();
+  const { appointments } = await syncing;
+  vi.useRealTimers();
+
+  expect(appointments.map((a) => a.recipientState)).toEqual(appointments.map(() => "OfferAccepted"));
 });
 
 const message = (sentAt: string, body = "Kære ansøger") => ({ from: "landlord" as const, senderName: null, sentAt, body, hasAttachments: false });

@@ -4,6 +4,7 @@ import type { FindboligClient } from "~/lib/findbolig-client";
 import { mapAppointmentToDomain, mapThreadToDomain } from "~/lib/findbolig-domain";
 import { acceptedDetails, danishDate, EMPTY_DETAILS, showingContext, type AppointmentExtractor } from "~/lib/llm/appointment-extractor";
 import { gone, walkOfferListing, type ListingCursor, type ListingView, type Walked } from "~/offer-listing";
+import type { ApiOffer } from "~/types/offers";
 
 function isDateInPast(dateStr: string | null): boolean {
   if (!dateStr) return false;
@@ -18,9 +19,18 @@ function isNewer(lastMessageAt: string | null, newestMessageAt: string | null | 
 }
 
 /**
- * Upcoming appointments: Finished and Published offers, found by the listing walk and the thread
- * walk (a new message does not move an offer's `updated`). Each is built reusing what the client
- * already has (`cached`) where possible:
+ * Whether the user accepted the offer: only then are they invited to its viewing. Goes by the
+ * recipient's state, not its stamps: an offer declined and then accepted carries both.
+ */
+function accepted(offer: ApiOffer): boolean {
+  return offer.recipients?.[0]?.state === "OfferAccepted";
+}
+
+/**
+ * Upcoming appointments: Finished and Published offers the user accepted, found by the listing
+ * walk and the thread walk (a new message does not move an offer's `updated`). Pending and
+ * declined offers are never built. Each is built reusing what the client already has (`cached`)
+ * where possible:
  *  - a past appointment it has is echoed back as-is, with no upstream calls, unless the thread list
  *    has a message newer than any the client has: then only the thread is fetched again, for its
  *    messages (no LLM call, and the viewing, residence and position are kept);
@@ -41,7 +51,7 @@ function appointmentsView(
   return {
     name: "appointments",
     walksThreads: true,
-    belongs: (offer) => offer.state === "Finished" || offer.state === "Published",
+    belongs: (offer) => (offer.state === "Finished" || offer.state === "Published") && accepted(offer),
     async enrich(offer, { findbolig, llm }, { lastMessageAt }) {
       const { residenceId } = offer;
       if (!residenceId) return gone;

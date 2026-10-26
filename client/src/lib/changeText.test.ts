@@ -1,3 +1,4 @@
+import type { Offer } from "@/types";
 import { expect, it } from "vitest";
 import type { WritableComputedRef } from "vue";
 import i18n from "~/i18n";
@@ -33,6 +34,19 @@ it("a removal is worded by why it left: won, rented to someone else, withdrawn, 
     "No longer in your appointments",
     "No longer in your offers",
   ]);
+});
+
+it("an offer leaving as Finished or Published moved to appointments only if it was accepted; older rows with no copy did", () => {
+  const leftAs = (state: string, recipientState?: Offer["recipientState"]) =>
+    text({ field: "removed", state, last: recipientState && ({ recipientState } as Offer) }, "offer").text;
+
+  expect([
+    leftAs("Finished", "OfferAccepted"),
+    leftAs("Published", "OfferAccepted"),
+    leftAs("Finished", "OfferReceived"),
+    leftAs("Published", "OfferDeclined"),
+    leftAs("Finished"),
+  ]).toEqual(["Moved to appointments", "Moved to appointments", "No longer in your offers", "No longer in your offers", "Moved to appointments"]);
 });
 
 it("a new message names its sender and quotes its opening words", () => {

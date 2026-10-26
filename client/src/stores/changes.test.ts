@@ -1,11 +1,11 @@
-import type { Appointment, AppointmentDelta } from "@/types";
+import type { Appointment, AppointmentDelta, Offer } from "@/types";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { demoAppointments } from "~/data/appointments/demo";
 import type { AppointmentsSource } from "~/data/appointments/source";
 import type { OffersSource } from "~/data/offers/source";
 import type { ChangeDetail, FoundChange } from "~/lib/changes";
-import { appointmentsKind } from "~/localData/appointments";
+import { appointmentsKind, checkAppointmentsOnAccept } from "~/localData/appointments";
 import { changesStore, trackChanges } from "~/localData/changes";
 import { offersKind } from "~/localData/offers";
 import { localDataHarness, type HarnessOptions } from "~/test/localDataHarness";
@@ -164,6 +164,14 @@ it("an offer that moved to appointments opens its appointment, and a card that l
   ]);
 });
 
+it("an offer that left unaccepted opens the copy kept of it, not an appointment", () => {
+  const { changes } = setup();
+  const last = { id: "o", recipientState: "OfferDeclined" } as Offer;
+  changes.record([{ ...found("o", { field: "removed", state: "Finished", last }, "offer"), offerId: "o-1" }]);
+
+  expect(changes.rowTarget(changes.changes[0])).toEqual({ copy: last, kind: "offer", state: "Finished" });
+});
+
 it("changes survive a reload and are erased with the rest of Local data", () => {
   const first = setup();
   first.changes.record([found("a", position(5, 4))]);
@@ -175,6 +183,17 @@ it("changes survive a reload and are erased with the rest of Local data", () => 
 
   reloaded.localData.eraseAll();
   expect([reloaded.changes.unseenCount, reloaded.readStored("changes")]).toEqual([0, null]);
+});
+
+it("an invitation stored before only accepting brought appointments is dropped on load; a new offer is kept", () => {
+  const first = setup();
+  first.changes.record([found("a", { field: "added" }), found("o", { field: "added" }, "offer")]);
+  const stored = first.readStored("changes");
+
+  setActivePinia(createPinia());
+  const reloaded = setup({ stored: { changes: stored } });
+
+  expect(reloaded.changes.changes.map((c) => [c.kind, c.itemId])).toEqual([["offer", "o"]]);
 });
 
 function appointment(offerId: string, overrides: Partial<Appointment> = {}): Appointment {
@@ -189,8 +208,8 @@ function appointment(offerId: string, overrides: Partial<Appointment> = {}): App
     financials: { monthlyRentIncludingAconto: 8000, deposit: 24000 },
     imageUrl: "img",
     position: 5,
-    recipientState: "OfferReceived",
-    accepted: null,
+    recipientState: "OfferAccepted",
+    accepted: "2026-10-01T00:00:00Z",
     declined: null,
     messageCount: 0,
     messages: [],
@@ -217,6 +236,7 @@ function tracked(appointments: Partial<AppointmentsSource>, offers: Partial<Offe
   const appointmentsStore = harness.localData.define(appointmentsKind({ live: appointmentsSource, demo: appointmentsSource }))();
   const offersStore = harness.localData.define(offersKind({ live: offersSource, demo: offersSource }))();
   trackChanges({ appointments: appointmentsStore, offers: offersStore, changes: harness.changes });
+  checkAppointmentsOnAccept({ appointments: appointmentsStore, offers: offersStore });
   return { ...harness, appointmentsStore, offersStore };
 }
 
@@ -238,16 +258,26 @@ it("a check's changes are recorded, but the first fetch after connecting finds n
   ]);
 });
 
-it("an offer answered in SeBolig is not reported as answered on findbolig.nu when its appointment catches up", async () => {
+it("an answer the user gave in SeBolig is not reported as given on findbolig.nu when a later check brings it", () => {
+  const { changes } = setup();
+  changes.answeredHere("o", "OfferAccepted");
+
+  changes.record([found("o", { field: "answer", from: "OfferReceived", to: "OfferAccepted" }, "offer")]);
+
+  expect(changes.changes).toEqual([]);
+});
+
+it("accepting an offer in SeBolig checks appointments at once, cooldown or not, and its appointment arriving is no change", async () => {
   const offer = {
-    id: "1",
+    id: "2",
     recipientState: "OfferReceived",
     residence: { addressLine1: null, addressLine2: null, location: null },
     financials: { monthlyRentIncludingAconto: 8000, deposit: 24000 },
   };
+  let accepted = false;
   const { appointmentsStore, offersStore, changes } = tracked(
-    { fetchDelta: async () => ({ ...NO_CHANGES, items: [appointment("1", { recipientState: "OfferAccepted" })] }) },
-    {},
+    { fetchDelta: async () => ({ ...NO_CHANGES, items: accepted ? [appointment("2")] : [] }) },
+    { respond: async () => ((accepted = true), "OfferAccepted") },
     {
       stored: {
         appointments_cache: { updatedAt: "2026-10-01T00:00:00Z", appointments: [appointment("1")], ...STORED_CURSOR },
@@ -255,12 +285,32 @@ it("an offer answered in SeBolig is not reported as answered on findbolig.nu whe
       },
     },
   );
-  await offersStore.init();
+  await Promise.all([offersStore.init(), appointmentsStore.init()]);
 
-  await offersStore.acceptOffer("1");
+  await offersStore.acceptOffer("2");
+
+  await vi.waitFor(() => expect(appointmentsStore.appointments.map((a) => a.offerId)).toEqual(["1", "2"]));
+  expect(changes.changes).toEqual([]);
+});
+
+it("declining an offer in SeBolig doesn't check appointments", async () => {
+  let deltas = 0;
+  const { appointmentsStore, offersStore } = tracked(
+    { fetchDelta: async () => (deltas++, NO_CHANGES) },
+    {},
+    {
+      stored: {
+        appointments_cache: { updatedAt: "2026-10-01T00:00:00Z", appointments: [appointment("1")], ...STORED_CURSOR },
+        offers_cache: { updatedAt: "2026-10-01T00:00:00Z", offers: [{ id: "2", recipientState: "OfferReceived" }], latestUpdated: "2026-10-01T00:00:00Z", latestUpdatedIds: [] },
+      },
+    },
+  );
   await appointmentsStore.init();
 
-  expect(changes.changes).toEqual([]);
+  await offersStore.declineOffer("2");
+  await appointmentsStore.init();
+
+  expect(deltas).toBe(1);
 });
 
 it("in the Demo, the first check brings a viewing date, a landlord message and an awarded viewing; later checks nothing", async () => {

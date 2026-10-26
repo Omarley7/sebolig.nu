@@ -132,9 +132,9 @@
       "/data/media/ef853a41-1b16-4e87-af8a-40d8ab0c8642/904acada-5f3b-4d73-a0cf-c0efd7b7a534.png"
     ],
     "position": 274,
-    "recipientState": "OfferDeclined",
-    "accepted": null,
-    "declined": "2026-03-11T22:26:49.564089Z"
+    "recipientState": "OfferAccepted",
+    "accepted": "2026-03-11T22:26:49.564089Z",
+    "declined": null
   },
   {
     "id": "DEAS-O-20ecaa22-e813-4dcd-b370-08de747fab9e",
