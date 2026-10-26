@@ -63,7 +63,10 @@ export function changesStore(kept: KeptData) {
     function load() {
       try {
         const stored = JSON.parse(kept.read() ?? "null") as StoredChanges | null;
-        log.value = Array.isArray(stored?.changes) ? stored.changes : [];
+        // Older versions recorded a new appointment as an invitation. Only accepting brings one now,
+        // which the offer already tells, so those rows go.
+        const isInvitation = (c: Change) => c.kind === "appointment" && c.detail.field === "added";
+        log.value = Array.isArray(stored?.changes) ? stored.changes.filter((c) => !isInvitation(c)) : [];
         ownAnswers.value = Array.isArray(stored?.ownAnswers) ? stored.ownAnswers : [];
       } catch {
         log.value = [];
@@ -125,8 +128,9 @@ export function changesStore(kept: KeptData) {
     }
 
     /**
-     * Notes an answer the user gave in SeBolig. The offer itself changes in Local data at once, but
-     * its appointment only catches up at a later check: that is not an answer given on findbolig.nu.
+     * Notes an answer the user gave in SeBolig. The offer itself changes in Local data at once, but a
+     * check that started before the answer can bring back the offer as it was, and the next one the
+     * answer: that is not an answer given on findbolig.nu.
      */
     function answeredHere(offerId: string, state: RecipientState) {
       ownAnswers.value.push({ offerId, state, at: new Date().toISOString() });
@@ -135,15 +139,15 @@ export function changesStore(kept: KeptData) {
 
     /**
      * What tapping a change's row opens, going by the card's latest change: once a card has left,
-     * every row about it opens the copy kept from then. An offer that moved to appointments opens
-     * its appointment instead.
+     * every row about it opens the copy kept from then. An offer that moved to appointments (it was
+     * accepted) opens its appointment instead.
      */
     function rowTarget(change: Change): RowTarget {
       const latest = log.value.filter((c) => c.kind === change.kind && c.itemId === change.itemId).sort(newestFirst)[0] ?? change;
       if (latest.detail.field !== "removed") return { page: change.kind === "appointment" ? "appointments" : "offers", itemId: change.itemId };
       const { state, last } = latest.detail;
       // An appointment's id, as findbolig.nu's offer id makes it (see mapAppointmentToDomain).
-      if (movedToAppointments(change.kind, state)) return { page: "appointments", itemId: `DEAS-O-${change.offerId}` };
+      if (movedToAppointments(change.kind, state, last)) return { page: "appointments", itemId: `DEAS-O-${change.offerId}` };
       return last ? { copy: last, kind: change.kind, state } : null;
     }
 

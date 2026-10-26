@@ -31,7 +31,7 @@ async function onAfterLeave() {
   toOpen = null;
   if (!target) return;
   if ("copy" in target) {
-    const outcome = removalText(target.kind, target.state, t);
+    const outcome = removalText(target.kind, target.state, target.copy, t);
     copy.value = target.kind === "appointment" ? { appointment: target.copy as Appointment, outcome } : { offer: target.copy as Offer, outcome };
     return;
   }

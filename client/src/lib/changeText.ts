@@ -1,4 +1,4 @@
-import type { RemovedState } from "@/types";
+import type { Appointment, Offer, RemovedState } from "@/types";
 import { movedToAppointments, type ChangeKind, type FoundChange, type Money } from "./changes";
 import { formatCurrency, formatDate, formatTimeSlot } from "./formatters";
 import { senderLabel } from "./thread";
@@ -15,14 +15,14 @@ const place = (position: number | null) => (position == null ? null : `#${positi
 /**
  * Why a card left its list, in words. The meanings come from findbolig.nu's closing notices: an
  * awarded offer was rented to someone ranked higher (unless the user won it), a released one was
- * mostly withdrawn by the landlord. An offer the user can no longer answer but still has a viewing
- * of moved to appointments. Anything else (RetiredFromAwarded, say) is not understood yet.
+ * mostly withdrawn by the landlord. An offer the user accepted, can no longer answer but still has a
+ * viewing of moved to appointments. Anything else (RetiredFromAwarded, say) is not understood yet.
  */
-function removalKey(state: RemovedState | null, kind: ChangeKind): string {
+function removalKey(kind: ChangeKind, state: RemovedState | null, last?: Appointment | Offer): string {
   if (state === "AwardedToYou") return "changes.removed.won";
   if (state === "Awarded" || state === "AwardedExternally") return "changes.removed.rentedToOthers";
   if (state === "Released") return "changes.removed.withdrawn";
-  if (movedToAppointments(kind, state)) return "changes.removed.movedToAppointments";
+  if (movedToAppointments(kind, state, last)) return "changes.removed.movedToAppointments";
   return `changes.removed.${kind}`;
 }
 
@@ -33,9 +33,9 @@ function moneyText(from: Money, to: Money, t: Translate): string {
   return parts.join(" · ");
 }
 
-/** Why a card left its list, in the user's language. */
-export function removalText(kind: ChangeKind, state: RemovedState | null, t: Translate): string {
-  return t(removalKey(state, kind));
+/** Why a card left its list, in the user's language; `last` is the card as it was when it left. */
+export function removalText(kind: ChangeKind, state: RemovedState | null, last: Appointment | Offer | undefined, t: Translate): string {
+  return t(removalKey(kind, state, last));
 }
 
 /** What a change says, in the user's language. */
@@ -43,7 +43,7 @@ export function changeText({ kind, detail }: FoundChange, t: Translate): ChangeT
   const line = (text: string): ChangeText => ({ text, quote: null });
   switch (detail.field) {
     case "added":
-      return line(t(kind === "appointment" ? "changes.invited" : "changes.newOffer"));
+      return line(t("changes.newOffer"));
     case "viewing": {
       const to = formatTimeSlot(detail.to, t, true);
       return line(
@@ -70,6 +70,6 @@ export function changeText({ kind, detail }: FoundChange, t: Translate): ChangeT
     case "moveIn":
       return line(t("changes.moveIn", { from: orDash(day(detail.from)), to: orDash(day(detail.to)) }));
     case "removed":
-      return line(removalText(kind, detail.state, t));
+      return line(removalText(kind, detail.state, detail.last, t));
   }
 }

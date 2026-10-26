@@ -210,6 +210,17 @@ export function createLocalData(deps: LocalDataDeps) {
         return checkInFlight;
       }
 
+      /**
+       * A check that doesn't wait out the cooldown, for when findbolig.nu is known to have
+       * changed (say, the user just accepted an offer). A check already running started before
+       * that: this one runs after it.
+       */
+      async function checkNow() {
+        if (checkInFlight) await checkInFlight;
+        lastCheckStartedAt = -Infinity;
+        return init();
+      }
+
       async function check() {
         if (data.value === null) return refresh();
         lastCheckStartedAt = Date.now();
@@ -327,7 +338,7 @@ export function createLocalData(deps: LocalDataDeps) {
         updateListeners.push(listener);
       }
 
-      return { data, status, hasData, isLoading, isChecking, isBusy, checkedAt, init, refresh, onUpdated, ...(own as Extra) };
+      return { data, status, hasData, isLoading, isChecking, isBusy, checkedAt, init, checkNow, refresh, onUpdated, ...(own as Extra) };
     });
   }
 

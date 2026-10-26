@@ -53,10 +53,13 @@ export type FoundChange = {
 
 /**
  * Whether an offer left the offers list for appointments: the user can no longer answer it, but it
- * still has a viewing (an offer that is Finished, or Published but no longer the user's to answer).
+ * still has a viewing (an offer that is Finished, or Published but no longer the user's to answer)
+ * and they accepted it, as `last`, the offer kept from when it left, says. A change recorded before
+ * offers were kept has no `last`, and is taken to have moved.
  */
-export function movedToAppointments(kind: ChangeKind, state: RemovedState | null): boolean {
-  return kind === "offer" && (state === "Finished" || state === "Published");
+export function movedToAppointments(kind: ChangeKind, state: RemovedState | null, last?: Appointment | Offer): boolean {
+  if (kind !== "offer" || (state !== "Finished" && state !== "Published")) return false;
+  return !last || last.recipientState === "OfferAccepted";
 }
 
 /** How long a message excerpt is kept; the panel cuts it shorter. */
@@ -82,15 +85,17 @@ function copyCard({ residence, imageUrl }: Pick<Appointment, "residence" | "imag
 }
 
 /**
- * Compares two versions of a list by `keyOf`: what changed on each card still there, new cards,
- * and cards that left. A full fetch that withheld its cursor left out the items it failed to
- * fetch, so their absence is not taken as leaving, nor their coming back after it as new.
+ * Compares two versions of a list by `keyOf`: what changed on each card still there, new cards
+ * (where `reportsAdded`), and cards that left. A full fetch that withheld its cursor left out the
+ * items it failed to fetch, so their absence is not taken as leaving, nor their coming back after
+ * it as new.
  */
 function compare<T extends Appointment | Offer>(
   before: CursorData<T>,
   after: CursorData<T>,
-  { kind, keyOf, idOf, cardOf, fieldChanges }: {
+  { kind, reportsAdded, keyOf, idOf, cardOf, fieldChanges }: {
     kind: ChangeKind;
+    reportsAdded: boolean;
     keyOf(item: T): string;
     idOf(item: T): string;
     cardOf(item: T): CardCopy;
@@ -104,7 +109,7 @@ function compare<T extends Appointment | Offer>(
   const changes = after.items.flatMap((item) => {
     const old = beforeByKey.get(keyOf(item));
     if (old) return fieldChanges(old, item).map((detail) => found(item, detail));
-    return before.cursor === null ? [] : [found(item, { field: "added" })];
+    return before.cursor === null || !reportsAdded ? [] : [found(item, { field: "added" })];
   });
   if (after.cursor === null) return changes;
   const removedStates = after.removedStates ?? {};
@@ -134,16 +139,14 @@ function newMessages(before: Appointment, after: Appointment): ChangeDetail[] {
 
 const viewing = ({ date, start, end }: Appointment): Viewing => ({ date, start, end });
 
-/** The answer an appointment carries: its recipient state, or what its accepted/declined stamps say. */
-function answerOf({ recipientState, accepted, declined }: Appointment): RecipientState | null {
-  if (recipientState) return recipientState as RecipientState;
-  return accepted ? "OfferAccepted" : declined ? "OfferDeclined" : null;
-}
-
-/** What changed on the user's appointments between two versions of them. */
+/**
+ * What changed on the user's appointments between two versions of them. An appointment is an
+ * offer the user accepted, so its coming and its answer are the offer's news: neither is a change.
+ */
 export function appointmentChanges(before: CursorData<Appointment>, after: CursorData<Appointment>): FoundChange[] {
   return compare<Appointment>(before, after, {
     kind: "appointment",
+    reportsAdded: false,
     keyOf: (appointment) => appointment.offerId,
     idOf: (appointment) => appointment.id,
     cardOf: copyCard,
@@ -154,7 +157,6 @@ export function appointmentChanges(before: CursorData<Appointment>, after: Curso
       ...newMessages(old, now),
       ...fieldChange("position", old.position, now.position),
       ...fieldChange("financials", money(old.financials), money(now.financials)),
-      ...answered(answerOf(old), answerOf(now)),
     ],
   });
 }
@@ -163,6 +165,7 @@ export function appointmentChanges(before: CursorData<Appointment>, after: Curso
 export function offerChanges(before: CursorData<Offer>, after: CursorData<Offer>): FoundChange[] {
   return compare<Offer>(before, after, {
     kind: "offer",
+    reportsAdded: true,
     keyOf: (offer) => offer.id,
     idOf: (offer) => offer.id,
     cardOf: copyCard,

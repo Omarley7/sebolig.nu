@@ -291,8 +291,8 @@ test("the appointments delta takes both cursors and the cached appointments in t
   const fake = findboligWithTenant()
     .on("POST /api/search/offers", () => ({
       json: { facets: {}, totalResults: 2, page: 0, pageSize: 25, results: [
-        { id: "o1", residenceId: "r1", state: "Published", updated: T },
-        { id: "o2", residenceId: "r2", state: "Published", updated: "2026-01-01T00:00:00.000Z" },
+        { id: "o1", residenceId: "r1", state: "Published", updated: T, recipients: [{ state: "OfferAccepted" }] },
+        { id: "o2", residenceId: "r2", state: "Published", updated: "2026-01-01T00:00:00.000Z", recipients: [{ state: "OfferAccepted" }] },
       ] },
     }))
     .on("POST /api/communications/threads", () => ({

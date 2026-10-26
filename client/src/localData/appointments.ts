@@ -1,4 +1,4 @@
-import type { Appointment, CachedAppointmentEntry } from "@/types";
+import type { Appointment, CachedAppointmentEntry, RecipientState } from "@/types";
 import { computed } from "vue";
 import type { AppointmentsSource } from "~/data/appointments/source";
 import type { LocalDataContext, LocalDataDefinition, Mode } from "~/lib/localData";
@@ -7,8 +7,19 @@ import { reviveResidence } from "./residence";
 
 type Appointments = CursorData<Appointment>;
 
-/** Fills in fields that appointments stored by older versions predate. */
-function reviveAppointment(stored: Appointment): Appointment {
+/** The answer an appointment carries: its recipient state, or what its accepted/declined stamps say. */
+function answerOf({ recipientState, accepted, declined }: Appointment): RecipientState | null {
+  if (recipientState) return recipientState as RecipientState;
+  return accepted ? "OfferAccepted" : declined ? "OfferDeclined" : null;
+}
+
+/**
+ * Fills in fields that appointments stored by older versions predate. Older versions also kept
+ * offers the user hadn't accepted: those whose answer is known go, quietly.
+ */
+function reviveAppointment(stored: Appointment): Appointment | null {
+  const answer = answerOf(stored);
+  if (answer && answer !== "OfferAccepted") return null;
   return {
     ...stored,
     offerId: stored.offerId ?? stored.id?.replace(/^DEAS-O-/, "") ?? "",
@@ -68,6 +79,22 @@ export function appointmentsKind(sources: Record<Mode, AppointmentsSource>) {
     expose: exposeAppointments,
   };
   return definition;
+}
+
+/**
+ * Accepting an offer in SeBolig makes it an appointment: check for it at once, rather than at the
+ * next visit. Its arriving is no change (see `appointmentChanges`).
+ */
+export function checkAppointmentsOnAccept({
+  appointments,
+  offers,
+}: {
+  appointments: { checkNow(): Promise<void> };
+  offers: { onAnswered(listener: (offerId: string, state: RecipientState) => void): void };
+}) {
+  offers.onAnswered((_offerId, state) => {
+    if (state === "OfferAccepted") void appointments.checkNow();
+  });
 }
 
 function exposeAppointments(ctx: LocalDataContext<Appointments, AppointmentsSource>) {

@@ -408,6 +408,27 @@ it("an automatic check within 60 s of the last one is skipped, and runs again af
   expect(checks).toBe(2);
 });
 
+it("checkNow runs a check within the cooldown, after the one already running", async () => {
+  vi.setSystemTime(new Date("2026-10-18T10:00:00.000Z"));
+  let checks = 0;
+  let finishFirst!: () => void;
+  const { useNotes } = setup([], {
+    stored: PAGE,
+    check: async (current) => {
+      if (++checks === 1) await new Promise<void>((resolve) => (finishFirst = resolve));
+      return current;
+    },
+  });
+  const store = useNotes();
+  const first = store.init();
+
+  const now = store.checkNow();
+  finishFirst();
+  await Promise.all([first, now]);
+
+  expect(checks).toBe(2);
+});
+
 it("a refresh counts as a check for the cooldown", async () => {
   vi.setSystemTime(new Date("2026-10-18T10:00:00.000Z"));
   let checks = 0;

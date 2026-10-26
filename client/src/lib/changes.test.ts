@@ -37,8 +37,8 @@ function appointment(offerId: string, overrides: Partial<Appointment> = {}): App
     images: [],
     blueprints: [],
     position: 5,
-    recipientState: "OfferReceived",
-    accepted: null,
+    recipientState: "OfferAccepted",
+    accepted: "2026-09-30T09:00:00Z",
     declined: null,
     messageCount: 1,
     messages: [INVITATION],
@@ -118,32 +118,30 @@ it("new messages from others are one change, naming the latest; the user's own m
   ]);
 });
 
-it("position, rent or deposit, and an answer given on findbolig.nu are changes", () => {
+it("position, rent or deposit are changes; an answer is not, as it's the offer's to tell", () => {
   const before = data([appointment("1"), appointment("2")]);
   const after = data([
     appointment("1", { position: 3, financials: { ...MONEY, deposit: 25000 } }),
-    appointment("2", { recipientState: null, declined: "2026-10-02T09:00:00Z" }),
+    appointment("2", { recipientState: "OfferDeclined", declined: "2026-10-02T09:00:00Z" }),
   ]);
 
   expect(details(appointmentChanges(before, after))).toEqual([
     ["DEAS-O-1", { field: "position", from: 5, to: 3 }],
     ["DEAS-O-1", { field: "financials", from: { rent: 8000, deposit: 24000 }, to: { rent: 8000, deposit: 25000 } }],
-    ["DEAS-O-2", { field: "answer", from: "OfferReceived", to: "OfferDeclined" }],
   ]);
 });
 
-it("a new appointment is an invitation, and a removed one keeps its card as it was and says why it left", () => {
+it("a new appointment is not a change, as only accepting brings one; a removed one keeps its card as it was and says why it left", () => {
   const before = data([appointment("gone"), appointment("withdrawn")]);
   const after = data([appointment("new")], { removedStates: { withdrawn: "Released" } });
 
   const changes = appointmentChanges(before, after);
 
   expect(details(changes)).toEqual([
-    ["DEAS-O-new", { field: "added" }],
     ["DEAS-O-gone", { field: "removed", state: null, last: before.items[0] }],
     ["DEAS-O-withdrawn", { field: "removed", state: "Released", last: before.items[1] }],
   ]);
-  expect(changes[2]).toMatchObject({
+  expect(changes[1]).toMatchObject({
     kind: "appointment",
     offerId: "withdrawn",
     card: { addressLine1: "Vej withdrawn", addressLine2: "2200 København N", imageUrl: "img-withdrawn" },
