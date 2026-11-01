@@ -36,17 +36,27 @@ it("a removal is worded by why it left: won, rented to someone else, withdrawn, 
   ]);
 });
 
-it("an offer leaving as Finished or Published moved to appointments only if it was accepted; older rows with no copy did", () => {
+it("an offer leaving as Finished, Published or Changed moved to appointments only if it was accepted; older rows with no copy did", () => {
   const leftAs = (state: string, recipientState?: Offer["recipientState"]) =>
     text({ field: "removed", state, last: recipientState && ({ recipientState } as Offer) }, "offer").text;
 
   expect([
     leftAs("Finished", "OfferAccepted"),
     leftAs("Published", "OfferAccepted"),
+    leftAs("Changed", "OfferAccepted"),
     leftAs("Finished", "OfferReceived"),
     leftAs("Published", "OfferDeclined"),
+    leftAs("Changed", "OfferReceived"),
     leftAs("Finished"),
-  ]).toEqual(["Moved to appointments", "Moved to appointments", "No longer in your offers", "No longer in your offers", "Moved to appointments"]);
+  ]).toEqual([
+    "Moved to appointments",
+    "Moved to appointments",
+    "Moved to appointments",
+    "No longer in your offers",
+    "No longer in your offers",
+    "No longer in your offers",
+    "Moved to appointments",
+  ]);
 });
 
 it("a new message names its sender and quotes its opening words", () => {

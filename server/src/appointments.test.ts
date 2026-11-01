@@ -144,6 +144,14 @@ test("only offers the user accepted are appointments: pending and declined ones 
   assert.equal(extractor.calls, 3, "offers that are not appointments are not extracted");
 });
 
+test("an accepted offer the landlord edited since (Changed) is still an appointment", async () => {
+  const { client } = await account({ offers: [{ ...OFFER, state: "Changed" }], threads: [] });
+
+  const sync = await getUpcomingAppointments(client, new FakeExtractor(extracted), []);
+
+  assert.deepEqual(sync.appointments.map((a) => a.offerId), ["o1"]);
+});
+
 test("a delta reports an appointment declined after accepting as removed, still Published", async () => {
   const { client } = await account({ offers: [{ ...OFFER, ...answer("OfferDeclined", { declined: T }) }], threads: [] });
 

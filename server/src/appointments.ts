@@ -1,7 +1,7 @@
 import type { Appointment, AppointmentDelta, CachedAppointmentEntry, SyncAppointmentsResponse, ThreadCursor } from "@/types";
 import { nullUnlessConnectionEnded } from "~/lib/errors";
 import type { FindboligClient } from "~/lib/findbolig-client";
-import { mapAppointmentToDomain, mapThreadToDomain } from "~/lib/findbolig-domain";
+import { mapAppointmentToDomain, mapThreadToDomain, OPEN_OFFER_STATES } from "~/lib/findbolig-domain";
 import { acceptedDetails, danishDate, EMPTY_DETAILS, showingContext, type AppointmentExtractor } from "~/lib/llm/appointment-extractor";
 import { gone, walkOfferListing, type ListingCursor, type ListingView, type Walked } from "~/offer-listing";
 import type { ApiOffer } from "~/types/offers";
@@ -27,7 +27,7 @@ function accepted(offer: ApiOffer): boolean {
 }
 
 /**
- * Upcoming appointments: Finished and Published offers the user accepted, found by the listing
+ * Upcoming appointments: Finished and open offers the user accepted, found by the listing
  * walk and the thread walk (a new message does not move an offer's `updated`). Pending and
  * declined offers are never built. Each is built reusing what the client already has (`cached`)
  * where possible:
@@ -51,7 +51,7 @@ function appointmentsView(
   return {
     name: "appointments",
     walksThreads: true,
-    belongs: (offer) => (offer.state === "Finished" || offer.state === "Published") && accepted(offer),
+    belongs: (offer) => (offer.state === "Finished" || OPEN_OFFER_STATES.includes(offer.state)) && accepted(offer),
     async enrich(offer, { findbolig, llm }, { lastMessageAt }) {
       const { residenceId } = offer;
       if (!residenceId) return gone;
