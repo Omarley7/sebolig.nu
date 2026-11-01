@@ -5,6 +5,13 @@ import type { ApiResidence, ResidenceDetails } from "~/types/residences";
 import type { ApiMessageThreadFull } from "~/types/threads";
 import type { ApiPositionForProperty, ApiPropertySearchResult, ApiResidenceApplication } from "~/types/waiting-lists";
 
+/**
+ * The offer states in which findbolig.nu still takes the user's answer: 'Published' (sent) and
+ * 'Changed' (edited by the landlord since: recipients, texts, deadline or rent). findbolig.nu's own
+ * offers page reads the two alike. The client keeps the same list in `client/src/lib/changes.ts`.
+ */
+export const OPEN_OFFER_STATES: readonly string[] = ["Published", "Changed"];
+
 /** The sender id findbolig.nu signs its own notices with. */
 const FINDBOLIG_SENDER_ID = "11111111-1111-1111-1111-111111111111";
 

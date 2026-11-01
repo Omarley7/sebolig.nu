@@ -51,14 +51,17 @@ export type FoundChange = {
   detail: ChangeDetail;
 };
 
+/** The offer states findbolig.nu still takes answers in, as the server's `OPEN_OFFER_STATES` has them. */
+const OPEN_OFFER_STATES: readonly string[] = ["Published", "Changed"];
+
 /**
  * Whether an offer left the offers list for appointments: the user can no longer answer it, but it
- * still has a viewing (an offer that is Finished, or Published but no longer the user's to answer)
+ * still has a viewing (an offer that is Finished, or open but no longer the user's to answer)
  * and they accepted it, as `last`, the offer kept from when it left, says. A change recorded before
  * offers were kept has no `last`, and is taken to have moved.
  */
 export function movedToAppointments(kind: ChangeKind, state: RemovedState | null, last?: Appointment | Offer): boolean {
-  if (kind !== "offer" || (state !== "Finished" && state !== "Published")) return false;
+  if (kind !== "offer" || state === null || (state !== "Finished" && !OPEN_OFFER_STATES.includes(state))) return false;
   return !last || last.recipientState === "OfferAccepted";
 }
 

@@ -1,14 +1,14 @@
 import type { Offer, OfferDelta } from "@/types";
 import { nullUnlessConnectionEnded } from "~/lib/errors";
 import type { FindboligClient } from "~/lib/findbolig-client";
-import { mapOfferToDomain } from "~/lib/findbolig-domain";
+import { mapOfferToDomain, OPEN_OFFER_STATES } from "~/lib/findbolig-domain";
 import { gone, walkOfferListing, type ListingCursor, type ListingView } from "~/offer-listing";
 
-/** Offers the user can still answer: only Published ones belong in the offers view. */
+/** Offers the user can still answer: only open ones (see `OPEN_OFFER_STATES`) belong in the offers view. */
 function offersView(client: FindboligClient): ListingView<Offer> {
   return {
     name: "offers",
-    belongs: (offer) => offer.state === "Published",
+    belongs: (offer) => OPEN_OFFER_STATES.includes(offer.state),
     async enrich(offer, { findbolig }) {
       const { residenceId } = offer;
       if (!residenceId) return gone;
