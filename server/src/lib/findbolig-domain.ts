@@ -131,7 +131,6 @@ export function mapOfferToDomain({
     rooms: residence.rooms ?? null,
     area: residence.area ?? null,
     recipientState,
-    editedByLandlord: offer.state === "Changed",
     company: offer.company ?? offer.organization ?? "",
     financials: {
       monthlyRentIncludingAconto: residence.monthlyRentIncludingAconto,

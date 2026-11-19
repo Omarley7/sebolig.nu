@@ -108,7 +108,6 @@
     "awaitingLandlord": "Waiting for the landlord",
     "deadlineAt": "{day} at {time}",
     "detailLabel": "Housing offer, {address}",
-    "editedByLandlord": "Edited by the landlord",
     "fetchFailedTitle": "Couldn't fetch your offers",
     "rentedOutBy": "Let by {company}",
     "status": {

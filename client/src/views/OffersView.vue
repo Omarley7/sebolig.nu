@@ -80,7 +80,8 @@ const subtitle = computed(() => (store.hasData && !status.value.banner ? t(SUBTI
 
     <ErrorBanner v-if="status.banner" :message="t('offers.refreshFailed')" @retry="store.refresh()" />
 
-    <div class="segments mt-3.5" role="tablist" :aria-label="t('offers.pageTitle')">
+    <!-- Widths by label, not equal thirds: "Skal besvares 8" is the long one, and phones enlarge text -->
+    <div class="segments mt-3.5 [grid-auto-columns:auto]" role="tablist" :aria-label="t('offers.pageTitle')">
       <button
         v-for="key in OFFER_TABS"
         :key="key"

@@ -136,11 +136,11 @@ onUnmounted(() => clearTimeout(afterLeaveTimer));
           <div class="w-10 h-[5px] rounded-full bg-handle" />
         </div>
 
-        <!-- Close button -->
+        <!-- Close button: below the drag handle, fully on the photo or level with the title row -->
         <button
           type="button"
           data-sheet-close
-          class="absolute top-2.5 right-3 z-10 size-11 rounded-full flex items-center justify-center
+          class="absolute top-[26px] right-3 z-10 size-11 rounded-full flex items-center justify-center
                  bg-surface/90 text-ink shadow-sm hover:bg-subtle transition-colors lg:top-3"
           :aria-label="t('common.close')"
           @click="sheet.close()"

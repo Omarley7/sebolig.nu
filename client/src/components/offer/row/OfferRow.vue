@@ -10,8 +10,7 @@ import { useChangesStore } from "~/stores/changes";
 
 /**
  * An offer on Tilbud (Q15): the photo on the left, the deadline chip at the top right, and a
- * footer with rent and queue position. Finished offers have a muted title and a status chip; an
- * offer the landlord edited says so (#115).
+ * footer with rent and queue position. Finished offers have a muted title and a status chip.
  */
 const props = defineProps<{ row: TabbedOffer; selected?: boolean }>();
 
@@ -56,7 +55,6 @@ const changed = computed(() => changes.hasUnseen("offer", offer.value.id));
           </span>
           <span v-if="offer.position != null" class="text-[13px] font-semibold text-muted">{{ t("common.queuePositionCap", { n: offer.position }) }}</span>
         </span>
-        <span v-if="offer.editedByLandlord && !row.closed" class="self-start chip bg-soft text-soft-ink !font-semibold">{{ t("offers.editedByLandlord") }}</span>
       </span>
     </button>
   </li>

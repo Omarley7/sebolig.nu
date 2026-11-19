@@ -40,14 +40,10 @@ describe("Skal besvares", () => {
     expect(ids(tabs.open)).toEqual(["soon", "later", "none"]);
   });
 
-  it("keeps an offer due today, and one the landlord edited", () => {
-    const tabs = offerTabs(
-      [offer("today", { deadline: "2026-11-19T00:00:00Z" }), offer("edited", { editedByLandlord: true })],
-      [],
-      NOW,
-    );
+  it("keeps an offer due today", () => {
+    const tabs = offerTabs([offer("today", { deadline: "2026-11-19T00:00:00Z" })], [], NOW);
 
-    expect(ids(tabs.open)).toEqual(["today", "edited"]);
+    expect(ids(tabs.open)).toEqual(["today"]);
   });
 
   it("lets an unanswered offer whose deadline has passed go to Afsluttet as Udløbet", () => {

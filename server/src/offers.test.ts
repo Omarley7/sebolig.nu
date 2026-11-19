@@ -36,15 +36,6 @@ test("an offer the landlord edited after sending it (Changed) is still open, lik
   assert.deepEqual(offers.map((o) => o.id).sort(), ["edited", "sent"]);
 });
 
-test("an offer says whether the landlord edited it after sending it, so the client can note it", async () => {
-  const client = await clientWithOffers([offer("sent", "Published"), offer("edited", "Changed")]);
-
-  const { offers } = await getActiveOffers(client);
-
-  const edited = Object.fromEntries(offers.map((o) => [o.id, o.editedByLandlord]));
-  assert.deepEqual(edited, { sent: false, edited: true });
-});
-
 test("a delta keeps an offer that went from Published to Changed, instead of reporting it removed", async () => {
   const client = await clientWithOffers([offer("edited", "Changed")]);
 

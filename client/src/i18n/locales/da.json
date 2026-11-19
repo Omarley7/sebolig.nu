@@ -108,7 +108,6 @@
     "awaitingLandlord": "Afventer udlejer",
     "deadlineAt": "{day} kl. {time}",
     "detailLabel": "Boligtilbud, {address}",
-    "editedByLandlord": "Ændret af udlejer",
     "fetchFailedTitle": "Tilbuddene kunne ikke hentes",
     "rentedOutBy": "Udlejes af {company}",
     "status": {

@@ -6,7 +6,7 @@ import type { OffersSource } from "./source";
 
 /**
  * Sample offers for the Demo, with deadlines and move-in dates kept relative to today, showing
- * every state Tilbud has: offers to answer (one due tomorrow, one the landlord edited), one whose
+ * every state Tilbud has: offers to answer (one due tomorrow), one whose
  * deadline passed unanswered (Udløbet), and one accepted. The first cheap check moves the user up
  * the queue on one and lets another go to someone else (Udlejet), so the bell and Afsluttet have
  * something too. Answers stick until the page reloads.
@@ -18,7 +18,6 @@ export function demoOffers(): OffersSource {
     ...offer,
     deadline: deadlines[i % deadlines.length],
     availableFrom: moveIns[i % moveIns.length],
-    editedByLandlord: i === 1,
   }));
   let scripted = false;
 

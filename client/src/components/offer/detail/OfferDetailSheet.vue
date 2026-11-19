@@ -115,7 +115,6 @@ async function handleConfirm() {
 
       <DetailTitle :residence="offer.residence" :rooms="offer.rooms" :area="offer.area" :company="offer.company" />
 
-      <p v-if="offer.editedByLandlord && !outcome" class="chip self-start -mt-2 bg-soft text-soft-ink !font-semibold">{{ t("offers.editedByLandlord") }}</p>
 
       <div class="grid grid-cols-2 gap-2">
         <div class="flex flex-col gap-1.5 p-3.5 rounded-2xl" :class="deadlineTone">
