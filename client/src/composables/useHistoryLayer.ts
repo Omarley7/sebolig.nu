@@ -15,10 +15,20 @@ export interface LayerOptions {
   /** Runs whenever the layer closes, whether by back, Esc or close(). */
   onClose?: () => void;
   /**
-   * Adds the layer's history entry, carrying `state`. By default an entry at the same address; a
-   * detail sheet's entry is its list page's route with `?open=<id>` (see useDetailSheet).
+   * Adds the layer's history entry, carrying `state`. By default an entry at the same address
+   * (pushEntryHere); a detail sheet's entry is its list page's route with `?open=<id>` (see
+   * useDetailSheet).
    */
   push?: (state: Record<string, unknown>) => void;
+}
+
+/**
+ * Adds a history entry at the current address, carrying `state` on top of the router's own state
+ * for that address. The router reads its state back when back lands on the entry; without it the
+ * router no longer knows the current path, and its next navigation goes to `${origin}undefined`.
+ */
+export function pushEntryHere(state: Record<string, unknown>) {
+  history.pushState({ ...history.state, ...state }, "");
 }
 
 interface Entry {
@@ -90,7 +100,7 @@ export function useHistoryLayer(options: LayerOptions = {}): HistoryLayer {
   const entry: Entry = {
     escapable: options.escapable ?? (() => true),
     onClose: options.onClose ?? (() => {}),
-    push: options.push ?? ((state) => history.pushState(state, "")),
+    push: options.push ?? pushEntryHere,
     handle: reactive({
       isOpen: false,
       open() {

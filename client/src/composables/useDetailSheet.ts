@@ -1,6 +1,6 @@
 import { computed, inject, nextTick, provide, reactive, ref, shallowRef, watch, type InjectionKey } from "vue";
 import { useRoute, useRouter, type HistoryState } from "vue-router";
-import { historySettled } from "./useHistoryLayer";
+import { historySettled, pushEntryHere } from "./useHistoryLayer";
 import { SHEET_ENTRY } from "./useSheet";
 
 /** Opens an item's detail sheet, at the top or scrolled to a section the sheet names (like "thread"). */
@@ -79,7 +79,7 @@ export function useDetailSheet<T>(
   // page (the changes panel sits in its header on desktop) gets a plain entry: pushing the
   // address the page is already at would add no step, and closing would leave the page.
   provide(SHEET_ENTRY, (state) => {
-    if (shownId.value === null) history.pushState(state, "");
+    if (shownId.value === null) pushEntryHere(state);
     else void router.push({ query: { ...route.query, open: shownId.value }, state: state as HistoryState });
   });
 

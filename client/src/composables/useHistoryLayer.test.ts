@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp, defineComponent, h, nextTick, ref } from "vue";
 import { createRouter, createWebHistory, type Router } from "vue-router";
 import BottomSheet from "~/components/shared/BottomSheet.vue";
@@ -108,6 +108,23 @@ describe("history layers", () => {
     await back();
     expect(showMap.value).toBe(false);
     expect(router.currentRoute.value.path).toBe("/offers");
+  });
+
+  it("the router still knows where it is after back lands on a layer's entry", async () => {
+    showMap.value = true;
+    await settle();
+    showSheet.value = true;
+    await settle();
+    await back();
+
+    // Like ending the Demo with the map open: the router leaves the page from the map's entry.
+    // Had it lost track of the address, a browser would load `${origin}undefined` instead.
+    const warn = vi.spyOn(console, "warn");
+    await router.push("/");
+    expect(warn.mock.calls.flat().join(" ")).not.toContain("Error with push/replace State");
+    expect(location.pathname).toBe("/");
+    expect(router.currentRoute.value.path).toBe("/");
+    warn.mockRestore();
   });
 
   it("Esc closes a sheet opened over the map first, then the map", async () => {
