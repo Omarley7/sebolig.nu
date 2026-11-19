@@ -1,84 +1,285 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  font-family: "Inter", system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+/*
+ * Palette 3, "Ink + amber" (#117). Every colour in the app comes from these semantic tokens:
+ * light values here, dark values under .dark. In light mode the accent is navy and amber is only
+ * a soft fill; in dark mode amber becomes the accent. Every text pair passes WCAG AA in both themes.
+ */
+@theme {
+  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  --color-bg: #f7f6f2;
+  --color-surface: #ffffff;
+  /* Segment tracks, close buttons, past rows */
+  --color-subtle: #f1efea;
+  --color-track-on: #ffffff;
+  --color-border: #e6e3dc;
+  --color-border-strong: #cfcac0;
+  --color-divider: #efece6;
+  --color-handle: #d9d5cc;
+  --color-skeleton: #ece9e2;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  --shady: 0 1.2px 1.2px rgba(0, 0, 0, 0.8);
-}
+  --color-ink: #141a26;
+  /* Seen changes and finished offers: quieter than ink, never by opacity */
+  --color-ink-2: #3e4452;
+  --color-muted: #585e6c;
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
+  --color-accent: #16213b;
+  --color-accent-hover: #0b1224;
+  --color-on-accent: #ffffff;
+  --color-soft: #fbeacb;
+  --color-soft-ink: #6a4200;
+  /* Unseen rows */
+  --color-tint: #fdf6e8;
 
-html {
-  overflow-y: auto;
-}
+  --color-urgent: #fee4e2;
+  --color-urgent-ink: #9a1c12;
+  --color-soon: #fdead7;
+  --color-soon-ink: #8a3a0b;
+  --color-chip: #eef0f3;
+  --color-chip-ink: #3b4252;
+  /* "Du har sagt ja" */
+  --color-yes: #e4e7ef;
+  --color-yes-ink: #16213b;
+  /* Tilbud badge, and confirm buttons that can't be undone; white text */
+  --color-danger: #b42318;
+  --color-danger-border: #f3b8b2;
 
-body {
-  margin: 0;
-  min-height: 100dvh;
-  touch-action: manipulation;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-#app {
-  width: 100%;
-  min-width: 320px;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vanilla:hover {
-  filter: drop-shadow(0 0 2em #3178c6aa);
+  --color-scrim: rgb(20 26 38 / 0.55);
+  --color-toast: #141a26;
+  --color-on-toast: #ffffff;
+  --color-toast-success: #f2b441;
+  --color-toast-warning: #ffc58f;
+  --color-toast-error: #ffb4ab;
+  --color-toast-info: #a3a9b9;
 }
 
-.card {
-  padding: 2em;
+.dark {
+  --color-bg: #0c1019;
+  --color-surface: #151b28;
+  --color-subtle: #0c1019;
+  --color-track-on: #283043;
+  --color-border: #283043;
+  --color-border-strong: #3a4356;
+  --color-divider: #222a3a;
+  --color-handle: #3a4356;
+  --color-skeleton: #222a3a;
+
+  --color-ink: #eceef3;
+  --color-ink-2: #c9cdd8;
+  --color-muted: #a3a9b9;
+
+  --color-accent: #f2b441;
+  --color-accent-hover: #f6c96f;
+  --color-on-accent: #1c1300;
+  --color-soft: #2e2a1f;
+  --color-soft-ink: #f6c96f;
+  --color-tint: #1f1d18;
+
+  --color-urgent: #4a1714;
+  --color-urgent-ink: #ffb4ab;
+  --color-soon: #45270d;
+  --color-soon-ink: #ffc58f;
+  --color-chip: #283043;
+  --color-chip-ink: #d3d7e0;
+  --color-yes: #2e2a1f;
+  --color-yes-ink: #f2b441;
+  --color-danger: #cc2e24;
+  --color-danger-border: #6b2a26;
+
+  --color-scrim: rgb(5 7 12 / 0.7);
+  --color-toast: #283043;
+  --color-on-toast: #eceef3;
 }
 
-.read-the-docs {
-  color: #888;
+@layer base {
+  :root {
+    color-scheme: light;
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  :root.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    touch-action: manipulation;
+    background: var(--color-bg);
+    color: var(--color-ink);
+  }
+
+  #app {
+    width: 100%;
+    min-width: 320px;
+  }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
-button {
-  font-family: inherit;
-  cursor: pointer;
+/* A visible focus ring on everything you can reach by keyboard (Q31). */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
-:root:not(.dark) {
-  color: #213547;
-  background-color: #ffffff;
+/* Sheet and pane animations turn off under reduced motion (Q31). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
-:root:not(.dark) a:hover {
-  color: #747bff;
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-:root:not(.dark) body {
-  background: #f9f9f9;
+
+/* Shared building blocks. Touch targets are 44px (Q2). */
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition:
+      background-color 0.15s,
+      border-color 0.15s;
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .btn-lg {
+    min-height: 52px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .btn-primary {
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-accent-hover);
+  }
+  .btn-secondary {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    border: 1px solid var(--color-border);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--color-subtle);
+  }
+  .btn-soft {
+    background: var(--color-soft);
+    color: var(--color-soft-ink);
+  }
+  .btn-danger {
+    background: var(--color-danger);
+    color: #ffffff;
+  }
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    color: var(--color-ink);
+  }
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+  }
+  .card-link {
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+  .card-link:hover {
+    border-color: var(--color-border-strong);
+    box-shadow: 0 1px 3px rgb(20 26 38 / 0.08);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  /* A two-to-three option switch: language, theme, offer tabs */
+  .segments {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 14px;
+    background: var(--color-subtle);
+  }
+  .segment {
+    min-height: 44px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .segment[aria-pressed="true"],
+  .segment[aria-selected="true"] {
+    background: var(--color-track-on);
+    color: var(--color-ink);
+    box-shadow: 0 1px 2px rgb(20 26 38 / 0.14);
+  }
+  .label-caps {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-muted);
+  }
 }

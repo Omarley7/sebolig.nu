@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Copy, Share2, X } from "lucide-vue-next";
 import { computed, onUnmounted, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { captureItemShared } from "~/composables/usePostHog";
@@ -129,34 +130,39 @@ function send() {
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/80" @click.self="emit('close')">
+    <!-- A bottom sheet on phones, a centred panel on desktop -->
+    <div class="fixed inset-0 z-[70] flex items-end justify-center lg:items-center lg:p-6">
+      <div class="absolute inset-0 bg-scrim" @click="emit('close')" />
       <div
         data-testid="share-panel"
-        class="relative w-[90vw] max-w-md rounded-xl bg-white dark:bg-neutral-900 p-6 shadow-xl text-neutral-900 dark:text-neutral-100"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="t('share.title')"
+        class="relative w-full max-w-lg flex flex-col gap-3.5 px-5 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] rounded-t-[22px] bg-surface shadow-2xl
+               lg:rounded-[22px] lg:pb-6"
       >
-        <!-- Close button -->
-        <button
-          class="absolute top-3 right-3 p-1 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
-          @click="emit('close')"
-        >
-          <img src="/icons/x.svg" alt="Close" class="size-5 dark:invert" />
-        </button>
-
-        <h2 class="text-lg font-semibold mb-4">{{ t("share.title") }}</h2>
+        <span class="self-center w-10 h-[5px] mt-2.5 rounded-full bg-handle lg:hidden" aria-hidden="true" />
+        <div class="flex items-center justify-between gap-2 -mr-2 lg:mt-3">
+          <h2 class="text-[21px] font-extrabold tracking-tight">{{ t("share.title") }}</h2>
+          <button type="button" class="icon-btn rounded-full bg-subtle" :aria-label="t('common.close')" @click="emit('close')">
+            <X class="size-[18px]" :stroke-width="2.2" aria-hidden="true" />
+          </button>
+        </div>
 
         <!-- Preview: what is sent, not how each app shows it -->
-        <div class="relative rounded-2xl bg-neutral-100 dark:bg-white/5 p-3 text-sm">
+        <div class="relative rounded-[14px] bg-bg border border-border py-3.5 pl-4" :class="canCopyBeside ? 'pr-[52px]' : 'pr-4'">
           <button
             v-if="canCopyBeside"
+            type="button"
             data-testid="share-copy"
             :aria-label="t('share.copy')"
             :title="t('share.copy')"
-            class="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            class="icon-btn absolute top-1.5 right-1.5 rounded-[10px] hover:bg-subtle"
             @click="copyBeside"
           >
-            <img src="/icons/copy.svg" alt="" class="size-4 opacity-60 dark:invert" />
+            <Copy class="size-[18px]" aria-hidden="true" />
           </button>
-          <p data-testid="share-preview" class="whitespace-pre-wrap break-words" :class="{ 'pr-8': canCopyBeside }">{{ text }}</p>
+          <p data-testid="share-preview" class="text-sm leading-[1.55] whitespace-pre-wrap break-words">{{ text }}</p>
           <img
             v-if="floorPlanSent"
             data-testid="share-preview-floor-plan"
@@ -167,28 +173,22 @@ function send() {
         </div>
 
         <!-- Options: the text is always sent -->
-        <div class="mt-4 space-y-2">
-          <label class="flex items-center gap-2 text-sm cursor-pointer">
-            <input v-model="choice.mapLink" type="checkbox" class="size-4 accent-blue-600" />
+        <div class="flex flex-col">
+          <label class="min-h-12 flex items-center gap-3 px-1 cursor-pointer text-[15px] font-semibold">
+            <input v-model="choice.mapLink" type="checkbox" class="size-6 shrink-0 rounded-[7px] accent-accent" />
             {{ t("share.mapLink") }}
           </label>
-          <label v-if="floorPlan" class="flex items-center gap-2 text-sm cursor-pointer">
-            <input v-model="choice.floorPlan" type="checkbox" class="size-4 accent-blue-600" />
+          <label v-if="floorPlan" class="min-h-12 flex items-center gap-3 px-1 cursor-pointer text-[15px] font-semibold">
+            <input v-model="choice.floorPlan" type="checkbox" class="size-6 shrink-0 rounded-[7px] accent-accent" />
             {{ t("share.floorPlan") }}
-            <span v-if="floorPlan.state === 'loading'" class="text-xs text-neutral-400 dark:text-neutral-500">
-              {{ t("share.floorPlanLoading") }}
-            </span>
-            <span v-else-if="floorPlan.state === 'failed'" class="text-xs text-neutral-400 dark:text-neutral-500">
-              {{ t("share.floorPlanFailed") }}
-            </span>
+            <span v-if="floorPlan.state === 'loading'" class="font-medium text-muted">{{ t("share.floorPlanLoading") }}</span>
+            <span v-else-if="floorPlan.state === 'failed'" class="font-medium text-muted">{{ t("share.floorPlanFailed") }}</span>
           </label>
         </div>
 
-        <button
-          class="mt-5 w-full flex items-center justify-center gap-2 p-3 rounded-xl
-                 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
-          @click="send"
-        >
+        <button type="button" class="btn btn-primary btn-lg" @click="send">
+          <Share2 v-if="hasShareMenu" class="size-[18px]" aria-hidden="true" />
+          <Copy v-else class="size-[18px]" aria-hidden="true" />
           {{ hasShareMenu ? t("share.send") : t("share.copy") }}
         </button>
       </div>

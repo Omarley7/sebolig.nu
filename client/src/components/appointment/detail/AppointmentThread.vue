@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ThreadMessage } from "@/types";
+import { ExternalLink } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import BaseCollapse from "~/components/Base/BaseCollapse.vue";
@@ -21,34 +22,25 @@ const showEarlier = ref(false);
 </script>
 
 <template>
-  <section>
-    <p class="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
-      {{ t("appointments.thread.title") }}
-    </p>
-
-    <template v-if="earlier.length">
+  <section class="flex flex-col gap-2.5">
+    <div class="flex items-center justify-between">
+      <h3 class="text-base font-bold">{{ t("appointments.thread.title") }}</h3>
       <button
+        v-if="earlier.length"
         type="button"
-        class="flex items-center gap-1 mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400
-               hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
+        class="min-h-11 text-[13px] font-semibold text-accent"
         :aria-expanded="showEarlier"
         @click="showEarlier = !showEarlier"
       >
-        <img
-          src="/icons/chevron-down.svg"
-          alt=""
-          class="size-3.5 opacity-50 dark:invert transition-transform"
-          :class="{ 'rotate-180': showEarlier }"
-        />
         {{ showEarlier ? t("appointments.thread.hideEarlier") : t("appointments.thread.showEarlier", earlier.length) }}
       </button>
+    </div>
 
-      <BaseCollapse v-model:expanded="showEarlier">
-        <ol class="space-y-2 pb-2">
-          <ThreadMessageItem v-for="(message, i) in earlier" :key="i" :message="message" />
-        </ol>
-      </BaseCollapse>
-    </template>
+    <BaseCollapse v-if="earlier.length" v-model:expanded="showEarlier">
+      <ol class="flex flex-col gap-2 pb-2">
+        <ThreadMessageItem v-for="(message, i) in earlier" :key="i" :message="message" />
+      </ol>
+    </BaseCollapse>
 
     <ol>
       <ThreadMessageItem :message="latest" />
@@ -59,14 +51,10 @@ const showEarlier = ref(false);
       :href="replyUrl"
       target="_blank"
       rel="noopener noreferrer"
-      class="mt-2 w-full flex items-center justify-center gap-2 p-3 rounded-xl
-             border border-neutral-200 dark:border-neutral-700/50
-             hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors"
+      class="self-start min-h-11 flex items-center gap-1.5 text-sm font-semibold text-accent"
     >
-      <img src="/icons/external-link.svg" alt="" class="size-4 opacity-50 dark:invert" />
-      <span class="text-sm font-medium text-neutral-600 dark:text-neutral-300">
-        {{ t("appointments.thread.reply") }}
-      </span>
+      {{ t("appointments.thread.reply") }}
+      <ExternalLink class="size-3.5" aria-hidden="true" />
     </a>
   </section>
 </template>

@@ -19,6 +19,8 @@ let sheet: Sheet | undefined;
 let mounts: number;
 let opened: string[];
 let unmount = () => {};
+// Desktop: the detail shows inline, in a pane, instead of in a sheet.
+const inlineMode = ref(false);
 
 const Detail = defineComponent({
   props: {
@@ -55,8 +57,13 @@ const Card = defineComponent({
 
 const List = defineComponent({
   setup() {
-    const detail = useDetailSheet((id) => items.value.find((i) => i.id === id), { onOpen: (id) => opened.push(id) });
+    const detail = useDetailSheet((id) => items.value.find((i) => i.id === id), {
+      onOpen: (id) => opened.push(id),
+      inline: () => inlineMode.value,
+      fallback: () => items.value[0]?.id,
+    });
     return () => [
+      detail.pane ? h("p", { class: "pane" }, detail.pane.name) : null,
       ...(["new", "accepted"] as const).map((group) =>
         h("ul", { key: group }, items.value.filter((i) => i.group === group).map((item) => h(Card, { key: item.id, item }))),
       ),
@@ -98,6 +105,7 @@ beforeEach(async () => {
     { id: "b", group: "new", name: "Beta" },
   ];
   sheet = undefined;
+  inlineMode.value = false;
   mounts = 0;
   opened = [];
   router = createRouter({
@@ -136,7 +144,7 @@ describe("useDetailSheet", () => {
     expect(opened).toEqual(["a", "b"]);
   });
 
-  it("a link naming an item opens its sheet once the item is there, and leaves no trace in the address", async () => {
+  it("a link naming an item opens its sheet once the item is there, and back closes it, staying on the page", async () => {
     items.value = [];
     await router.push({ path: "/offers", query: { open: "b", tab: "x" } });
     await nextTick();
@@ -144,12 +152,22 @@ describe("useDetailSheet", () => {
 
     items.value = [{ id: "b", group: "new", name: "Beta" }];
     await vi.waitFor(() => expect(shown()).toBe("Beta"));
-    expect(router.currentRoute.value.query).toEqual({ tab: "x" });
+    await vi.waitFor(() => expect(router.currentRoute.value.query).toEqual({ open: "b", tab: "x" }));
 
-    // Back closes the sheet and stays on the page
     history.back();
     await vi.waitFor(() => expect(sheet!.visible).toBe(false));
+    await vi.waitFor(() => expect(router.currentRoute.value.query).toEqual({ tab: "x" }));
     expect(router.currentRoute.value.path).toBe("/offers");
+  });
+
+  it("while a sheet is open the address names its item, so a reload or a shared link opens it again", async () => {
+    await tap("a");
+    await vi.waitFor(() => expect(router.currentRoute.value.query).toEqual({ open: "a" }));
+
+    sheet!.close();
+    await vi.waitFor(() => expect(router.currentRoute.value.query).toEqual({}));
+    await slideOut();
+    expect(shown()).toBeUndefined();
   });
 
   it("a card can open its sheet at a section, and tapping the card itself opens it at the top", async () => {
@@ -224,18 +242,35 @@ describe("useDetailSheet", () => {
   });
 
   it("the item disappearing closes the sheet the normal way, showing the last-known item during the slide-out", async () => {
-    const pageState = history.state;
     await tap("a");
     items.value = items.value.filter((i) => i.id !== "a");
     await nextTick();
 
     expect(sheet!.visible).toBe(false);
     expect(shown()).toBe("Alpha");
-    await new Promise((r) => setTimeout(r, 0));
-    expect(history.state).toEqual(pageState);
-    expect(router.currentRoute.value.path).toBe("/offers");
+    await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe("/offers"));
+    expect(history.state.current).toBe("/offers");
 
     await slideOut();
     expect(shown()).toBeUndefined();
+  });
+});
+
+describe("useDetailSheet inline, as the desktop pane", () => {
+  const pane = () => document.querySelector(".pane")?.textContent;
+
+  it("shows the first item until the address names one, and tapping a card names it without adding a back step", async () => {
+    inlineMode.value = true;
+    await router.replace({ path: "/offers", query: { tab: "x" } });
+    await nextTick();
+    expect(pane()).toBe("Alpha");
+
+    const before = history.length;
+    card("b").click();
+    await vi.waitFor(() => expect(pane()).toBe("Beta"));
+    expect(router.currentRoute.value.query).toEqual({ tab: "x", open: "b" });
+    expect(history.length).toBe(before);
+    expect(shown()).toBeUndefined();
+    expect(opened).toEqual(["a", "b"]);
   });
 });

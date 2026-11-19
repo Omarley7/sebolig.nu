@@ -14,12 +14,18 @@ export interface LayerOptions {
   escapable?: () => boolean;
   /** Runs whenever the layer closes, whether by back, Esc or close(). */
   onClose?: () => void;
+  /**
+   * Adds the layer's history entry, carrying `state`. By default an entry at the same address; a
+   * detail sheet's entry is its list page's route with `?open=<id>` (see useDetailSheet).
+   */
+  push?: (state: Record<string, unknown>) => void;
 }
 
 interface Entry {
   handle: HistoryLayer & { isOpen: boolean };
   escapable: () => boolean;
   onClose: () => void;
+  push: (state: Record<string, unknown>) => void;
 }
 
 // One stack for the whole app. Each history entry a layer adds records how many layers
@@ -73,6 +79,7 @@ export function useHistoryLayer(options: LayerOptions = {}): HistoryLayer {
   const entry: Entry = {
     escapable: options.escapable ?? (() => true),
     onClose: options.onClose ?? (() => {}),
+    push: options.push ?? ((state) => history.pushState(state, "")),
     handle: reactive({
       isOpen: false,
       open() {
@@ -80,7 +87,7 @@ export function useHistoryLayer(options: LayerOptions = {}): HistoryLayer {
         entry.handle.isOpen = true;
         stack.push(entry);
         if (stack.length === 1) listen(true);
-        history.pushState({ [DEPTH_KEY]: stack.length }, "");
+        entry.push({ [DEPTH_KEY]: stack.length });
       },
       close() {
         const index = stack.indexOf(entry);

@@ -233,7 +233,7 @@ describe("BottomSheet with useSheet", () => {
 
   it("the close button and the backdrop close the sheet", async () => {
     await mountSheet();
-    document.querySelector<HTMLElement>("[role=dialog] button[aria-label=Close]")!.click();
+    document.querySelector<HTMLElement>("[role=dialog] button[data-sheet-close]")!.click();
     await nextTick();
     expect(harness.sheet.visible).toBe(false);
     unmount();

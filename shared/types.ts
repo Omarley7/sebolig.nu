@@ -69,6 +69,8 @@ export type Offer = {
   rooms: number | null;
   area: number | null; // m²
   recipientState: RecipientState;
+  /** The landlord edited the offer after sending it (findbolig.nu's 'Changed'). Missing on offers stored before it was sent. */
+  editedByLandlord?: boolean;
   company: string;
   financials: Financials;
   imageUrl: string;

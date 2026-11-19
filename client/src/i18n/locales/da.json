@@ -12,7 +12,24 @@
     "connect": "Forbind",
     "close": "Luk",
     "map": "Kort",
-    "seeDetails": "Se detaljer"
+    "seeDetails": "Se detaljer",
+    "cancel": "Annullér",
+    "fetching": "Henter fra findbolig.nu…",
+    "notFetchedYet": "Ikke hentet endnu",
+    "lastUpdated": "Sidst opdateret {ago}",
+    "updatedJustNow": "lige nu",
+    "updatedMinutesAgo": "for {count} min. siden",
+    "updatedHoursAgo": "for {count} time siden | for {count} timer siden",
+    "updatedDaysAgo": "for {count} dag siden | for {count} dage siden",
+    "noLocations": "Ingen lokationer at vise",
+    "positionShort": "Nr. {n}",
+    "queuePosition": "nr. {n} i køen",
+    "queuePositionCap": "Nr. {n} i køen",
+    "refresh": "Opdatér",
+    "roomsShort": "{count} vær.",
+    "showOnMap": "Vis på kort",
+    "tryAgain": "Prøv igen",
+    "offline": "Du er offline. Viser gemte data."
   },
   "appointments": {
     "emptyTitle": "Ingen kommende aftaler",
@@ -25,7 +42,7 @@
     "until": "til {time}",
     "mapOfLocations": "Kort over {count} lokationer",
     "openOnFindbolig": "Åbn på findbolig.nu",
-    "addToCalendar": "Tilføj til kalender",
+    "addToCalendar": "Til kalender",
     "queuePosition": "Køposition",
     "cancelled": "Aflyst",
     "refresh": "Opdatér",
@@ -39,7 +56,15 @@
       "reply": "Svar på findbolig.nu",
       "showEarlier": "Vis {count} tidligere besked | Vis {count} tidligere beskeder",
       "hideEarlier": "Skjul tidligere beskeder"
-    }
+    },
+    "awaitingDateNote": "Udlejer har ikke meldt en dato endnu",
+    "detailLabel": "Fremvisning, {address}",
+    "fetchFailedTitle": "Fremvisningerne kunne ikke hentes",
+    "inDays": "om {count} dag | om {count} dage",
+    "newMessage": "Ny besked fra udlejer",
+    "noTime": "Tid ikke oplyst",
+    "past": "Tidligere fremvisninger ({count})",
+    "route": "Rute"
   },
   "offers": {
     "pageTitle": "Boligtilbud",
@@ -77,7 +102,46 @@
     "refresh": "Opdatér",
     "refreshFailed": "Tilbuddene kunne ikke opdateres. Prøv igen.",
     "rooms": "{count} værelse | {count} værelser",
-    "area": "{value} m²"
+    "area": "{value} m²",
+    "answerBy": "Svar {when}",
+    "availableFromDate": "Ledig fra {date}",
+    "awaitingLandlord": "Afventer udlejer",
+    "deadlineAt": "{day} kl. {time}",
+    "detailLabel": "Boligtilbud, {address}",
+    "editedByLandlord": "Ændret af udlejer",
+    "fetchFailedTitle": "Tilbuddene kunne ikke hentes",
+    "rentedOutBy": "Udlejes af {company}",
+    "status": {
+      "declined": "Afvist",
+      "expired": "Udløbet",
+      "rented": "Udlejet",
+      "saidYes": "Du har sagt ja",
+      "withdrawn": "Trukket tilbage",
+      "won": "Du fik den",
+      "ended": "Afsluttet"
+    },
+    "tabs": {
+      "open": "Skal besvares",
+      "accepted": "Accepteret",
+      "closed": "Afsluttet",
+      "openNote": "Sorteret efter svarfrist",
+      "acceptedNote": "Udlejer vender tilbage",
+      "closedNote": "Afviste, udløbne og udlejede"
+    },
+    "empty": {
+      "open": {
+        "title": "Ingen tilbud at besvare",
+        "description": "Du har ingen aktive boligtilbud i øjeblikket. Tilbud vises her, når du modtager dem på findbolig.nu."
+      },
+      "accepted": {
+        "title": "Ingen accepterede tilbud",
+        "description": "Tilbud, du har sagt ja til, vises her, mens udlejer vælger."
+      },
+      "closed": {
+        "title": "Ingen afsluttede tilbud",
+        "description": "Afviste, udløbne og udlejede tilbud vises her i 30 dage."
+      }
+    }
   },
   "waitingLists": {
     "pageTitle": "Ventelister",
@@ -97,7 +161,9 @@
       "rentRange": "{min} – {max} kr/md",
       "statusActive": "Aktiv",
       "statusPassive": "Passiv",
-      "reactivate": "Meld mig aktiv"
+      "reactivate": "Meld mig aktiv",
+      "best": "Bedst",
+      "residences": "{count} bolig | {count} boliger"
     },
     "detail": {
       "rent": "Husleje",
@@ -106,7 +172,13 @@
       "appliedSince": "Skrevet op siden {date}",
       "openOnFindbolig": "Åbn på findbolig.nu",
       "dangerZone": "Fareområde",
-      "unsubscribe": "Fjern mig fra ventelisten"
+      "unsubscribe": "Fjern mig fra ventelisten",
+      "appliedSinceLabel": "Skrevet op siden",
+      "appliedTo": "Skrevet op til",
+      "passiveNote": "Du er passiv på denne venteliste og modtager ikke tilbud, før du melder dig aktiv igen.",
+      "residences": "bolig | boliger",
+      "roomsRange": "{rooms} vær.",
+      "size": "Størrelse"
     },
     "actions": {
       "reactivateAll": "Aktivér alle",
@@ -128,7 +200,9 @@
       "unsubscribeBody": "Du mister din anciennitet og skal starte forfra hvis du skriver dig op igen. Dette kan ikke fortrydes.",
       "cancel": "Annullér",
       "confirm": "Fjern mig"
-    }
+    },
+    "detailLabel": "Venteliste, {name}",
+    "fetchFailedTitle": "Ventelisterne kunne ikke hentes"
   },
   "financials": {
     "rent": "Leje",
@@ -139,13 +213,14 @@
     "deposit": "Depositum",
     "prepaidRent": "Forudbetalt leje",
     "firstPayment": "Indskud",
-    "shortMonth": "md"
+    "shortMonth": "md",
+    "krPerMonth": "kr./md"
   },
   "auth": {
     "disconnect": "Afbryd forbindelsen",
     "disconnectConfirm": "Afbryd forbindelsen til findbolig.nu? Alt, SeBolig har gemt på denne enhed, slettes.",
     "cancel": "Annuller",
-    "demoLogin": "Prøv som demo",
+    "demoLogin": "Prøv demoen",
     "demoNamePlaceholder": "Et kaldenavn (til demo)",
     "demoNameHint": "Vælg et kaldenavn for at prøve demoen.",
     "demoLoginSuccess": "Du er nu i demo-tilstand.",
@@ -159,13 +234,21 @@
     "connected": "Forbundet til findbolig.nu",
     "emailPlaceholder": "findbolig.nu email",
     "passwordPlaceholder": "findbolig.nu adgangskode",
-    "custodyNote": "SeBolig gemmer din adgangskode krypteret i din browser, så du forbliver forbundet i op til 30 dage. Intet gemmes på vores servere. Du kan afbryde når som helst."
+    "custodyNote": "SeBolig gemmer din adgangskode krypteret i din browser, så du forbliver forbundet i op til 30 dage. Intet gemmes på vores servere. Du kan afbryde når som helst.",
+    "demoStart": "Start demo",
+    "disconnectShort": "Afbryd",
+    "disconnectTitle": "Afbryd forbindelsen?"
   },
   "gallery": {
     "photos": "Fotos",
     "blueprints": "Plantegninger",
     "blueprintCount": "{count} plantegning | {count} plantegninger",
-    "photoCount": "{count} foto | {count} fotos"
+    "photoCount": "{count} foto | {count} fotos",
+    "close": "Luk galleriet",
+    "floorPlan": "Plantegning",
+    "next": "Næste",
+    "previous": "Forrige",
+    "photoAlt": "Foto {n}"
   },
   "home": {
     "welcomeUser": "Velkommen, {0}!",
@@ -181,20 +264,38 @@
     "viewOffers": "Se dit {count} tilbud | Se dine {count} tilbud",
     "checkOffers": "Tjek for boligtilbud",
     "viewWaitingLists": "Se din {count} venteliste | Se dine {count} ventelister",
-    "checkWaitingLists": "Tjek dine ventelister"
+    "checkWaitingLists": "Tjek dine ventelister",
+    "hello": "Hej {name}",
+    "helloAnonymous": "Hej",
+    "updated": "Opdateret {ago}",
+    "refreshFailed": "Kunne ikke opdatere. Prøv igen.",
+    "nextViewing": "Næste fremvisning",
+    "allViewings": "Alle fremvisninger",
+    "toAnswer": "Skal besvares",
+    "allOffers": "Alle tilbud",
+    "newMessages": "Nye beskeder",
+    "noNextViewing": "Ingen kommende fremvisninger",
+    "nothingToAnswer": "Ingen tilbud at besvare lige nu",
+    "noNewMessages": "Ingen nye beskeder"
   },
   "nav": {
     "home": "Hjem",
     "appointments": "Fremvisninger",
     "offers": "Tilbud",
-    "waitingLists": "Ventelister"
+    "waitingLists": "Ventelister",
+    "main": "Hovedmenu"
   },
   "landing": {
     "tagline": "Et bedre dashboard til din findbolig.nu-konto",
-    "description": "Vi henter dine aftaler, boligtilbud og mere direkte fra findbolig.nu - med offline adgang og lokal lagring.",
-    "featureAppointments": "Kronologisk aftaleoversigt",
+    "description": "SeBolig henter dine aftaler og tilbud fra findbolig.nu og viser dem som en kalender, sorteret efter hvad der haster.",
+    "featureAppointments": "Fremvisninger i en kalender, også uden net",
     "featureOffline": "Offline adgang med lokal lagring",
-    "featureAI": "AI-drevet udtrækning af åbent hus-datoer"
+    "featureAI": "Åbent hus-tider læst ud af udlejers beskeder",
+    "headline": "Alle dine fremvisninger og boligtilbud ét sted",
+    "featureDeadlines": "Svarfrister sorteret efter hvad der haster",
+    "connectFindbolig": "Forbind findbolig.nu",
+    "mockFacts": "3 vær. · 79 m² · 13.564 kr./md",
+    "mockMessage": "Husk lønsedler og legitimation"
   },
   "errors": {
     "timeout": "findbolig.nu svarer ikke lige nu. Prøv igen senere.",
@@ -287,6 +388,24 @@
       "movedToAppointments": "Flyttet til fremvisninger",
       "appointment": "Ikke længere blandt dine fremvisninger",
       "offer": "Ikke længere blandt dine tilbud"
-    }
+    },
+    "unseen": "Ny"
+  },
+  "account": {
+    "open": "Konto og indstillinger",
+    "anonymous": "Dig",
+    "connected": "Forbundet til findbolig.nu",
+    "demo": "Demo",
+    "language": "Sprog",
+    "theme": {
+      "label": "Tema",
+      "light": "Lys",
+      "dark": "Mørk",
+      "auto": "Automatisk"
+    },
+    "disconnectNote": "Afbryder du, slettes alt, SeBolig har gemt på denne enhed.",
+    "endDemo": "Afslut demo",
+    "endDemoTitle": "Afslut demoen?",
+    "endDemoNote": "Demoens data på denne enhed slettes."
   }
 }

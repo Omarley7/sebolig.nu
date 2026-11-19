@@ -33,11 +33,3 @@ export function getDeadlineUrgency(
   }
   return { color: "green", relative: t("offers.daysRemaining", { count: diffDays }) };
 }
-
-/** Tailwind color classes for urgency indicators */
-export const urgencyColors: Record<UrgencyColor, { dot: string; text: string }> = {
-  red: { dot: "bg-red-500", text: "text-red-500" },
-  amber: { dot: "bg-amber-500", text: "text-amber-500" },
-  green: { dot: "bg-emerald-500", text: "text-emerald-500" },
-  neutral: { dot: "bg-neutral-400", text: "text-neutral-400" },
-};

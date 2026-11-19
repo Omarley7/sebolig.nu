@@ -162,6 +162,8 @@ export function changesStore(kept: KeptData) {
       /** Every change still kept, newest first. */
       changes: computed(() => [...log.value].sort(newestFirst)),
       unseenCount: computed(() => log.value.filter((c) => c.seenAt === null).length),
+      /** Nye beskeder on Hjem (Q25): the unseen new-message changes, newest first. Seen with their card, as in the bell. */
+      unseenMessages: computed(() => log.value.filter((c) => c.seenAt === null && c.detail.field === "message").sort(newestFirst)),
       /** Whether the card has a change the user has not seen: it gets a dot. */
       hasUnseen: (kind: ChangeKind, itemId: string) => unseenOf(kind, itemId).length > 0,
       rowTarget,

@@ -1,5 +1,8 @@
-import { onMounted, reactive, watch } from "vue";
+import { inject, onMounted, reactive, watch, type InjectionKey } from "vue";
 import { useHistoryLayer, type HistoryLayer, type LayerOptions } from "./useHistoryLayer";
+
+/** How a list's detail sheet adds its history entry: as the list page with `?open=<id>` (see useDetailSheet). */
+export const SHEET_ENTRY: InjectionKey<(state: Record<string, unknown>) => void> = Symbol("sheetEntry");
 
 /** A layer opened on top of a sheet: gallery, financials, confirm dialog. */
 export type SheetPopup = HistoryLayer;
@@ -28,7 +31,7 @@ export interface Sheet {
  * Back and Esc close the top popup first, then the sheet. Back never changes the route.
  */
 export function useSheet(options: SheetOptions = {}): Sheet {
-  const layer = useHistoryLayer({ onClose: markClosed });
+  const layer = useHistoryLayer({ onClose: markClosed, push: inject(SHEET_ENTRY, undefined) });
 
   const sheet = reactive({
     visible: false,

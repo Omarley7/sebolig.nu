@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Appointment, Offer } from "@/types";
+import { Bell } from "lucide-vue-next";
 import { ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
@@ -44,16 +45,13 @@ async function onAfterLeave() {
 <template>
   <div>
     <button
-      class="relative p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+      type="button"
+      class="icon-btn relative rounded-full hover:bg-subtle"
       :aria-label="t('changes.open', { count: changes.unseenCount }, changes.unseenCount)"
       @click="isOpen = true"
     >
-      <img src="/icons/bell.svg" alt="" class="size-5 dark:invert" />
-      <span
-        v-if="changes.unseenCount > 0"
-        class="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-sky-500 text-white
-               text-[0.625rem] font-bold leading-4 text-center tabular-nums"
-      >
+      <Bell class="size-[22px]" aria-hidden="true" />
+      <span v-if="changes.unseenCount > 0" class="count-badge absolute top-[7px] right-1.5 bg-accent text-on-accent">
         {{ changes.unseenCount > 99 ? "99+" : changes.unseenCount }}
       </span>
     </button>
@@ -61,7 +59,6 @@ async function onAfterLeave() {
     <AppointmentDetailSheet
       v-if="copy?.appointment"
       :appointment="copy.appointment"
-      include-date
       :outcome="copy.outcome"
       @after-leave="copy = null"
     />

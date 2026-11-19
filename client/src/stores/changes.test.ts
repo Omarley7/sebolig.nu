@@ -2,6 +2,7 @@ import type { Appointment, AppointmentDelta, Offer } from "@/types";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { demoAppointments } from "~/data/appointments/demo";
+import { demoOffers } from "~/data/offers/demo";
 import type { AppointmentsSource } from "~/data/appointments/source";
 import type { OffersSource } from "~/data/offers/source";
 import type { ChangeDetail, FoundChange } from "~/lib/changes";
@@ -313,23 +314,39 @@ it("declining an offer in SeBolig doesn't check appointments", async () => {
   expect(deltas).toBe(1);
 });
 
-it("in the Demo, the first check brings a viewing date, a landlord message and an awarded viewing; later checks nothing", async () => {
+it("in the Demo, the first check brings a landlord message, a better queue position and an offer let to someone else; later checks nothing", async () => {
   vi.useFakeTimers({ toFake: ["Date", "setTimeout"] });
   vi.setSystemTime(new Date("2026-10-20T12:00:00Z"));
-  const { appointmentsStore, changes } = tracked(demoAppointments());
-  const connecting = appointmentsStore.init();
+  const { appointmentsStore, offersStore, changes } = tracked(demoAppointments(), demoOffers());
+  const connecting = Promise.all([appointmentsStore.init(), offersStore.init()]);
   await vi.runAllTimersAsync();
   await connecting;
   expect(changes.changes).toEqual([]);
 
-  vi.advanceTimersByTime(61_000);
-  await appointmentsStore.init();
-  vi.advanceTimersByTime(61_000);
-  await appointmentsStore.init();
+  for (let i = 0; i < 2; i++) {
+    vi.advanceTimersByTime(61_000);
+    await Promise.all([appointmentsStore.init(), offersStore.init()]);
+  }
 
-  expect(changes.changes.map((c) => c.detail).sort((a, b) => a.field.localeCompare(b.field))).toEqual([
-    expect.objectContaining({ field: "message", count: 1, latest: expect.objectContaining({ from: "landlord" }) }),
-    expect.objectContaining({ field: "removed", state: "Awarded" }),
-    expect.objectContaining({ field: "viewing", from: { date: null, start: null, end: null } }),
+  expect(changes.changes.map((c) => [c.kind, c.detail]).sort(([, a], [, b]) => (a as ChangeDetail).field.localeCompare((b as ChangeDetail).field))).toEqual([
+    ["appointment", expect.objectContaining({ field: "message", count: 1, latest: expect.objectContaining({ from: "landlord" }) })],
+    ["offer", expect.objectContaining({ field: "position" })],
+    ["offer", expect.objectContaining({ field: "removed", state: "AwardedExternally" })],
   ]);
+});
+
+it("Nye beskeder on Hjem lists the unseen message changes only, newest first, and opening the card sees them in the bell too", () => {
+  const { changes } = setup();
+  const gist = (excerpt: string) => ({ from: "landlord" as const, senderName: null, excerpt, hasAttachments: false });
+
+  changes.record([found("a", { field: "message", count: 1, latest: gist("first") })]);
+  vi.advanceTimersByTime(1000);
+  changes.record([found("b", { field: "message", count: 1, latest: gist("second") }), found("c", position(5, 4))]);
+
+  expect(changes.unseenMessages.map((c) => c.itemId)).toEqual(["b", "a"]);
+
+  changes.markSeen("appointment", "b");
+
+  expect(changes.unseenMessages.map((c) => c.itemId)).toEqual(["a"]);
+  expect(changes.changes.find((c) => c.itemId === "b")?.seenAt).not.toBeNull();
 });

@@ -1,26 +1,29 @@
 <script setup lang="ts">
 import type { Appointment } from "@/types";
-import "add-to-calendar-button";
+import { ExternalLink, Share2 } from "lucide-vue-next";
 import { computed, nextTick, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useDarkMode } from "~/composables/useDarkMode";
-import { useSheet } from "~/composables/useSheet";
-import { formatCurrency, formatTimeSlot } from "~/lib/formatters";
-import { floorPlanFileName, viewingShareText, type ShareLocale, type ShareOptions } from "~/lib/share";
-import FinancialsModal from "~/components/shared/FinancialsModal.vue";
-import SharePanel from "~/components/shared/SharePanel.vue";
-import BottomSheet from "~/components/shared/BottomSheet.vue";
-import DetailGallery from "~/components/shared/DetailGallery.vue";
+import ViewingActions from "~/components/appointment/ViewingActions.vue";
 import AppointmentThread from "~/components/appointment/detail/AppointmentThread.vue";
+import DetailFrame from "~/components/shared/DetailFrame.vue";
+import DetailGallery from "~/components/shared/DetailGallery.vue";
+import DetailTitle from "~/components/shared/DetailTitle.vue";
+import FinancialsModal from "~/components/shared/FinancialsModal.vue";
+import KeptCopyNote from "~/components/shared/KeptCopyNote.vue";
+import RentSummary from "~/components/shared/RentSummary.vue";
+import SharePanel from "~/components/shared/SharePanel.vue";
+import { usePane } from "~/composables/usePane";
+import { useSheet } from "~/composables/useSheet";
+import { floorPlanFileName, viewingShareText, type ShareLocale, type ShareOptions } from "~/lib/share";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const { t, locale } = useI18n();
-const { isDark } = useDarkMode();
 
 const props = defineProps<{
   appointment: Appointment;
-  includeDate?: boolean;
+  /** Shown inline in the desktop pane rather than in a sheet. */
+  inline?: boolean;
   /** The item has disappeared from the store; the sheet slides out showing its last-known state. */
   gone?: boolean;
   /** Where to open: "thread" scrolls to the messages. */
@@ -37,7 +40,7 @@ const emit = defineEmits<{
   "after-leave": [];
 }>();
 
-const sheet = useSheet({ closeWhen: () => props.gone });
+const sheet = props.inline ? usePane() : useSheet({ closeWhen: () => props.gone });
 const financials = sheet.popup();
 const sharing = sheet.popup();
 
@@ -50,23 +53,12 @@ function shareText(options: ShareOptions) {
 
 const hasValidOfferId = computed(() => UUID_RE.test(props.appointment.offerId ?? ""));
 
-// add-to-calendar-button rejects a start without an end (or vice versa); with neither it makes an all-day event.
-const hasTimeSlot = computed(() => !!(props.appointment.start && props.appointment.end));
-
 const allImages = computed(() => {
   if (props.appointment.images?.length) return props.appointment.images;
-  return [props.appointment.imageUrl];
+  return props.appointment.imageUrl ? [props.appointment.imageUrl] : [];
 });
 
 const blueprints = computed(() => props.appointment.blueprints ?? []);
-
-function handleMapClick() {
-  const address = `${props.appointment.residence.addressLine1}, ${props.appointment.residence.addressLine2}`;
-  window.open(
-    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
-    "_blank",
-  );
-}
 
 const offerUrl = computed(() =>
   hasValidOfferId.value ? `https://findbolig.nu/profile/my-offers?offerId=${props.appointment.offerId}` : null,
@@ -80,9 +72,22 @@ const threadUrl = computed(() =>
   hasValidOfferId.value ? `https://findbolig.nu/profile/messages?relatedEntities=${props.appointment.offerId}` : null,
 );
 
-function openOnFindbolig() {
-  if (offerUrl.value) window.open(offerUrl.value, "_blank");
-}
+const day = computed(() => {
+  if (!props.appointment.date) return null;
+  const text = new Date(props.appointment.date).toLocaleDateString(locale.value === "en" ? "en-GB" : "da-DK", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  return text.charAt(0).toUpperCase() + text.slice(1);
+});
+const time = computed(() => {
+  const { start, end } = props.appointment;
+  if (start && end) return `${start}–${end}`;
+  if (start) return start;
+  if (end) return t("appointments.until", { time: end });
+  return null;
+});
 
 const messages = computed(() => props.appointment.messages ?? []);
 const threadEl = ref<HTMLElement | null>(null);
@@ -98,176 +103,60 @@ onMounted(async () => {
 </script>
 
 <template>
-  <BottomSheet :sheet="sheet" @close="emit('close')" @after-leave="emit('after-leave')">
+  <DetailFrame
+    :sheet="sheet"
+    :inline="inline"
+    :label="t('appointments.detailLabel', { address: appointment.residence.addressLine1 })"
+    @close="emit('close')"
+    @after-leave="emit('after-leave')"
+  >
     <DetailGallery :sheet="sheet" :images="allImages" :blueprints="blueprints" />
 
-    <!-- Content -->
-    <div class="p-5 space-y-5">
-      <!-- A card that has left its list, opened from the changes panel: why, and that this is how it was -->
-      <div v-if="outcome" class="rounded-xl px-3 py-2.5 bg-neutral-100 dark:bg-white/5">
-        <p class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{{ outcome }}</p>
-        <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ t("changes.keptCopy") }}</p>
-      </div>
+    <div class="flex flex-col gap-5 p-5">
+      <KeptCopyNote v-if="outcome" :outcome="outcome" />
 
-      <!-- Title + Address -->
-      <div>
-        <h2 class="text-lg font-bold text-neutral-900 dark:text-white leading-snug">
-          {{ appointment.title }}
-        </h2>
-        <button class="flex items-center gap-1.5 mt-1.5 group" @click="handleMapClick">
-          <p
-            class="text-sm text-neutral-500 dark:text-neutral-400
-                   group-hover:text-neutral-700 dark:group-hover:text-neutral-300 transition-colors"
-          >
-            {{ appointment.residence.addressLine1 }}, {{ appointment.residence.addressLine2 }}
-          </p>
-          <img
-            src="/icons/map.svg"
-            alt=""
-            class="size-4 opacity-40 group-hover:opacity-70 transition-opacity dark:invert"
-          />
-        </button>
-      </div>
+      <DetailTitle :residence="appointment.residence" :rooms="appointment.rooms" :area="appointment.area" />
 
-      <hr class="border-neutral-200 dark:border-neutral-700/50" />
-
-      <!-- Date + Time + Queue -->
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <p
-            class="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1"
-          >
-            {{ t("appointments.openHouse") }}
-          </p>
-          <p
-            v-if="appointment.date"
-            class="text-sm font-medium text-neutral-800 dark:text-neutral-200 tabular-nums"
-          >
-            {{ formatTimeSlot(appointment, t, true) }}
-          </p>
-          <p v-else class="text-sm italic text-neutral-400 dark:text-neutral-500">
-            {{ t("appointments.noDate") }}
-          </p>
-
-          <!-- Calendar button -->
-          <div v-if="appointment.date && !outcome" class="mt-3">
-            <add-to-calendar-button
-              :name="appointment.title"
-              options="'Apple','Google','Microsoft365','Outlook.com'"
-              :lightMode="isDark ? 'dark' : 'light'"
-              :location="`${appointment.residence.addressLine1}, ${appointment.residence.addressLine2}`"
-              :startDate="appointment.date"
-              :endDate="appointment.date"
-              :startTime="hasTimeSlot ? appointment.start : undefined"
-              :endTime="hasTimeSlot ? appointment.end : undefined"
-              timeZone="Europe/Copenhagen"
-              listStyle="dropup-static"
-              hideBackground
-              :label="t('appointments.addToCalendar')"
-              pastDateHandling=""
-              hideTextLabelList
-              size="4|3|3"
-              buttonStyle="3d"
-              hideBranding
-            />
+      <div class="flex flex-col gap-3.5 p-4 rounded-2xl bg-bg border border-border">
+        <div class="flex justify-between gap-3">
+          <div class="flex flex-col gap-0.5">
+            <span class="label-caps">{{ t("appointments.openHouse") }}</span>
+            <template v-if="appointment.date">
+              <span class="text-base font-bold">{{ day }}</span>
+              <span v-if="time" class="text-[22px] font-extrabold tracking-tight tabular-nums">{{ time }}</span>
+              <span v-else class="text-sm text-muted">{{ t("appointments.noTime") }}</span>
+            </template>
+            <span v-else class="text-base font-bold text-muted">{{ t("appointments.noDate") }}</span>
+            <span v-if="appointment.cancelled" class="chip self-start mt-1 bg-urgent text-urgent-ink">{{ t("appointments.cancelled") }}</span>
+          </div>
+          <div v-if="appointment.position != null" class="flex flex-col items-end gap-0.5">
+            <span class="label-caps">{{ t("appointments.queuePosition") }}</span>
+            <span class="text-[22px] font-extrabold tabular-nums">#{{ appointment.position }}</span>
           </div>
         </div>
-
-        <!-- Queue position -->
-        <div v-if="appointment.position != null" class="text-right shrink-0">
-          <p
-            class="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1"
-          >
-            {{ t("appointments.queuePosition") }}
-          </p>
-          <p class="text-2xl font-bold tabular-nums text-neutral-800 dark:text-neutral-200">
-            #{{ appointment.position }}
-          </p>
-        </div>
+        <ViewingActions v-if="appointment.date && !appointment.cancelled && !outcome" :appointment="appointment" />
       </div>
 
-      <!-- Share -->
-      <button
-        v-if="canShare"
-        class="w-full flex items-center justify-center gap-2 p-3 rounded-xl
-               border border-neutral-200 dark:border-neutral-700/50
-               hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors"
-        @click="sharing.open()"
-      >
-        <img src="/icons/share.svg" alt="" class="size-4 opacity-50 dark:invert" />
-        <span class="text-sm font-medium text-neutral-600 dark:text-neutral-300">
+      <RentSummary :financials="appointment.financials" @open="financials.open()" />
+
+      <div v-if="messages.length" ref="threadEl">
+        <AppointmentThread :messages="messages" :reply-url="outcome ? null : threadUrl" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 pt-3 border-t border-divider">
+        <button v-if="canShare" type="button" class="btn btn-secondary" @click="sharing.open()">
+          <Share2 class="size-4" aria-hidden="true" />
           {{ t("share.button") }}
-        </span>
-      </button>
-
-      <hr class="border-neutral-200 dark:border-neutral-700/50" />
-
-      <!-- Financials summary -->
-      <button
-        class="w-full flex items-center justify-between p-3 rounded-xl
-               bg-neutral-100 dark:bg-white/5
-               hover:bg-neutral-200/70 dark:hover:bg-white/8
-               transition-colors text-left"
-        @click="financials.open()"
-      >
-        <div>
-          <p
-            class="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-0.5"
-          >
-            {{ t("financials.rent") }}
-          </p>
-          <p class="text-base font-semibold tabular-nums text-neutral-800 dark:text-neutral-100">
-            {{ formatCurrency(appointment.financials.monthlyRentIncludingAconto) }} /
-            {{ t("financials.shortMonth") }}
-          </p>
-        </div>
-        <div class="text-right">
-          <p class="text-xs text-neutral-400 dark:text-neutral-500 mb-0.5">
-            {{ t("financials.firstPayment") }}
-          </p>
-          <p class="text-sm font-medium tabular-nums text-neutral-700 dark:text-neutral-200">
-            {{ formatCurrency(appointment.financials.firstPayment) }}
-          </p>
-        </div>
-        <img
-          src="/icons/chevron-down.svg"
-          alt=""
-          class="size-4 -rotate-90 opacity-30 dark:invert shrink-0 ml-2"
-        />
-      </button>
-
-      <!-- Thread -->
-      <template v-if="messages.length">
-        <div ref="threadEl">
-          <AppointmentThread :messages="messages" :reply-url="outcome ? null : threadUrl" />
-        </div>
-
-        <hr class="border-neutral-200 dark:border-neutral-700/50" />
-      </template>
-
-      <!-- Open on findbolig -->
-      <button
-        v-if="hasValidOfferId"
-        class="w-full flex items-center justify-center gap-2 p-3 rounded-xl
-               border border-neutral-200 dark:border-neutral-700/50
-               hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors"
-        @click="openOnFindbolig"
-      >
-        <img src="/icons/external-link.svg" alt="" class="size-4 opacity-50 dark:invert" />
-        <span class="text-sm font-medium text-neutral-600 dark:text-neutral-300">
-          {{ t("appointments.openOnFindbolig") }}
-        </span>
-      </button>
+        </button>
+        <a v-if="offerUrl" :href="offerUrl" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" :class="canShare ? '' : 'col-span-2'">
+          <ExternalLink class="size-4" aria-hidden="true" />
+          findbolig.nu
+        </a>
+      </div>
     </div>
 
     <template #popups>
-      <!-- Financials modal -->
-      <FinancialsModal
-        v-if="financials.isOpen"
-        :financials="appointment.financials"
-        @close="financials.close()"
-      />
-
+      <FinancialsModal v-if="financials.isOpen" :financials="appointment.financials" @close="financials.close()" />
       <SharePanel
         v-if="sharing.isOpen"
         kind="viewing"
@@ -277,5 +166,5 @@ onMounted(async () => {
         @close="sharing.close()"
       />
     </template>
-  </BottomSheet>
+  </DetailFrame>
 </template>
