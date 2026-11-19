@@ -21,6 +21,8 @@ export type TabbedOffer = {
   closed?: ClosedReason;
   /** When it closed, for an offer that left the list. */
   closedAt?: string;
+  /** findbolig.nu's state when it left the list, for the detail's "why it left". */
+  removedState?: RemovedState | null;
 };
 
 const dayNumber = (date: Date) => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
@@ -67,7 +69,7 @@ export function offerTabs(offers: Offer[], finished: FinishedOffer[], now: Date)
   const listed = new Set(offers.map((o) => o.id));
   for (const { offer, state, at } of finished) {
     if (listed.has(offer.id) || movedToAppointments("offer", state, offer)) continue;
-    tabs.closed.push({ offer, closed: reasonFor(state), closedAt: at });
+    tabs.closed.push({ offer, closed: reasonFor(state), closedAt: at, removedState: state });
   }
   tabs.open.sort(byDeadline);
   tabs.accepted.sort(byDeadline);

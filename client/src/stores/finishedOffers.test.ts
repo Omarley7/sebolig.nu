@@ -40,7 +40,7 @@ function setup(removedStates: Record<string, string>, stored: Offer[], options: 
     respond: async () => "OfferAccepted",
   };
   const offers = harness.localData.define(offersKind({ live: source, demo: source }))();
-  const finished = finishedOffersStore(harness.localData.keep("finishedOffers"))();
+  const finished = finishedOffersStore(harness.localData.keep("finished_offers"))();
   trackFinishedOffers({ offers, finished });
   return { ...harness, offers, finished };
 }
@@ -66,15 +66,15 @@ it("keeps an offer that left the offers list, as it was, with why and when it le
 it("is still there after a reload, and goes after 30 days", async () => {
   const first = setup({ a: "Released" }, [offer("a")]);
   await first.offers.init();
-  const stored = first.readStored("finishedOffers");
+  const stored = first.readStored("finished_offers");
 
   setActivePinia(createPinia());
-  const reloaded = setup({}, [], { stored: { finishedOffers: stored } });
+  const reloaded = setup({}, [], { stored: { finished_offers: stored } });
   expect(reloaded.finished.offers.map((f) => f.offer.id)).toEqual(["a"]);
 
   vi.setSystemTime(new Date(Date.now() + 31 * DAY));
   setActivePinia(createPinia());
-  const later = setup({}, [], { stored: { finishedOffers: stored } });
+  const later = setup({}, [], { stored: { finished_offers: stored } });
   expect(later.finished.offers).toEqual([]);
 });
 

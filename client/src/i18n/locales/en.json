@@ -268,7 +268,7 @@
     "hello": "Hi {name}",
     "helloAnonymous": "Hi",
     "updated": "Updated {ago}",
-    "refreshFailed": "Couldn't update. Try again.",
+    "refreshFailed": "Couldn't refresh. Try again.",
     "nextViewing": "Next viewing",
     "allViewings": "All viewings",
     "toAnswer": "To answer",

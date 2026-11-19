@@ -96,7 +96,12 @@ export function useDetailSheet<T>(
     const id = linked.value ?? fallback();
     return id !== undefined && lookup(id) !== undefined ? id : null;
   });
-  watch(paneId, (id) => id !== null && onOpen?.(id), { immediate: true });
+  // Only an item the user opened (the address names it) is seen; the fallback is merely shown.
+  watch(
+    () => (inline() ? linked.value : null),
+    (id) => id !== null && onOpen?.(id),
+    { immediate: true },
+  );
 
   return reactive({
     /** The item to show, its last-known state once it is gone; undefined when no sheet is mounted. */

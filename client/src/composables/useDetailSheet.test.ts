@@ -259,7 +259,7 @@ describe("useDetailSheet", () => {
 describe("useDetailSheet inline, as the desktop pane", () => {
   const pane = () => document.querySelector(".pane")?.textContent;
 
-  it("shows the first item until the address names one, and tapping a card names it without adding a back step", async () => {
+  it("shows the first item until the address names one, and tapping a card names it without adding a back step; only that one counts as opened", async () => {
     inlineMode.value = true;
     await router.replace({ path: "/offers", query: { tab: "x" } });
     await nextTick();
@@ -271,6 +271,6 @@ describe("useDetailSheet inline, as the desktop pane", () => {
     expect(router.currentRoute.value.query).toEqual({ tab: "x", open: "b" });
     expect(history.length).toBe(before);
     expect(shown()).toBeUndefined();
-    expect(opened).toEqual(["a", "b"]);
+    expect(opened).toEqual(["b"]);
   });
 });

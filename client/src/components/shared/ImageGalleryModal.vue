@@ -91,7 +91,7 @@ function thumbUrl(path: string): string {
             type="button"
             role="tab"
             :aria-selected="activeTab === tab"
-            class="h-9 px-3.5 rounded-full text-[13px] font-semibold"
+            class="min-h-11 px-3.5 rounded-full text-[13px] font-semibold"
             :class="activeTab === tab ? 'bg-[#ECEEF3] text-[#141A26]' : 'text-[#ECEEF3]'"
             @click="switchTab(tab)"
           >

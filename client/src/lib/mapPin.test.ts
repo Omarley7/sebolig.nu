@@ -37,6 +37,14 @@ describe("appointmentPin", () => {
     });
   });
 
+  test("names the rooms and size first, as an offer's pin does (#117)", () => {
+    expect(appointmentPin(appointment({ rooms: 3, area: 78 }), t)?.details).toEqual([
+      "3 værelser · 78 m²",
+      "d. 18/10, 15:00 - 16:00",
+      "8.500\u00a0kr. / md",
+    ]);
+  });
+
   test("is waiting for a date when it has none", () => {
     expect(appointmentPin(appointment({ date: null, start: null, end: null }), t)?.details).toEqual([
       "Afventer dato",

@@ -39,7 +39,7 @@ const summary = computed(() => {
       <button
         v-if="list.status === 'Passive'"
         type="button"
-        class="btn !min-h-10 !rounded-[10px] bg-bg border border-border text-accent"
+        class="btn !rounded-[10px] bg-bg border border-border text-accent"
         :disabled="store.isMutating"
         @click="store.setActive(list.propertyId)"
       >

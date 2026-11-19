@@ -77,6 +77,7 @@ const open = (page: "appointments" | "offers", id: string) => router.push({ name
       :title="firstName ? t('home.hello', { name: firstName }) : t('home.helloAnonymous')"
       :subtitle="subtitle"
       :busy="busy"
+      :loading="stores.some((s) => s.isLoading && !s.hasData)"
       @refresh="refreshAll"
     />
     <ErrorBanner v-if="failed" :message="t('home.refreshFailed')" @retry="refreshAll" />

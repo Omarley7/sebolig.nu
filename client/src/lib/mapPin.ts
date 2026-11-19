@@ -31,6 +31,7 @@ export function appointmentPin(appointment: Appointment, t: Translate): MapPin |
     // The full date even when grouped by day: on the map the pin has lost its group
     details: [
       ...(appointment.cancelled ? [t("appointments.cancelled")] : []),
+      ...[formatOfferFacts(appointment, t)].filter(Boolean),
       appointment.date ? formatTimeSlot(appointment, t, true) : t("appointments.noDate"),
       rent(financials.monthlyRentIncludingAconto, t),
     ],

@@ -56,8 +56,7 @@ const detail = useDetailSheet((id) => byId.value.get(id), {
 /** Why a finished offer left the list, for its detail: read-only then. */
 function outcomeOf(row: TabbedOffer): string | null {
   if (!row.closedAt) return null;
-  const state = row.closed === "won" ? "AwardedToYou" : row.closed === "rentedToOthers" ? "Awarded" : row.closed === "withdrawn" ? "Released" : null;
-  return removalText("offer", state, row.offer, t);
+  return removalText("offer", row.removedState ?? null, row.offer, t);
 }
 
 const showMap = ref(false);
@@ -126,5 +125,5 @@ const subtitle = computed(() => (store.hasData && !status.value.banner ? t(SUBTI
     @close="detail.onClose"
     @after-leave="detail.onAfterLeave"
   />
-  <MapModal v-if="showMap" :pins="pins" :title="t(TAB_LABELS[tab])" @select="detail.open" @close="showMap = false" />
+  <MapModal v-if="showMap" :pins="pins" :title="t('offers.pageTitle')" @select="detail.open" @close="showMap = false" />
 </template>

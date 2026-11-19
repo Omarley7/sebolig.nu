@@ -75,7 +75,7 @@ function openBlueprints() {
       <button
         v-if="blueprints.length > 0"
         type="button"
-        class="pointer-events-auto h-8 px-3 rounded-full bg-white/90 text-[#141A26] text-xs font-semibold flex items-center gap-1.5"
+        class="pointer-events-auto min-h-11 px-3.5 rounded-full bg-white/90 text-[#141A26] text-xs font-semibold flex items-center gap-1.5"
         @pointerdown.stop
         @click.stop="openBlueprints"
       >

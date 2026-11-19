@@ -18,7 +18,7 @@ import "~/stores/waitingLists";
 
 /**
  * Connects the Local data module to the Connection, has what checks and refreshes change
- * recorded in the changes log and offers that left kept for Afsluttet, and has accepting an offer check appointments; call once pinia is
+ * recorded in the changes log and the offers that left the list kept for Tilbud's Afsluttet tab, and has accepting an offer check appointments; call once pinia is
  * installed.
  */
 export function installLocalData() {

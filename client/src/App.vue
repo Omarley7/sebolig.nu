@@ -5,6 +5,7 @@ import { useRoute, useRouter } from "vue-router";
 import ToastContainer from "~/components/Base/ToastContainer.vue";
 import ConnectDialog from "~/components/ConnectDialog.vue";
 import AppHeader from "~/components/layout/AppHeader.vue";
+import ChangesBell from "~/components/changes/ChangesBell.vue";
 import BottomNav from "~/components/layout/BottomNav.vue";
 import NavRail from "~/components/layout/NavRail.vue";
 import { useAuth } from "~/composables/useAuth";
@@ -42,6 +43,8 @@ onUnmounted(() => window.removeEventListener("offline", onOffline));
 
 // From lg up a Connection gets the left rail; below it, the header and the bottom nav (Q14).
 const withRail = computed(() => auth.isAuthenticated && isDesktop.value);
+// The bell sits in each page's title bar on desktop; pages without one (Explainer, 404) get it here.
+const ownTitleBar = computed(() => route.name !== "explainer" && route.name !== "not-found");
 // The landing page lays itself out wider; every other page is the phone column, or the desktop page.
 const wide = computed(() => !auth.isAuthenticated || route.meta.wide === true);
 </script>
@@ -51,6 +54,7 @@ const wide = computed(() => !auth.isAuthenticated || route.meta.wide === true);
     <NavRail v-if="withRail" />
     <div class="flex-1 min-w-0 flex flex-col">
       <AppHeader v-if="!withRail" />
+      <div v-else-if="!ownTitleBar" class="flex justify-end px-8 pt-6"><ChangesBell /></div>
       <main
         class="flex-1 w-full mx-auto"
         :class="[

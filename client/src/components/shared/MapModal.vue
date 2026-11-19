@@ -48,7 +48,7 @@ function popupContent(pin: MapPin): HTMLElement {
   const seeDetails = textElement(
     "button",
     t("common.seeDetails"),
-    "mt-2 min-h-9 px-3 rounded-lg text-xs font-bold bg-[#16213B] hover:bg-[#0B1224] text-white transition-colors",
+    "mt-2 min-h-11 px-3 rounded-lg text-xs font-bold bg-[#16213B] hover:bg-[#0B1224] text-white transition-colors",
   ) as HTMLButtonElement;
   seeDetails.type = "button";
   seeDetails.addEventListener("click", () => emit("select", pin.id));
