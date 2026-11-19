@@ -3,17 +3,13 @@ import type { Residence } from "@/types";
 import { MapPin } from "lucide-vue-next";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import { formatPlaceFacts } from "~/lib/formatters";
 
 /** A detail's address, rooms and size, and its postcode linking to the map. */
 const props = defineProps<{ residence: Residence; rooms: number | null; area: number | null; company?: string | null }>();
 const { t } = useI18n();
 
-const facts = computed(() => {
-  const parts: string[] = [];
-  if (props.rooms != null) parts.push(t("common.roomsShort", { count: props.rooms }));
-  if (props.area != null) parts.push(t("offers.area", { value: props.area }));
-  return parts.join(" · ");
-});
+const facts = computed(() => formatPlaceFacts({ addressLine2: null, rooms: props.rooms, area: props.area }, t));
 const mapUrl = computed(
   () =>
     `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(

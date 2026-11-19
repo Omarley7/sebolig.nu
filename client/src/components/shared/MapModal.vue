@@ -14,11 +14,16 @@ const props = defineProps<{
   pins: MapPin[];
   /** What is on the map, for the chip in its header: "Boligtilbud". */
   title?: string;
+  /**
+   * "Se detaljer" closes the map: on desktop the detail opens in the pane behind it. On a phone
+   * the sheet opens over the map, and back returns to it.
+   */
+  closeOnSelect?: boolean;
 }>();
 
 const emit = defineEmits<{
   close: [];
-  /** "Se detaljer" in a pin's popup; the map stays open underneath. */
+  /** "Se detaljer" in a pin's popup. */
   select: [id: string];
 }>();
 
@@ -51,7 +56,10 @@ function popupContent(pin: MapPin): HTMLElement {
     "mt-2 min-h-11 px-3 rounded-lg text-xs font-bold bg-[#16213B] hover:bg-[#0B1224] text-white transition-colors",
   ) as HTMLButtonElement;
   seeDetails.type = "button";
-  seeDetails.addEventListener("click", () => emit("select", pin.id));
+  seeDetails.addEventListener("click", () => {
+    if (props.closeOnSelect) layer.close();
+    emit("select", pin.id);
+  });
   content.append(seeDetails);
   return content;
 }

@@ -125,5 +125,5 @@ const subtitle = computed(() => (store.hasData && !status.value.banner ? t(SUBTI
     @close="detail.onClose"
     @after-leave="detail.onAfterLeave"
   />
-  <MapModal v-if="showMap" :pins="pins" :title="t('offers.pageTitle')" @select="detail.open" @close="showMap = false" />
+  <MapModal v-if="showMap" :pins="pins" :close-on-select="isDesktop" :title="t('offers.pageTitle')" @select="detail.open" @close="showMap = false" />
 </template>

@@ -13,7 +13,7 @@ import { useAutomaticChecks } from "~/composables/useAutomaticChecks";
 import { useNow } from "~/composables/useNow";
 import { nextViewing } from "~/lib/agenda";
 import { changeText } from "~/lib/changeText";
-import { formatRent, formatSentAt } from "~/lib/formatters";
+import { formatArea, formatRent, formatSentAt } from "~/lib/formatters";
 import { chipClasses, offerChip } from "~/lib/offerChip";
 import { offerTabs } from "~/lib/offerTabs";
 import { updatedAgo } from "~/lib/relativeTime";
@@ -116,7 +116,7 @@ const open = (page: "appointments" | "offers", id: string) => router.push({ name
                   {{
                     [
                       row.offer.rooms != null ? t("common.roomsShort", { count: row.offer.rooms }) : null,
-                      row.offer.area != null ? t("offers.area", { value: row.offer.area }) : null,
+                      row.offer.area != null ? formatArea(row.offer.area, t) : null,
                       formatRent(row.offer.financials.monthlyRentIncludingAconto, t),
                     ]
                       .filter(Boolean)

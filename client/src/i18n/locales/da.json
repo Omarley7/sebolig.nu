@@ -26,7 +26,7 @@
     "queuePosition": "nr. {n} i køen",
     "queuePositionCap": "Nr. {n} i køen",
     "refresh": "Opdatér",
-    "roomsShort": "{count} vær.",
+    "roomsShort": "{count}\u00a0vær.",
     "showOnMap": "Vis på kort",
     "tryAgain": "Prøv igen",
     "offline": "Du er offline. Viser gemte data."
@@ -102,7 +102,7 @@
     "refresh": "Opdatér",
     "refreshFailed": "Tilbuddene kunne ikke opdateres. Prøv igen.",
     "rooms": "{count} værelse | {count} værelser",
-    "area": "{value} m²",
+    "area": "{value}\u00a0m²",
     "answerBy": "Svar {when}",
     "availableFromDate": "Ledig fra {date}",
     "awaitingLandlord": "Afventer udlejer",
@@ -177,7 +177,7 @@
       "appliedTo": "Skrevet op til",
       "passiveNote": "Du er passiv på denne venteliste og modtager ikke tilbud, før du melder dig aktiv igen.",
       "residences": "bolig | boliger",
-      "roomsRange": "{rooms} vær.",
+      "roomsRange": "{rooms}\u00a0vær.",
       "size": "Størrelse"
     },
     "actions": {

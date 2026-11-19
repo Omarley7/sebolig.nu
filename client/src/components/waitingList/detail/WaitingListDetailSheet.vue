@@ -43,7 +43,7 @@ const findboligUrl = computed(() => `https://findbolig.nu/property/${props.list.
 
 const span = (min: number, max: number, format: (n: number) => string = String) =>
   format(min) === format(max) ? format(min) : `${format(min)}–${format(max)}`;
-const rentRange = computed(() => `${span(props.list.minRent, props.list.maxRent, formatKr)} ${t("financials.krPerMonth")}`);
+const rentRange = computed(() => `${span(props.list.minRent, props.list.maxRent, formatKr)}\u00a0${t("financials.krPerMonth")}`);
 const sizeRange = computed(
   () =>
     `${t("waitingLists.detail.roomsRange", { rooms: span(props.list.minRooms, props.list.maxRooms) })} · ${span(props.list.minArea, props.list.maxArea)} m²`,

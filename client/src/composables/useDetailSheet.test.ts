@@ -3,6 +3,7 @@ import { createApp, defineComponent, h, nextTick, ref, type PropType } from "vue
 import { createRouter, createWebHistory, type Router } from "vue-router";
 import BottomSheet from "~/components/shared/BottomSheet.vue";
 import { useDetailSheet, useOpenDetail } from "~/composables/useDetailSheet";
+import { useHistoryLayer, type HistoryLayer } from "~/composables/useHistoryLayer";
 import { useSheet, type Sheet } from "~/composables/useSheet";
 
 // A list in miniature: items in two groups, cards that open a detail sheet,
@@ -21,6 +22,20 @@ let opened: string[];
 let unmount = () => {};
 // Desktop: the detail shows inline, in a pane, instead of in a sheet.
 const inlineMode = ref(false);
+// Another sheet inside the list page that isn't its detail: the changes panel, which sits in the
+// page header on desktop.
+const otherOpen = ref(false);
+let other: Sheet | undefined;
+// A layer over the page, like the map, and the list's detail, to open items as the map does.
+let mapLayer: HistoryLayer;
+let detailApi: { open(id: string): void };
+
+const Other = defineComponent({
+  setup() {
+    const own = (other = useSheet());
+    return () => h(BottomSheet, { sheet: own }, () => h("p", "Other"));
+  },
+});
 
 const Detail = defineComponent({
   props: {
@@ -62,7 +77,10 @@ const List = defineComponent({
       inline: () => inlineMode.value,
       fallback: () => items.value[0]?.id,
     });
+    detailApi = detail;
+    mapLayer = useHistoryLayer();
     return () => [
+      otherOpen.value ? h(Other) : null,
       detail.pane ? h("p", { class: "pane" }, detail.pane.name) : null,
       ...(["new", "accepted"] as const).map((group) =>
         h("ul", { key: group }, items.value.filter((i) => i.group === group).map((item) => h(Card, { key: item.id, item }))),
@@ -106,6 +124,8 @@ beforeEach(async () => {
   ];
   sheet = undefined;
   inlineMode.value = false;
+  otherOpen.value = false;
+  other = undefined;
   mounts = 0;
   opened = [];
   router = createRouter({
@@ -128,7 +148,10 @@ beforeEach(async () => {
   };
 });
 
-afterEach(() => unmount());
+afterEach(() => {
+  unmount();
+  vi.restoreAllMocks();
+});
 
 const section = () => document.querySelector<HTMLElement>(".detail")?.dataset.section;
 
@@ -272,5 +295,34 @@ describe("useDetailSheet inline, as the desktop pane", () => {
     expect(history.length).toBe(before);
     expect(shown()).toBeUndefined();
     expect(opened).toEqual(["b"]);
+  });
+
+  it("another sheet on the page, like the changes panel, gets a back step of its own: closing it stays on the page", async () => {
+    inlineMode.value = true;
+    otherOpen.value = true;
+    await nextTick();
+    await frame();
+
+    other!.close();
+    await vi.waitFor(() => expect(other!.visible).toBe(false));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(router.currentRoute.value.fullPath).toBe("/offers");
+  });
+
+  it("an item opened as a layer above closes, like the map's Se detaljer, stays named once the layer's back step is gone", async () => {
+    inlineMode.value = true;
+    await nextTick();
+    mapLayer.open();
+    await nextTick();
+    // Browsers move through history later, not during history.go() as jsdom does.
+    const go = history.go.bind(history);
+    vi.spyOn(history, "go").mockImplementation((delta) => void setTimeout(() => go(delta), 10));
+
+    mapLayer.close();
+    detailApi.open("b");
+    await vi.waitFor(() => expect(pane()).toBe("Beta"));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(router.currentRoute.value.query).toEqual({ open: "b" });
+    expect(pane()).toBe("Beta");
   });
 });

@@ -26,7 +26,7 @@
     "queuePosition": "no. {n} in the queue",
     "queuePositionCap": "No. {n} in the queue",
     "refresh": "Refresh",
-    "roomsShort": "{count} rm | {count} rms",
+    "roomsShort": "{count}\u00a0rm | {count}\u00a0rms",
     "showOnMap": "Show on map",
     "tryAgain": "Try again",
     "offline": "You're offline. Showing stored data."
@@ -102,7 +102,7 @@
     "refresh": "Refresh",
     "refreshFailed": "Could not update offers. Please try again.",
     "rooms": "{count} room | {count} rooms",
-    "area": "{value} m²",
+    "area": "{value}\u00a0m²",
     "answerBy": "Answer {when}",
     "availableFromDate": "Available from {date}",
     "awaitingLandlord": "Waiting for the landlord",
@@ -177,7 +177,7 @@
       "appliedTo": "Signed up for",
       "passiveNote": "You're passive on this waiting list and won't receive offers until you make yourself active again.",
       "residences": "home | homes",
-      "roomsRange": "{rooms} rms",
+      "roomsRange": "{rooms}\u00a0rms",
       "size": "Size"
     },
     "actions": {

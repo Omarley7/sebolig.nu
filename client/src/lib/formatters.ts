@@ -61,7 +61,7 @@ export function formatOfferFacts(
 ): string {
   const parts: string[] = [];
   if (offer.rooms != null) parts.push(t("offers.rooms", { count: offer.rooms }));
-  if (offer.area != null) parts.push(t("offers.area", { value: offer.area }));
+  if (offer.area != null) parts.push(formatArea(offer.area, t));
   return parts.join(" · ");
 }
 
@@ -72,9 +72,14 @@ export function formatKr(amount: number): string {
   return Math.round(amount).toLocaleString("da-DK");
 }
 
-/** A monthly rent as rows show it: "13.564 kr./md". */
+/** A monthly rent as rows show it: "13.564 kr./md", never wrapped apart. */
 export function formatRent(amount: number, t: Translate): string {
-  return `${formatKr(amount)} ${t("financials.krPerMonth")}`;
+  return `${formatKr(amount)}\u00a0${t("financials.krPerMonth")}`;
+}
+
+/** A size in whole square metres, "53 m²" for 53.15, never wrapped apart. */
+export function formatArea(area: number, t: Translate): string {
+  return t("offers.area", { value: Math.round(area) });
 }
 
 /** Where and how big, as a card's second line (Q16): "2000 Frederiksberg · 3 vær. · 79 m²"; a missing part is left out. */
@@ -85,7 +90,7 @@ export function formatPlaceFacts(
   const parts: string[] = [];
   if (addressLine2) parts.push(addressLine2);
   if (rooms != null) parts.push(t("common.roomsShort", { count: rooms }));
-  if (area != null) parts.push(t("offers.area", { value: area }));
+  if (area != null) parts.push(formatArea(area, t));
   return parts.join(" · ");
 }
 

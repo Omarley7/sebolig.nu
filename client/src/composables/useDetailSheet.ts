@@ -1,5 +1,6 @@
 import { computed, inject, nextTick, provide, reactive, ref, shallowRef, watch, type InjectionKey } from "vue";
 import { useRoute, useRouter, type HistoryState } from "vue-router";
+import { historySettled } from "./useHistoryLayer";
 import { SHEET_ENTRY } from "./useSheet";
 
 /** Opens an item's detail sheet, at the top or scrolled to a section the sheet names (like "thread"). */
@@ -63,7 +64,9 @@ export function useDetailSheet<T>(
 
   const openDetail: OpenDetail = (id, section) => {
     if (inline()) {
-      void router.replace({ query: { ...route.query, open: id } });
+      // Opened from a layer that is closing (the map's "Se detaljer"): name it once that layer's
+      // entry is gone, or the step back would take the name with it.
+      void historySettled().then(() => router.replace({ query: { ...route.query, open: id } }));
       return;
     }
     wanted.value = { id, section: section ?? null };
@@ -72,8 +75,13 @@ export function useDetailSheet<T>(
   };
 
   provide(OPEN_DETAIL, openDetail);
-  // The sheet's history entry: this page, naming the item it shows.
-  provide(SHEET_ENTRY, (state) => void router.push({ query: { ...route.query, open: shownId.value ?? undefined }, state: state as HistoryState }));
+  // The sheet's history entry: this page, naming the item it shows. Any other sheet inside the
+  // page (the changes panel sits in its header on desktop) gets a plain entry: pushing the
+  // address the page is already at would add no step, and closing would leave the page.
+  provide(SHEET_ENTRY, (state) => {
+    if (shownId.value === null) history.pushState(state, "");
+    else void router.push({ query: { ...route.query, open: shownId.value }, state: state as HistoryState });
+  });
 
   const linked = computed(() => {
     const id = route.query.open;

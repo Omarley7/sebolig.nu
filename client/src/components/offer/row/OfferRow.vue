@@ -30,7 +30,7 @@ const changed = computed(() => changes.hasUnseen("offer", offer.value.id));
     <button
       type="button"
       class="card card-link w-full flex gap-3 py-3 px-3.5 text-left"
-      :class="selected ? '!border-accent outline outline-1 outline-accent' : ''"
+      :class="selected ? '!border-accent ring-1 ring-accent' : ''"
       :aria-current="selected ? 'true' : undefined"
       @click="openDetail(offer.id)"
     >

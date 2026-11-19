@@ -17,7 +17,7 @@ const openDetail = useOpenDetail();
 const summary = computed(() => {
   const { residencesAppliedCount, minRent, maxRent } = props.list;
   const rent = formatKr(minRent) === formatKr(maxRent) ? formatKr(minRent) : `${formatKr(minRent)}–${formatKr(maxRent)}`;
-  return `${t("waitingLists.card.residences", { count: residencesAppliedCount })} · ${rent} ${t("financials.krPerMonth")}`;
+  return `${t("waitingLists.card.residences", { count: residencesAppliedCount })} · ${rent}\u00a0${t("financials.krPerMonth")}`;
 });
 </script>
 

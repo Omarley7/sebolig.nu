@@ -53,7 +53,7 @@ const latestText = computed(() => {
       v-if="variant === 'past'"
       type="button"
       class="w-full flex gap-3 px-4 py-3.5 rounded-2xl bg-subtle text-left"
-      :class="selected ? 'outline-2 outline-accent' : ''"
+      :class="selected ? 'ring-2 ring-accent' : ''"
       @click="openDetail(appointment.id)"
     >
       <span class="w-[52px] shrink-0 flex flex-col tabular-nums">
@@ -70,7 +70,7 @@ const latestText = computed(() => {
       v-else
       type="button"
       class="card card-link w-full flex gap-3 items-start py-3.5 pl-4 pr-3.5 text-left"
-      :class="[variant === 'awaiting' ? '!border-dashed !border-border-strong' : '', selected ? '!border-accent outline outline-1 outline-accent' : '']"
+      :class="[variant === 'awaiting' ? '!border-dashed !border-border-strong' : '', selected ? '!border-accent ring-1 ring-accent' : '']"
       :aria-current="selected ? 'true' : undefined"
       @click="openDetail(appointment.id)"
     >

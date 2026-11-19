@@ -32,6 +32,17 @@ interface Entry {
 // were open with it on top, so a popstate tells exactly which layers to close.
 const stack: Entry[] = [];
 const DEPTH_KEY = "historyLayer";
+// Done once the browser has moved back past the entries the latest close() removed.
+let unwinding: Promise<void> = Promise.resolve();
+
+/**
+ * Resolves once closing layers has finished stepping back through history. Browsers step back
+ * after history.go() returns, so changing the address right after a close() would change the
+ * closing layer's entry, which is then left behind.
+ */
+export function historySettled(): Promise<void> {
+  return unwinding;
+}
 
 function depthOf(state: unknown): number {
   const depth = (state as Record<string, unknown> | null)?.[DEPTH_KEY];
@@ -94,6 +105,11 @@ export function useHistoryLayer(options: LayerOptions = {}): HistoryLayer {
         if (index === -1) return;
         const added = stack.length - index;
         closeAbove(index);
+        unwinding = new Promise((resolve) => {
+          window.addEventListener("popstate", () => resolve(), { once: true });
+          // Should the browser never step back, don't hold up whoever waits.
+          setTimeout(resolve, 1000);
+        });
         history.go(-added);
       },
     }),

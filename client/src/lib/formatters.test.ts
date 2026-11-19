@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { Appointment } from "@/types";
-import { formatDate, formatSentAt, formatTimeSlot } from "~/lib/formatters";
+import { formatDate, formatPlaceFacts, formatRent, formatSentAt, formatTimeSlot } from "~/lib/formatters";
 
 const t = (key: string, params?: Record<string, unknown>) =>
   key === "appointments.until" ? `until ${params?.time}` : key;
@@ -48,5 +48,19 @@ describe("formatDate", () => {
     ["2026-03-31T23:30:00Z", "1. april 2026"],
   ])("%s reads %s, in Danish time", (date, expected) => {
     expect(formatDate(date)).toBe(expected);
+  });
+});
+
+describe("formatPlaceFacts", () => {
+  test("whole square metres, and a number never wraps apart from its unit", async () => {
+    const i18n = (await import("~/i18n")).default;
+    const facts = formatPlaceFacts({ addressLine2: "2200 København N", rooms: 2, area: 53.15 }, i18n.global.t);
+
+    expect(facts).toBe("2200 København N · 2 vær. · 53 m²");
+  });
+
+  test("a rent keeps its unit on the same line", async () => {
+    const i18n = (await import("~/i18n")).default;
+    expect(formatRent(9132, i18n.global.t)).toBe("9.132 kr./md");
   });
 });
