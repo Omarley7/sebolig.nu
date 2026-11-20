@@ -1,15 +1,22 @@
 <script setup lang="ts">
-import { watch } from "vue";
-import { useRouter } from "vue-router";
-import AppHeader from "~/components/AppHeader.vue";
+import { computed, onMounted, onUnmounted, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
 import ToastContainer from "~/components/Base/ToastContainer.vue";
-import AppFooter from "~/components/AppFooter.vue";
-import BottomNav from "~/components/BottomNav.vue";
+import ConnectDialog from "~/components/ConnectDialog.vue";
+import AppHeader from "~/components/layout/AppHeader.vue";
+import ChangesBell from "~/components/changes/ChangesBell.vue";
+import BottomNav from "~/components/layout/BottomNav.vue";
+import NavRail from "~/components/layout/NavRail.vue";
 import { useAuth } from "~/composables/useAuth";
+import { useIsDesktop } from "~/composables/useIsDesktop";
+import { useToastStore } from "~/stores/toast";
 import config from "./config";
 
 const auth = useAuth();
 const router = useRouter();
+const route = useRoute();
+const isDesktop = useIsDesktop();
 
 if (
   `${config.backendDomain}` &&
@@ -26,21 +33,40 @@ watch(
     if (!isAuthenticated) router.push("/");
   },
 );
+
+// Offline, the app keeps showing what is stored, and says so.
+const { t } = useI18n();
+const toast = useToastStore();
+const onOffline = () => toast.info(t("common.offline"));
+onMounted(() => window.addEventListener("offline", onOffline));
+onUnmounted(() => window.removeEventListener("offline", onOffline));
+
+// From lg up a Connection gets the left rail; below it, the header and the bottom nav (Q14).
+const withRail = computed(() => auth.isAuthenticated && isDesktop.value);
+// The bell sits in each page's title bar on desktop; pages without one (Explainer, 404) get it here.
+const ownTitleBar = computed(() => route.name !== "explainer" && route.name !== "not-found");
+// The landing page lays itself out wider; every other page is the phone column, or the desktop page.
+const wide = computed(() => !auth.isAuthenticated || route.meta.wide === true);
 </script>
 
 <template>
-  <div class="min-h-dvh flex flex-col">
-    <AppHeader
-      class="sticky top-0 z-30 backdrop-blur-md bg-white/80 dark:bg-zinc-900/80 border-b border-zinc-200 dark:border-zinc-700/50 px-4 py-2"
-    />
-
-    <main class="flex-1 w-full max-w-5xl mx-auto px-4 py-4">
-      <router-view />
-    </main>
-
-    <AppFooter :class="auth.isAuthenticated ? 'pb-20' : ''" />
-
-    <BottomNav v-if="auth.isAuthenticated" />
+  <div class="min-h-dvh flex bg-bg text-ink">
+    <NavRail v-if="withRail" />
+    <div class="flex-1 min-w-0 flex flex-col">
+      <AppHeader v-if="!withRail" />
+      <div v-else-if="!ownTitleBar" class="flex justify-end px-8 pt-6"><ChangesBell /></div>
+      <main
+        class="flex-1 w-full mx-auto"
+        :class="[
+          wide ? '' : 'max-w-2xl px-4 lg:max-w-none lg:px-8',
+          auth.isAuthenticated && !withRail ? 'pb-[calc(84px+env(safe-area-inset-bottom,0px))]' : 'pb-8',
+        ]"
+      >
+        <router-view />
+      </main>
+    </div>
+    <BottomNav v-if="auth.isAuthenticated && !withRail" />
   </div>
-  <ToastContainer />
+  <ConnectDialog v-if="auth.showConnectModal" />
+  <ToastContainer :above-nav="auth.isAuthenticated && !withRail" />
 </template>

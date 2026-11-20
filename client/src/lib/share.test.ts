@@ -12,7 +12,7 @@ function viewing(overrides: Partial<Appointment> = {}): Appointment {
   return {
     id: "DEAS-O-o1",
     offerId: "o1",
-    title: "3 værelses Lejlighed på 83 m²",
+    title: "3 værelses Lejlighed på 83\u00a0m²",
     date: "2026-10-20",
     start: "16:00",
     end: "17:00",
@@ -77,7 +77,7 @@ describe("viewingShareText", () => {
         "Fremvisning: Ålekistevej 59, 2720 Vanløse",
         "Tirsdag 20. oktober 2026, 16:00–17:00",
         // Intl keeps the amount and "kr." together with a no-break space.
-        "12.564\u00a0kr./md · 3 værelser · 83 m²",
+        "12.564\u00a0kr./md · 3 værelser · 83\u00a0m²",
         "Kort: https://www.google.com/maps/search/?api=1&query=%C3%85lekistevej%2059%2C%202720%20Vanl%C3%B8se",
       ].join("\n"),
     );
@@ -125,7 +125,7 @@ describe("viewingShareText", () => {
       [
         "Viewing: Ålekistevej 59, 2720 Vanløse",
         "Tuesday 20 October 2026, 16:00–17:00",
-        "12.564\u00a0kr./mo · 3 rooms · 83 m²",
+        "12.564\u00a0kr./mo · 3 rooms · 83\u00a0m²",
         "Map: https://www.google.com/maps/search/?api=1&query=%C3%85lekistevej%2059%2C%202720%20Vanl%C3%B8se",
       ].join("\n"),
     );
@@ -143,7 +143,7 @@ describe("offerShareText", () => {
     expect(offerShareText(offer(), { mapLink: true }, t, "da")).toBe(
       [
         "Boligtilbud: Philip Schous Vej 21, 3. TH., 2000 Frederiksberg",
-        "12.564\u00a0kr./md · 3 værelser · 83 m²",
+        "12.564\u00a0kr./md · 3 værelser · 83\u00a0m²",
         "Ledig fra: 1. april 2027",
         "Svarfrist: 28. oktober 2026",
         "Kort: https://www.google.com/maps/search/?api=1&query=Philip%20Schous%20Vej%2021%2C%203.%20TH.%2C%202000%20Frederiksberg",
@@ -178,7 +178,7 @@ describe("offerShareText", () => {
     expect(offerShareText(offer(), { mapLink: true }, t, "en")).toBe(
       [
         "Housing offer: Philip Schous Vej 21, 3. TH., 2000 Frederiksberg",
-        "12.564\u00a0kr./mo · 3 rooms · 83 m²",
+        "12.564\u00a0kr./mo · 3 rooms · 83\u00a0m²",
         "Available from: 1 April 2027",
         "Deadline: 28 October 2026",
         "Map: https://www.google.com/maps/search/?api=1&query=Philip%20Schous%20Vej%2021%2C%203.%20TH.%2C%202000%20Frederiksberg",

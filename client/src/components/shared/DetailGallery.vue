@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { Navigation, Pagination } from "swiper/modules";
+import { FileText, Image as ImageIcon } from "lucide-vue-next";
+import { Navigation } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/vue";
 import "swiper/css";
 import "swiper/css/navigation";
-import "swiper/css/pagination";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Sheet } from "~/composables/useSheet";
@@ -36,6 +36,7 @@ function onPointerDown(e: PointerEvent) {
 }
 
 function openImages(e: MouseEvent) {
+  if (props.images.length === 0) return;
   if (Math.abs(e.clientX - startX) > 5 || Math.abs(e.clientY - startY) > 5) return;
   tab.value = "images";
   gallery.open();
@@ -48,46 +49,46 @@ function openBlueprints() {
 </script>
 
 <template>
-  <div v-if="images.length > 0" class="relative cursor-pointer" @pointerdown="onPointerDown" @click="openImages">
-    <Swiper
-      :modules="[Navigation, Pagination]"
-      :slides-per-view="1"
-      :space-between="0"
-      :pagination="{ clickable: true, dynamicBullets: true }"
-      :navigation="images.length > 1"
-      class="detail-swiper"
-      @slide-change="(s: any) => activeIndex = s.activeIndex"
-    >
-      <SwiperSlide v-for="(img, i) in images" :key="img">
-        <img
-          :src="galleryImage(imageUrl(img))"
-          :alt="`Photo ${i + 1}`"
-          class="w-full aspect-[16/10] object-cover"
-          :loading="i > 0 ? 'lazy' : 'eager'"
-        />
-      </SwiperSlide>
-    </Swiper>
+  <div class="relative h-60 shrink-0 bg-soft text-soft-ink flex items-center justify-center lg:h-72">
+    <ImageIcon v-if="images.length === 0" class="size-10" aria-hidden="true" />
+    <div v-else class="absolute inset-0 cursor-pointer" @pointerdown="onPointerDown" @click="openImages">
+      <Swiper
+        :modules="[Navigation]"
+        :slides-per-view="1"
+        :space-between="0"
+        :navigation="images.length > 1"
+        class="detail-swiper h-full"
+        @slide-change="(s: any) => (activeIndex = s.activeIndex)"
+      >
+        <SwiperSlide v-for="(img, i) in images" :key="img">
+          <img
+            :src="galleryImage(imageUrl(img))"
+            :alt="t('gallery.photoAlt', { n: i + 1 })"
+            class="size-full object-cover"
+            :loading="i > 0 ? 'lazy' : 'eager'"
+          />
+        </SwiperSlide>
+      </Swiper>
+    </div>
 
-    <!-- Blueprint shortcut -->
-    <button
-      v-if="blueprints.length > 0"
-      class="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full
-             bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white text-xs font-medium tabular-nums
-             transition-colors"
-      @pointerdown.stop
-      @click.stop="openBlueprints"
-    >
-      <img src="/icons/blueprint.svg" alt="" class="size-3.5 invert" />
-      {{ t("gallery.blueprintCount", { count: blueprints.length }).toLowerCase() }}
-    </button>
-
-    <!-- Photo count -->
-    <div
-      v-if="images.length > 1"
-      class="absolute bottom-3 right-3 z-10 px-2.5 py-1 rounded-full
-             bg-black/40 backdrop-blur-sm text-white text-xs tabular-nums pointer-events-none"
-    >
-      {{ t("gallery.photoCount", { count: images.length }).toLowerCase() }}
+    <div class="absolute left-3 right-3 bottom-3 z-10 flex justify-between pointer-events-none">
+      <button
+        v-if="blueprints.length > 0"
+        type="button"
+        class="pointer-events-auto min-h-11 px-3.5 rounded-full bg-white/90 text-[#141A26] text-xs font-semibold flex items-center gap-1.5"
+        @pointerdown.stop
+        @click.stop="openBlueprints"
+      >
+        <FileText class="size-3.5" aria-hidden="true" />
+        {{ t("gallery.floorPlan") }}
+      </button>
+      <span v-else />
+      <span
+        v-if="images.length > 1"
+        class="h-8 px-3 rounded-full bg-[rgb(20_26_38/0.72)] text-white text-xs font-semibold tabular-nums flex items-center"
+      >
+        {{ activeIndex + 1 }} / {{ images.length }}
+      </span>
     </div>
   </div>
 

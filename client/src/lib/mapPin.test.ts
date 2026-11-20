@@ -37,6 +37,14 @@ describe("appointmentPin", () => {
     });
   });
 
+  test("names the rooms and size first, as an offer's pin does (#117)", () => {
+    expect(appointmentPin(appointment({ rooms: 3, area: 78 }), t)?.details).toEqual([
+      "3 værelser · 78\u00a0m²",
+      "d. 18/10, 15:00 - 16:00",
+      "8.500\u00a0kr. / md",
+    ]);
+  });
+
   test("is waiting for a date when it has none", () => {
     expect(appointmentPin(appointment({ date: null, start: null, end: null }), t)?.details).toEqual([
       "Afventer dato",
@@ -80,7 +88,7 @@ describe("offerPin", () => {
       lng: 12.53,
       label: "Philip Schous Vej 21, 3. TH.",
       sublabel: "2000 Frederiksberg",
-      details: ["3 værelser · 78 m²", "Svarfrist: 5 dage", "Ledig fra: 1. december 2026", "8.500\u00a0kr. / md"],
+      details: ["3 værelser · 78\u00a0m²", "Svarfrist: 5 dage", "Ledig fra: 1. december 2026", "8.500\u00a0kr. / md"],
     });
   });
 
@@ -91,7 +99,7 @@ describe("offerPin", () => {
 
   test.each([
     [{ area: null }, "3 værelser"],
-    [{ rooms: null }, "78 m²"],
+    [{ rooms: null }, "78\u00a0m²"],
   ])("shows rooms or size alone when only one is known", (overrides, expected) => {
     expect(offerPin(offer(overrides), t)?.details[0]).toBe(expected);
   });

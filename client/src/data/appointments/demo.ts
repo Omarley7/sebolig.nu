@@ -55,10 +55,11 @@ const followUpMessage = (): ThreadMessage => ({
 });
 
 /**
- * Sample appointments for the Demo, with dates kept relative to today. The first cheap check
- * brings a few changes, so the Demo shows what changed too: the appointment waiting for a date
- * gets one, the one a week out gets a message from the landlord, and the past one is awarded to
- * someone else. Later checks bring nothing, and a Refresh fetches the changed appointments.
+ * Sample appointments for the Demo, with dates kept relative to today, showing every state the
+ * agenda has: a past viewing (under Tidligere), two today (one without a time), one a week out,
+ * and one still waiting for a date. The first cheap check brings the one a week out a message from
+ * the landlord, so the Demo shows Nye beskeder and the bell too. Later checks bring nothing, and a
+ * Refresh fetches the changed appointments.
  */
 export function demoAppointments(): AppointmentsSource {
   const dates: (string | null)[] = [dateInDays(-7), dateInDays(0), dateInDays(0), dateInDays(7)];
@@ -82,14 +83,10 @@ export function demoAppointments(): AppointmentsSource {
       const delta: AppointmentDelta = { ...noChanges<Appointment>(), latestMessageAt: null, latestMessageThreadIds: [] };
       if (scripted) return delta;
       scripted = true;
-      const [awarded, , , messaged, waiting] = appointments;
-      const items = [
-        { ...waiting, date: dateInDays(3), start: "17:00", end: "17:30" },
-        { ...messaged, messages: [...messaged.messages, followUpMessage()], messageCount: messaged.messageCount + 1 },
-      ];
-      const byId = new Map(items.map((appointment) => [appointment.offerId, appointment]));
-      appointments = appointments.filter((a) => a !== awarded).map((a) => byId.get(a.offerId) ?? a);
-      return { ...delta, items, removedIds: [awarded.offerId], removedStates: { [awarded.offerId]: "Awarded" } };
+      const messaged = appointments[3];
+      const item = { ...messaged, messages: [...messaged.messages, followUpMessage()], messageCount: messaged.messageCount + 1 };
+      appointments = appointments.map((a) => (a.offerId === item.offerId ? item : a));
+      return { ...delta, items: [item] };
     },
   };
 }

@@ -61,6 +61,40 @@ export function formatOfferFacts(
 ): string {
   const parts: string[] = [];
   if (offer.rooms != null) parts.push(t("offers.rooms", { count: offer.rooms }));
-  if (offer.area != null) parts.push(t("offers.area", { value: offer.area }));
+  if (offer.area != null) parts.push(formatArea(offer.area, t));
   return parts.join(" · ");
+}
+
+type Translate = (key: string, params?: Record<string, unknown>) => string;
+
+/** Kroner without øre, grouped the Danish way: "13.564". */
+export function formatKr(amount: number): string {
+  return Math.round(amount).toLocaleString("da-DK");
+}
+
+/** A monthly rent as rows show it: "13.564 kr./md", never wrapped apart. */
+export function formatRent(amount: number, t: Translate): string {
+  return `${formatKr(amount)}\u00a0${t("financials.krPerMonth")}`;
+}
+
+/** A size in whole square metres, "53 m²" for 53.15, never wrapped apart. */
+export function formatArea(area: number, t: Translate): string {
+  return t("offers.area", { value: Math.round(area) });
+}
+
+/** Where and how big, as a card's second line (Q16): "2000 Frederiksberg · 3 vær. · 79 m²"; a missing part is left out. */
+export function formatPlaceFacts(
+  { addressLine2, rooms, area }: { addressLine2: string | null; rooms: number | null; area: number | null },
+  t: Translate,
+): string {
+  const parts: string[] = [];
+  if (addressLine2) parts.push(addressLine2);
+  if (rooms != null) parts.push(t("common.roomsShort", { count: rooms }));
+  if (area != null) parts.push(formatArea(area, t));
+  return parts.join(" · ");
+}
+
+/** A short date in the user's language: "18. nov." / "18 Nov". */
+export function formatShortDate(date: string | Date, locale: string): string {
+  return new Date(date).toLocaleDateString(locale === "en" ? "en-GB" : "da-DK", { day: "numeric", month: "short" });
 }

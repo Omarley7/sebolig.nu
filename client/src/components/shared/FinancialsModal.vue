@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Financials } from "@/types";
+import { X } from "lucide-vue-next";
 import { useI18n } from "vue-i18n";
 import { formatCurrency } from "~/lib/formatters";
 import { useScrollLock } from "~/composables/useScrollLock";
@@ -15,45 +16,50 @@ const emit = defineEmits<{
 const { t } = useI18n();
 useScrollLock();
 
-const rows = [
-    { key: "monthlyRentIncludingAconto" as const, suffix: "perMonth" },
+const rows: { key: keyof Financials; suffix?: string; strong?: boolean }[] = [
+    { key: "monthlyRentIncludingAconto" as const, suffix: "perMonth", strong: true },
     { key: "monthlyRentExcludingAconto" as const, suffix: "perMonth" },
     { key: "utilityCosts" as const, suffix: "perMonth" },
     { key: "deposit" as const },
     { key: "prepaidRent" as const },
-    { key: "firstPayment" as const },
+    { key: "firstPayment" as const, strong: true },
 ];
 </script>
 
 <template>
-    <Teleport to="body">
-        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/80" @click.self="emit('close')">
-            <div class="relative w-[90vw] max-w-md rounded-xl bg-white dark:bg-neutral-900 p-6 shadow-xl text-neutral-900 dark:text-neutral-100">
-                <!-- Close button -->
-                <button class="absolute top-3 right-3 p-1 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
-                    @click="emit('close')">
-                    <img src="/icons/x.svg" alt="Close"
-                        class="size-5 dark:invert" />
-                </button>
-
-                <h2 class="text-lg font-semibold mb-4">{{ t("financials.rent") }}</h2>
-
-                <table class="w-full text-sm">
-                    <tbody>
-                        <tr v-for="row in rows" :key="row.key" class="border-b border-neutral-200 dark:border-neutral-700/50 last:border-0">
-                            <td class="py-2 pr-4 text-neutral-500 dark:text-neutral-400">
-                                {{ t(`financials.${row.key}`) }}
-                                <span v-if="row.suffix" class="text-neutral-400 dark:text-neutral-500 text-xs">
-                                    ({{ t(`financials.${row.suffix}`) }})
-                                </span>
-                            </td>
-                            <td class="py-2 text-right font-medium tabular-nums">
-                                {{ formatCurrency(props.financials[row.key]) }}
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+  <Teleport to="body">
+    <!-- Leje: a bottom sheet on phones, a centred panel on desktop -->
+    <div class="fixed inset-0 z-[70] flex items-end justify-center lg:items-center lg:p-6">
+      <div class="absolute inset-0 bg-scrim" @click="emit('close')" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        :aria-label="t('financials.rent')"
+        class="relative w-full max-w-lg flex flex-col gap-3 px-5 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] rounded-t-[22px] bg-surface shadow-2xl
+               lg:rounded-[22px] lg:pb-6"
+      >
+        <span class="self-center w-10 h-[5px] mt-2.5 rounded-full bg-handle lg:hidden" aria-hidden="true" />
+        <div class="flex items-center justify-between gap-2 -mr-2 lg:mt-3">
+          <h2 class="text-[21px] font-extrabold tracking-tight">{{ t("financials.rent") }}</h2>
+          <button type="button" class="icon-btn rounded-full bg-subtle" :aria-label="t('common.close')" @click="emit('close')">
+            <X class="size-[18px]" :stroke-width="2.2" aria-hidden="true" />
+          </button>
         </div>
-    </Teleport>
+        <dl class="flex flex-col rounded-2xl border border-border overflow-hidden">
+          <div
+            v-for="row in rows"
+            :key="row.key"
+            class="flex justify-between gap-3 px-4 py-3 border-b border-divider last:border-0"
+            :class="row.strong ? 'bg-bg' : ''"
+          >
+            <dt class="text-sm" :class="row.strong ? 'font-bold' : 'text-muted'">
+              {{ t(`financials.${row.key}`) }}
+              <span v-if="row.suffix" class="text-xs text-muted font-normal">({{ t(`financials.${row.suffix}`) }})</span>
+            </dt>
+            <dd class="text-sm tabular-nums" :class="row.strong ? 'font-extrabold' : 'font-semibold'">{{ formatCurrency(props.financials[row.key]) }}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </Teleport>
 </template>

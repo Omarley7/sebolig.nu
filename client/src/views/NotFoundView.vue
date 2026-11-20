@@ -5,11 +5,9 @@ const { t } = useI18n();
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center gap-4 py-16">
-    <h1 class="text-6xl font-bold opacity-30">404</h1>
-    <p class="text-xl">{{ t("common.pageNotFound") }}</p>
-    <router-link to="/" class="text-blue-400 hover:text-blue-300 underline transition-colors">
-      {{ t("common.backToHome") }}
-    </router-link>
+  <div class="flex flex-col items-center justify-center gap-3.5 px-6 py-24 text-center">
+    <span class="text-[72px] leading-none font-extrabold tracking-tighter text-soft-ink">404</span>
+    <h1 class="text-[22px] font-extrabold">{{ t("common.pageNotFound") }}</h1>
+    <router-link to="/" class="btn btn-primary !min-h-12 mt-2 !px-[22px] !text-[15px] !font-bold">{{ t("common.backToHome") }}</router-link>
   </div>
 </template>

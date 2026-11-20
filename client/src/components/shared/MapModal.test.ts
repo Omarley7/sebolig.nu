@@ -6,6 +6,7 @@ import i18n from "~/i18n";
 import type { MapPin } from "~/lib/mapPin";
 
 let selected: string[];
+let closed: number;
 let unmount = () => {};
 
 const pins: MapPin[] = [
@@ -20,13 +21,13 @@ const pins: MapPin[] = [
   },
 ];
 
-async function mount(pins: MapPin[]) {
+async function mount(pins: MapPin[], props: Record<string, unknown> = {}) {
   const router = createRouter({ history: createWebHistory(), routes: [{ path: "/", component: { render: () => null } }] });
   await router.push("/");
   const host = document.createElement("div");
   document.body.appendChild(host);
   const app = createApp({
-    render: () => h(MapModal, { pins, onSelect: (id: string) => selected.push(id) }),
+    render: () => h(MapModal, { pins, ...props, onSelect: (id: string) => selected.push(id), onClose: () => closed++ }),
   })
     .use(router)
     .use(i18n);
@@ -41,6 +42,7 @@ async function mount(pins: MapPin[]) {
 
 beforeEach(() => {
   selected = [];
+  closed = 0;
   // happy-dom lays nothing out; give the map a size, or no pin is in view
   vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(400);
   vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(300);
@@ -65,6 +67,7 @@ describe("MapModal", () => {
 
     popup()!.querySelector("button")!.click();
     expect(selected).toEqual(["a"]);
+    expect(closed).toBe(0);
   });
 
   it("shows a pin's address and detail lines, in order", async () => {
@@ -105,5 +108,16 @@ describe("MapModal clustering", () => {
     marker("b").click();
     popup()!.querySelector("button")!.click();
     expect(selected).toEqual(["b"]);
+  });
+});
+
+describe("MapModal on desktop", () => {
+  it("Se detaljer closes the map, since the detail opens in the pane behind it", async () => {
+    await mount(pins, { closeOnSelect: true });
+    marker("Nørregade 1").click();
+
+    popup()!.querySelector("button")!.click();
+    expect(selected).toEqual(["a"]);
+    expect(closed).toBe(1);
   });
 });

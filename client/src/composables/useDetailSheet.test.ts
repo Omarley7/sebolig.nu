@@ -3,6 +3,7 @@ import { createApp, defineComponent, h, nextTick, ref, type PropType } from "vue
 import { createRouter, createWebHistory, type Router } from "vue-router";
 import BottomSheet from "~/components/shared/BottomSheet.vue";
 import { useDetailSheet, useOpenDetail } from "~/composables/useDetailSheet";
+import { useHistoryLayer, type HistoryLayer } from "~/composables/useHistoryLayer";
 import { useSheet, type Sheet } from "~/composables/useSheet";
 
 // A list in miniature: items in two groups, cards that open a detail sheet,
@@ -19,6 +20,22 @@ let sheet: Sheet | undefined;
 let mounts: number;
 let opened: string[];
 let unmount = () => {};
+// Desktop: the detail shows inline, in a pane, instead of in a sheet.
+const inlineMode = ref(false);
+// Another sheet inside the list page that isn't its detail: the changes panel, which sits in the
+// page header on desktop.
+const otherOpen = ref(false);
+let other: Sheet | undefined;
+// A layer over the page, like the map, and the list's detail, to open items as the map does.
+let mapLayer: HistoryLayer;
+let detailApi: { open(id: string): void };
+
+const Other = defineComponent({
+  setup() {
+    const own = (other = useSheet());
+    return () => h(BottomSheet, { sheet: own }, () => h("p", "Other"));
+  },
+});
 
 const Detail = defineComponent({
   props: {
@@ -55,8 +72,16 @@ const Card = defineComponent({
 
 const List = defineComponent({
   setup() {
-    const detail = useDetailSheet((id) => items.value.find((i) => i.id === id), { onOpen: (id) => opened.push(id) });
+    const detail = useDetailSheet((id) => items.value.find((i) => i.id === id), {
+      onOpen: (id) => opened.push(id),
+      inline: () => inlineMode.value,
+      fallback: () => items.value[0]?.id,
+    });
+    detailApi = detail;
+    mapLayer = useHistoryLayer();
     return () => [
+      otherOpen.value ? h(Other) : null,
+      detail.pane ? h("p", { class: "pane" }, detail.pane.name) : null,
       ...(["new", "accepted"] as const).map((group) =>
         h("ul", { key: group }, items.value.filter((i) => i.group === group).map((item) => h(Card, { key: item.id, item }))),
       ),
@@ -98,6 +123,9 @@ beforeEach(async () => {
     { id: "b", group: "new", name: "Beta" },
   ];
   sheet = undefined;
+  inlineMode.value = false;
+  otherOpen.value = false;
+  other = undefined;
   mounts = 0;
   opened = [];
   router = createRouter({
@@ -120,7 +148,10 @@ beforeEach(async () => {
   };
 });
 
-afterEach(() => unmount());
+afterEach(() => {
+  unmount();
+  vi.restoreAllMocks();
+});
 
 const section = () => document.querySelector<HTMLElement>(".detail")?.dataset.section;
 
@@ -136,7 +167,7 @@ describe("useDetailSheet", () => {
     expect(opened).toEqual(["a", "b"]);
   });
 
-  it("a link naming an item opens its sheet once the item is there, and leaves no trace in the address", async () => {
+  it("a link naming an item opens its sheet once the item is there, and back closes it, staying on the page", async () => {
     items.value = [];
     await router.push({ path: "/offers", query: { open: "b", tab: "x" } });
     await nextTick();
@@ -144,12 +175,22 @@ describe("useDetailSheet", () => {
 
     items.value = [{ id: "b", group: "new", name: "Beta" }];
     await vi.waitFor(() => expect(shown()).toBe("Beta"));
-    expect(router.currentRoute.value.query).toEqual({ tab: "x" });
+    await vi.waitFor(() => expect(router.currentRoute.value.query).toEqual({ open: "b", tab: "x" }));
 
-    // Back closes the sheet and stays on the page
     history.back();
     await vi.waitFor(() => expect(sheet!.visible).toBe(false));
+    await vi.waitFor(() => expect(router.currentRoute.value.query).toEqual({ tab: "x" }));
     expect(router.currentRoute.value.path).toBe("/offers");
+  });
+
+  it("while a sheet is open the address names its item, so a reload or a shared link opens it again", async () => {
+    await tap("a");
+    await vi.waitFor(() => expect(router.currentRoute.value.query).toEqual({ open: "a" }));
+
+    sheet!.close();
+    await vi.waitFor(() => expect(router.currentRoute.value.query).toEqual({}));
+    await slideOut();
+    expect(shown()).toBeUndefined();
   });
 
   it("a card can open its sheet at a section, and tapping the card itself opens it at the top", async () => {
@@ -224,18 +265,64 @@ describe("useDetailSheet", () => {
   });
 
   it("the item disappearing closes the sheet the normal way, showing the last-known item during the slide-out", async () => {
-    const pageState = history.state;
     await tap("a");
     items.value = items.value.filter((i) => i.id !== "a");
     await nextTick();
 
     expect(sheet!.visible).toBe(false);
     expect(shown()).toBe("Alpha");
-    await new Promise((r) => setTimeout(r, 0));
-    expect(history.state).toEqual(pageState);
-    expect(router.currentRoute.value.path).toBe("/offers");
+    await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe("/offers"));
+    expect(history.state.current).toBe("/offers");
 
     await slideOut();
     expect(shown()).toBeUndefined();
+  });
+});
+
+describe("useDetailSheet inline, as the desktop pane", () => {
+  const pane = () => document.querySelector(".pane")?.textContent;
+
+  it("shows the first item until the address names one, and tapping a card names it without adding a back step; only that one counts as opened", async () => {
+    inlineMode.value = true;
+    await router.replace({ path: "/offers", query: { tab: "x" } });
+    await nextTick();
+    expect(pane()).toBe("Alpha");
+
+    const before = history.length;
+    card("b").click();
+    await vi.waitFor(() => expect(pane()).toBe("Beta"));
+    expect(router.currentRoute.value.query).toEqual({ tab: "x", open: "b" });
+    expect(history.length).toBe(before);
+    expect(shown()).toBeUndefined();
+    expect(opened).toEqual(["b"]);
+  });
+
+  it("another sheet on the page, like the changes panel, gets a back step of its own: closing it stays on the page", async () => {
+    inlineMode.value = true;
+    otherOpen.value = true;
+    await nextTick();
+    await frame();
+
+    other!.close();
+    await vi.waitFor(() => expect(other!.visible).toBe(false));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(router.currentRoute.value.fullPath).toBe("/offers");
+  });
+
+  it("an item opened as a layer above closes, like the map's Se detaljer, stays named once the layer's back step is gone", async () => {
+    inlineMode.value = true;
+    await nextTick();
+    mapLayer.open();
+    await nextTick();
+    // Browsers move through history later, not during history.go() as jsdom does.
+    const go = history.go.bind(history);
+    vi.spyOn(history, "go").mockImplementation((delta) => void setTimeout(() => go(delta), 10));
+
+    mapLayer.close();
+    detailApi.open("b");
+    await vi.waitFor(() => expect(pane()).toBe("Beta"));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(router.currentRoute.value.query).toEqual({ open: "b" });
+    expect(pane()).toBe("Beta");
   });
 });

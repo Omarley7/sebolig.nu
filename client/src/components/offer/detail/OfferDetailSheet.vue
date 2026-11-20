@@ -1,28 +1,38 @@
 <script setup lang="ts">
 import type { Offer } from "@/types";
+import { ExternalLink, Share2 } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import DetailFrame from "~/components/shared/DetailFrame.vue";
+import DetailGallery from "~/components/shared/DetailGallery.vue";
+import DetailTitle from "~/components/shared/DetailTitle.vue";
+import FinancialsModal from "~/components/shared/FinancialsModal.vue";
+import KeptCopyNote from "~/components/shared/KeptCopyNote.vue";
+import RentSummary from "~/components/shared/RentSummary.vue";
+import SharePanel from "~/components/shared/SharePanel.vue";
+import AppDialog from "~/components/ui/AppDialog.vue";
+import { useNow } from "~/composables/useNow";
+import { usePane } from "~/composables/usePane";
 import { useSheet } from "~/composables/useSheet";
-import { formatCurrency, formatDate, formatOfferFacts } from "~/lib/formatters";
-import { getDeadlineUrgency, urgencyColors } from "~/lib/deadlineUrgency";
+import { getDeadlineUrgency } from "~/lib/deadlineUrgency";
+import { formatDate } from "~/lib/formatters";
+import { isExpired } from "~/lib/offerTabs";
 import { floorPlanFileName, offerShareText, type ShareLocale, type ShareOptions } from "~/lib/share";
 import { useOffersStore } from "~/stores/offers";
-import FinancialsModal from "~/components/shared/FinancialsModal.vue";
-import SharePanel from "~/components/shared/SharePanel.vue";
-import BottomSheet from "~/components/shared/BottomSheet.vue";
-import DetailGallery from "~/components/shared/DetailGallery.vue";
-import ConfirmActionDialog from "./ConfirmActionDialog.vue";
 
 const { t, locale } = useI18n();
 const store = useOffersStore();
+const now = useNow();
 
 const props = defineProps<{
   offer: Offer;
+  /** Shown inline in the desktop pane rather than in a sheet. */
+  inline?: boolean;
   /** The item has disappeared from the store; the sheet slides out showing its last-known state. */
   gone?: boolean;
   /**
-   * Why the card left its list, when the sheet shows the copy the changes panel kept of it. The
-   * sheet is read-only then: nothing in it can be answered or booked any more.
+   * Why the card left its list, when the sheet shows the copy kept of it (the changes panel's, or
+   * Afsluttet's). The sheet is read-only then: nothing in it can be answered any more.
    */
   outcome?: string | null;
 }>();
@@ -32,7 +42,7 @@ const emit = defineEmits<{
   "after-leave": [];
 }>();
 
-const sheet = useSheet({ closeWhen: () => props.gone });
+const sheet = props.inline ? usePane() : useSheet({ closeWhen: () => props.gone });
 const financials = sheet.popup();
 const sharing = sheet.popup();
 const confirm = sheet.popup({ escapable: () => !store.isActioning });
@@ -42,33 +52,42 @@ const allImages = computed(() => {
   if (props.offer.images?.length) return props.offer.images;
   return props.offer.imageUrl ? [props.offer.imageUrl] : [];
 });
-
 const blueprints = computed(() => props.offer.blueprints ?? []);
 
 function shareText(options: ShareOptions) {
   return offerShareText(props.offer, options, t, locale.value as ShareLocale);
 }
 
-const facts = computed(() => formatOfferFacts(props.offer, t));
-
 const urgency = computed(() => getDeadlineUrgency(props.offer.deadline, t));
+const deadlineTone = computed(() => {
+  if (props.outcome || props.offer.recipientState !== "OfferReceived") return "bg-bg border border-border";
+  if (urgency.value.color === "red") return "bg-urgent text-urgent-ink";
+  if (urgency.value.color === "amber") return "bg-soon text-soon-ink";
+  return "bg-bg border border-border";
+});
+const deadlineWhen = computed(() => {
+  if (!props.offer.deadline) return null;
+  const date = new Date(props.offer.deadline);
+  const day = date.toLocaleDateString(locale.value === "en" ? "en-GB" : "da-DK", { weekday: "short", day: "numeric", month: "short" });
+  // A deadline at midnight UTC is a date without a time of day.
+  const hasTime = date.getUTCHours() !== 0 || date.getUTCMinutes() !== 0;
+  const time = date.toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+  const text = hasTime ? t("offers.deadlineAt", { day, time }) : day;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+});
+const deadlineBig = computed(() => {
+  if (!props.offer.deadline) return t("offers.noDeadline");
+  if (isExpired(props.offer, now.value)) return t("offers.status.expired");
+  const relative = urgency.value.relative;
+  return relative.charAt(0).toUpperCase() + relative.slice(1);
+});
+const availableFrom = computed(() => (props.offer.availableFrom ? formatDate(props.offer.availableFrom) : null));
 
-const availableFromFormatted = computed(() => (props.offer.availableFrom ? formatDate(props.offer.availableFrom) : null));
+// What the footer offers: answer, change the answer, or nothing once it can't be answered any more.
+const answerable = computed(() => !props.outcome && !isExpired(props.offer, now.value));
 
-function handleMapClick() {
-  const address = `${props.offer.residence.addressLine1}, ${props.offer.residence.addressLine2}`;
-  window.open(
-    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
-    "_blank",
-  );
-}
-
-function openOnFindbolig() {
-  window.open(
-    `https://findbolig.nu/profile/my-offers?offerId=${props.offer.id}`,
-    "_blank",
-  );
-}
+const address = computed(() => [props.offer.residence.addressLine1, props.offer.residence.addressLine2].filter(Boolean).join(", "));
+const findboligUrl = computed(() => `https://findbolig.nu/profile/my-offers?offerId=${props.offer.id}`);
 
 function promptAction(action: "accept" | "decline") {
   confirmAction.value = action;
@@ -76,216 +95,77 @@ function promptAction(action: "accept" | "decline") {
 }
 
 async function handleConfirm() {
-  const success = confirmAction.value === "accept"
-    ? await store.acceptOffer(props.offer.id)
-    : await store.declineOffer(props.offer.id);
-
+  const success = confirmAction.value === "accept" ? await store.acceptOffer(props.offer.id) : await store.declineOffer(props.offer.id);
   if (success) confirm.close();
 }
 </script>
 
 <template>
-  <BottomSheet :sheet="sheet" @close="emit('close')" @after-leave="emit('after-leave')">
+  <DetailFrame
+    :sheet="sheet"
+    :inline="inline"
+    :label="t('offers.detailLabel', { address: offer.residence.addressLine1 })"
+    @close="emit('close')"
+    @after-leave="emit('after-leave')"
+  >
     <DetailGallery :sheet="sheet" :images="allImages" :blueprints="blueprints" />
 
-    <!-- Content -->
-    <div class="p-5 space-y-5">
-      <!-- A card that has left its list, opened from the changes panel: why, and that this is how it was -->
-      <div v-if="outcome" class="rounded-xl px-3 py-2.5 bg-neutral-100 dark:bg-white/5">
-        <p class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{{ outcome }}</p>
-        <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ t("changes.keptCopy") }}</p>
-      </div>
+    <div class="flex flex-col gap-5 p-5">
+      <KeptCopyNote v-if="outcome" :outcome="outcome" />
 
-      <!-- Address -->
-      <div>
-        <h2 class="text-lg font-bold text-neutral-900 dark:text-white leading-snug">
-          {{ offer.residence.addressLine1 }}
-        </h2>
-        <p v-if="facts" class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mt-0.5 tabular-nums">
-          {{ facts }}
-        </p>
-        <button class="flex items-center gap-1.5 mt-1.5 group" @click="handleMapClick">
-          <p class="text-sm text-neutral-500 dark:text-neutral-400
-                     group-hover:text-neutral-700 dark:group-hover:text-neutral-300 transition-colors">
-            {{ offer.residence.addressLine2 }}
-          </p>
-          <img src="/icons/map.svg" alt="" class="size-4 opacity-40 group-hover:opacity-70 transition-opacity dark:invert" />
-        </button>
-        <p v-if="offer.company" class="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
-          {{ offer.company }}
-        </p>
-      </div>
+      <DetailTitle :residence="offer.residence" :rooms="offer.rooms" :area="offer.area" :company="offer.company" />
 
-      <hr class="border-neutral-200 dark:border-neutral-700/50" />
 
-      <!-- Deadline + Queue -->
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <p class="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1">
-            {{ t("offers.deadline") }}
-          </p>
-          <div class="flex items-center gap-1.5">
-            <span class="inline-block w-2 h-2 rounded-full" :class="urgencyColors[urgency.color].dot" />
-            <p class="text-sm font-medium" :class="urgencyColors[urgency.color].text">
-              {{ offer.deadline ? formatDate(offer.deadline) : t("offers.noDeadline") }}
-            </p>
-          </div>
-          <p class="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
-            {{ urgency.relative }}
-          </p>
+      <div class="grid grid-cols-2 gap-2">
+        <div class="flex flex-col gap-1.5 p-3.5 rounded-2xl" :class="deadlineTone">
+          <span class="text-xs font-semibold opacity-90">{{ t("offers.deadline") }}</span>
+          <span class="text-[17px] font-extrabold">{{ deadlineBig }}</span>
+          <span v-if="deadlineWhen" class="text-[13px] tabular-nums opacity-90">{{ deadlineWhen }}</span>
         </div>
-
-        <div v-if="offer.position != null" class="text-right shrink-0">
-          <p class="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1">
-            {{ t("offers.queuePosition") }}
-          </p>
-          <p class="text-2xl font-bold tabular-nums text-neutral-800 dark:text-neutral-200">
-            #{{ offer.position }}
-          </p>
+        <div class="flex flex-col gap-1.5 p-3.5 rounded-2xl bg-bg border border-border">
+          <span class="label-caps">{{ t("offers.queuePosition") }}</span>
+          <span class="text-[22px] font-extrabold tabular-nums">{{ offer.position != null ? t("common.positionShort", { n: offer.position }) : "–" }}</span>
+          <span v-if="availableFrom" class="text-[13px] text-muted">{{ t("offers.availableFromDate", { date: availableFrom }) }}</span>
         </div>
       </div>
 
-      <!-- Available from -->
-      <div v-if="availableFromFormatted">
-        <p class="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1">
-          {{ t("offers.availableFrom") }}
-        </p>
-        <p class="text-sm font-medium text-neutral-800 dark:text-neutral-200">
-          {{ availableFromFormatted }}
-        </p>
-      </div>
+      <RentSummary :financials="offer.financials" @open="financials.open()" />
 
-      <!-- Share: not on the kept copy of an offer that has left -->
-      <button
-        v-if="!outcome"
-        class="w-full flex items-center justify-center gap-2 p-3 rounded-xl
-               border border-neutral-200 dark:border-neutral-700/50
-               hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors"
-        @click="sharing.open()"
-      >
-        <img src="/icons/share.svg" alt="" class="size-4 opacity-50 dark:invert" />
-        <span class="text-sm font-medium text-neutral-600 dark:text-neutral-300">
+      <div class="grid grid-cols-2 gap-2">
+        <button v-if="!outcome" type="button" class="btn btn-secondary" @click="sharing.open()">
+          <Share2 class="size-4" aria-hidden="true" />
           {{ t("share.button") }}
-        </span>
-      </button>
-
-      <hr class="border-neutral-200 dark:border-neutral-700/50" />
-
-      <!-- Financials summary -->
-      <button
-        class="w-full flex items-center justify-between p-3 rounded-xl
-               bg-neutral-100 dark:bg-white/5
-               hover:bg-neutral-200/70 dark:hover:bg-white/8
-               transition-colors text-left"
-        @click="financials.open()"
-      >
-        <div>
-          <p class="text-xs font-medium uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-0.5">
-            {{ t("financials.rent") }}
-          </p>
-          <p class="text-base font-semibold tabular-nums text-neutral-800 dark:text-neutral-100">
-            {{ formatCurrency(offer.financials.monthlyRentIncludingAconto) }} / {{ t("financials.shortMonth") }}
-          </p>
-        </div>
-        <div class="text-right">
-          <p class="text-xs text-neutral-400 dark:text-neutral-500 mb-0.5">
-            {{ t("financials.firstPayment") }}
-          </p>
-          <p class="text-sm font-medium tabular-nums text-neutral-700 dark:text-neutral-200">
-            {{ formatCurrency(offer.financials.firstPayment) }}
-          </p>
-        </div>
-        <img src="/icons/chevron-down.svg" alt="" class="size-4 -rotate-90 opacity-30 dark:invert shrink-0 ml-2" />
-      </button>
-
-      <!-- Open on findbolig -->
-      <button
-        class="w-full flex items-center justify-center gap-2 p-3 rounded-xl
-               border border-neutral-200 dark:border-neutral-700/50
-               hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors"
-        @click="openOnFindbolig"
-      >
-        <img src="/icons/external-link.svg" alt="" class="size-4 opacity-50 dark:invert" />
-        <span class="text-sm font-medium text-neutral-600 dark:text-neutral-300">
-          {{ t("offers.openOnFindbolig") }}
-        </span>
-      </button>
+        </button>
+        <a :href="findboligUrl" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" :class="outcome ? 'col-span-2' : ''">
+          <ExternalLink class="size-4" aria-hidden="true" />
+          findbolig.nu
+        </a>
+      </div>
     </div>
 
-    <template v-if="!outcome" #footer>
-      <!-- Sticky action footer — always visible without scrolling -->
-      <div
-        class="shrink-0 px-5 pt-3 action-footer
-               border-t border-neutral-200 dark:border-neutral-700/50
-               bg-white dark:bg-neutral-900"
-      >
-        <p
-          v-if="offer.recipientState === 'OfferReceived'"
-          class="text-xs text-center text-neutral-500 dark:text-neutral-400 mb-2.5"
-        >
-          {{ t("offers.respondBefore") }}
-        </p>
-
-        <!-- OfferReceived: Accept + Decline -->
-        <div v-if="offer.recipientState === 'OfferReceived'" class="flex gap-3">
-          <button
-            class="flex-1 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold transition-colors"
-            @click="promptAction('accept')"
-          >
-            {{ t("offers.accept") }}
-          </button>
-          <button
-            class="flex-1 py-3.5 rounded-xl border border-neutral-200 dark:border-neutral-700/50
-                   text-neutral-500 dark:text-neutral-400 font-semibold
-                   hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors"
-            @click="promptAction('decline')"
-          >
-            {{ t("offers.decline") }}
-          </button>
-        </div>
-
-        <!-- OfferAccepted: Undo (decline) -->
-        <div v-else-if="offer.recipientState === 'OfferAccepted'" class="flex gap-3">
-          <button
-            class="flex-1 py-3.5 rounded-xl border border-amber-400/50
-                   text-amber-600 dark:text-amber-400 font-semibold
-                   hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
-            @click="promptAction('decline')"
-          >
-            {{ t("offers.undoAccept") }}
-          </button>
-          <div class="flex-1 py-3.5 rounded-xl bg-emerald-500/10 text-center">
-            <span class="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-              &#x2713; {{ t("offers.accepted") }}
-            </span>
+    <template v-if="answerable" #footer>
+      <!-- Primary actions pinned to the bottom of the sheet or pane -->
+      <div class="shrink-0 flex flex-col gap-2.5 px-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] lg:pb-4 bg-surface border-t border-border">
+        <template v-if="offer.recipientState === 'OfferReceived'">
+          <span class="text-[13px] text-muted text-center">{{ t("offers.respondBefore") }}</span>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" class="btn btn-secondary btn-lg !text-[15px]" @click="promptAction('decline')">{{ t("offers.decline") }}</button>
+            <button type="button" class="btn btn-primary btn-lg !text-[15px]" @click="promptAction('accept')">{{ t("offers.accept") }}</button>
           </div>
+        </template>
+        <div v-else-if="offer.recipientState === 'OfferAccepted'" class="grid grid-cols-2 gap-2">
+          <button type="button" class="btn btn-secondary btn-lg !text-[15px]" @click="promptAction('decline')">{{ t("offers.undoAccept") }}</button>
+          <span class="btn btn-lg !text-[15px] bg-yes text-yes-ink cursor-default">{{ t("offers.status.saidYes") }}</span>
         </div>
-
-        <!-- OfferDeclined: Accept again -->
-        <div v-else-if="offer.recipientState === 'OfferDeclined'" class="flex gap-3">
-          <button
-            class="flex-1 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold transition-colors"
-            @click="promptAction('accept')"
-          >
-            {{ t("offers.accept") }}
-          </button>
-          <div class="flex-1 py-3.5 rounded-xl bg-neutral-100 dark:bg-white/5 text-center">
-            <span class="text-sm text-neutral-400 dark:text-neutral-500 font-medium">
-              {{ t("offers.declined") }}
-            </span>
-          </div>
+        <div v-else class="grid grid-cols-2 gap-2">
+          <span class="btn btn-lg !text-[15px] bg-chip text-chip-ink cursor-default">{{ t("offers.status.declined") }}</span>
+          <button type="button" class="btn btn-primary btn-lg !text-[15px]" @click="promptAction('accept')">{{ t("offers.accept") }}</button>
         </div>
       </div>
     </template>
 
     <template #popups>
-      <!-- Financials modal -->
-      <FinancialsModal
-        v-if="financials.isOpen"
-        :financials="offer.financials"
-        @close="financials.close()"
-      />
-
+      <FinancialsModal v-if="financials.isOpen" :financials="offer.financials" @close="financials.close()" />
       <SharePanel
         v-if="sharing.isOpen"
         kind="offer"
@@ -294,22 +174,17 @@ async function handleConfirm() {
         :file-name="floorPlanFileName(offer.residence.addressLine1, t)"
         @close="sharing.close()"
       />
-
-      <!-- Confirm action dialog -->
-      <ConfirmActionDialog
+      <!-- Accepting and declining confirm with the accent: the answer can change until the deadline -->
+      <AppDialog
         v-if="confirm.isOpen"
-        :action="confirmAction"
-        :address="`${offer.residence.addressLine1}, ${offer.residence.addressLine2}`"
-        :is-loading="store.isActioning"
+        :title="confirmAction === 'accept' ? t('offers.confirmAcceptTitle') : t('offers.confirmDeclineTitle')"
+        :body="`${confirmAction === 'accept' ? t('offers.confirmAcceptBody') : t('offers.confirmDeclineBody')} ${address}.`"
+        :note="t('offers.confirmNote')"
+        :confirm-label="t('offers.confirm')"
+        :loading="store.isActioning"
         @confirm="handleConfirm"
         @cancel="confirm.close()"
       />
     </template>
-  </BottomSheet>
+  </DetailFrame>
 </template>
-
-<style scoped>
-.action-footer {
-  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-}
-</style>

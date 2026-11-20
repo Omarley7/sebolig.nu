@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { X } from "lucide-vue-next";
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
 import L from "leaflet";
@@ -11,11 +12,18 @@ const { t } = useI18n();
 
 const props = defineProps<{
   pins: MapPin[];
+  /** What is on the map, for the chip in its header: "Boligtilbud". */
+  title?: string;
+  /**
+   * "Se detaljer" closes the map: on desktop the detail opens in the pane behind it. On a phone
+   * the sheet opens over the map, and back returns to it.
+   */
+  closeOnSelect?: boolean;
 }>();
 
 const emit = defineEmits<{
   close: [];
-  /** "Se detaljer" in a pin's popup; the map stays open underneath. */
+  /** "Se detaljer" in a pin's popup. */
   select: [id: string];
 }>();
 
@@ -40,17 +48,32 @@ function popupContent(pin: MapPin): HTMLElement {
   const content = document.createElement("div");
   content.className = "flex flex-col items-start gap-0.5";
   content.append(textElement("strong", pin.label, "text-sm"));
-  if (pin.sublabel) content.append(textElement("div", pin.sublabel, "text-xs text-neutral-500"));
+  if (pin.sublabel) content.append(textElement("div", pin.sublabel, "text-xs text-[#585E6C]"));
   for (const detail of pin.details) content.append(textElement("div", detail, "text-xs tabular-nums"));
   const seeDetails = textElement(
     "button",
     t("common.seeDetails"),
-    "mt-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors",
+    "mt-2 min-h-11 px-3 rounded-lg text-xs font-bold bg-[#16213B] hover:bg-[#0B1224] text-white transition-colors",
   ) as HTMLButtonElement;
   seeDetails.type = "button";
-  seeDetails.addEventListener("click", () => emit("select", pin.id));
+  seeDetails.addEventListener("click", () => {
+    if (props.closeOnSelect) layer.close();
+    emit("select", pin.id);
+  });
   content.append(seeDetails);
   return content;
+}
+
+/** A navy map pin `width` pixels wide, as an image so it keeps its alt text. */
+function navyPin(width: number): L.Icon {
+  const height = Math.round(width * 1.35);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 32"><path d="M12 31s10-10.2 10-18.5A10 10 0 0 0 2 12.5C2 20.8 12 31 12 31z" fill="#16213B" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="12.5" r="3.6" fill="#fff"/></svg>`;
+  return L.icon({
+    iconUrl: `data:image/svg+xml,${encodeURIComponent(svg)}`,
+    iconSize: [width, height],
+    iconAnchor: [width / 2, height],
+    popupAnchor: [0, -height + 4],
+  });
 }
 
 function initMap() {
@@ -64,15 +87,9 @@ function initMap() {
     maxZoom: 19,
   }).addTo(map);
 
-  const pinIcon = L.icon({
-    iconUrl: "/leaflet/marker-icon.png",
-    iconRetinaUrl: "/leaflet/marker-icon-2x.png",
-    shadowUrl: "/leaflet/marker-shadow.png",
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-  });
+  // Navy pins; the selected one grows rather than turning red, so it doesn't read as urgent.
+  const pinIcon = navyPin(26);
+  const selectedIcon = navyPin(38);
 
   // Nearby pins merge into a numbered circle; clicking it zooms in until they separate,
   // and pins at the very same spot fan out at the last zoom
@@ -83,7 +100,7 @@ function initMap() {
     iconCreateFunction: (cluster) =>
       L.divIcon({
         html: textElement("span", String(cluster.getChildCount()), "size-full flex items-center justify-center"),
-        className: "marker-cluster rounded-full bg-emerald-500 text-white text-sm font-semibold shadow-md ring-2 ring-white",
+        className: "marker-cluster rounded-full bg-[#16213B] text-white text-sm font-bold shadow-md ring-2 ring-white",
         iconSize: L.point(36, 36),
       }),
   }).addTo(map);
@@ -91,7 +108,10 @@ function initMap() {
   const bounds = L.latLngBounds([]);
 
   for (const pin of props.pins) {
-    clusters.addLayer(L.marker([pin.lat, pin.lng], { icon: pinIcon, alt: pin.label }).bindPopup(popupContent(pin)));
+    const marker = L.marker([pin.lat, pin.lng], { icon: pinIcon, alt: pin.label }).bindPopup(popupContent(pin));
+    marker.on("popupopen", () => marker.setIcon(selectedIcon));
+    marker.on("popupclose", () => marker.setIcon(pinIcon));
+    clusters.addLayer(marker);
     bounds.extend([pin.lat, pin.lng]);
   }
 
@@ -118,24 +138,30 @@ onUnmounted(() => {
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80" @click.self="layer.close()">
+    <!-- A full-height sheet on phones, a centred modal on desktop (Q19) -->
+    <div class="fixed inset-0 z-50 flex items-end justify-center lg:items-center lg:p-6">
+      <div class="absolute inset-0 bg-scrim" @click="layer.close()" />
       <div
-        class="relative w-[92vw] max-w-2xl h-[70vh] rounded-xl bg-white dark:bg-neutral-900 shadow-xl flex flex-col overflow-hidden">
-        <!-- Header -->
-        <div class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700/50">
-          <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{{ $t("common.map") }}</h2>
-          <button class="p-1 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors" @click="layer.close()">
-            <img src="/icons/x.svg" alt="Close" class="size-5 dark:invert" />
+        role="dialog"
+        aria-modal="true"
+        :aria-label="t('common.map')"
+        class="relative w-full h-[calc(100dvh-24px)] rounded-t-[22px] bg-surface shadow-2xl flex flex-col overflow-hidden
+               lg:w-[min(1040px,100%)] lg:h-[min(680px,100%)] lg:rounded-[22px]"
+      >
+        <div class="flex items-center justify-between gap-3 pl-5 pr-2 py-2 border-b border-border">
+          <div class="flex items-center gap-2 min-w-0">
+            <h2 class="text-lg font-extrabold">{{ t("common.map") }}</h2>
+            <span v-if="title" class="chip bg-chip text-chip-ink truncate">{{ title }} · {{ pins.length }}</span>
+          </div>
+          <button type="button" class="icon-btn rounded-full hover:bg-subtle" :aria-label="t('common.close')" @click="layer.close()">
+            <X class="size-5" aria-hidden="true" />
           </button>
         </div>
 
-        <!-- Map -->
-        <div ref="mapContainer" class="flex-1 min-h-0" />
+        <div ref="mapContainer" class="sebolig-map flex-1 min-h-0" />
 
-        <!-- Fallback when no locations -->
-        <div v-if="pins.length === 0"
-          class="absolute inset-0 flex items-center justify-center text-neutral-500 dark:text-neutral-400 text-sm pointer-events-none">
-          Ingen lokationer tilgængelige
+        <div v-if="pins.length === 0" class="absolute inset-0 top-14 flex items-center justify-center text-muted text-sm pointer-events-none">
+          {{ t("common.noLocations") }}
         </div>
       </div>
     </div>
@@ -145,4 +171,14 @@ onUnmounted(() => {
 <style>
 @import "leaflet/dist/leaflet.css";
 @import "leaflet.markercluster/dist/MarkerCluster.css";
+
+.sebolig-map .leaflet-control-zoom a {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+  font-size: 20px;
+}
+.sebolig-map .leaflet-popup-content-wrapper {
+  border-radius: 14px;
+}
 </style>

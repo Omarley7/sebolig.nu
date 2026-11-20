@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { X } from "lucide-vue-next";
 import { computed, onUnmounted, ref, watch } from "vue";
+import i18n from "~/i18n";
 import { useScrollLock } from "~/composables/useScrollLock";
 import type { Sheet } from "~/composables/useSheet";
 
@@ -7,7 +9,12 @@ useScrollLock();
 
 const props = defineProps<{
   sheet: Sheet;
+  /** The dialog's accessible name. */
+  label?: string;
 }>();
+
+// The app's i18n instance: sheets also mount in tests without the plugin installed.
+const { t } = i18n.global;
 
 const emit = defineEmits<{
   close: [];
@@ -90,15 +97,15 @@ onUnmounted(() => clearTimeout(afterLeaveTimer));
 
 <template>
   <Teleport to="body">
-    <!-- Above the map (z-50), below popups opened from the sheet (z-[70]) -->
+    <!-- Above the map (z-50), below popups opened from the sheet (z-[70]). From lg up, a centred panel. -->
     <div
-      class="fixed inset-0 z-[60] flex items-end justify-center"
+      class="fixed inset-0 z-[60] flex items-end justify-center lg:items-center lg:p-6"
       :class="{ 'pointer-events-none': !sheet.visible }"
     >
       <!-- Backdrop -->
       <div
         data-sheet-backdrop
-        class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
+        class="absolute inset-0 bg-scrim transition-opacity duration-300"
         :class="sheet.visible ? 'opacity-100' : 'opacity-0'"
         :style="backdropOpacity != null ? { opacity: backdropOpacity } : undefined"
         @click="sheet.close()"
@@ -109,39 +116,40 @@ onUnmounted(() => clearTimeout(afterLeaveTimer));
         ref="panelEl"
         role="dialog"
         aria-modal="true"
-        class="sheet-panel relative w-full max-w-2xl max-h-[92vh]
-               bg-white dark:bg-neutral-900
-               rounded-t-2xl overflow-hidden
+        :aria-label="label"
+        class="sheet-panel relative w-full max-w-2xl max-h-[92dvh] lg:max-w-xl lg:max-h-[88dvh]
+               bg-surface text-ink rounded-t-[22px] lg:rounded-[22px] overflow-hidden
                flex flex-col shadow-2xl
                transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
-        :class="sheet.visible ? 'translate-y-0' : 'translate-y-full'"
+        :class="sheet.visible ? 'translate-y-0' : 'translate-y-[110%] lg:translate-y-[110vh]'"
         :style="panelStyle"
       >
         <!-- Drag handle -->
         <div
           data-sheet-handle
-          class="flex justify-center pt-3 pb-3 shrink-0 cursor-grab active:cursor-grabbing touch-none select-none"
+          class="flex justify-center pt-2.5 pb-2 shrink-0 cursor-grab active:cursor-grabbing touch-none select-none lg:hidden"
           @pointerdown="onDragStart"
           @pointermove="onDragMove"
           @pointerup="onDragEnd"
           @pointercancel="onDragEnd"
         >
-          <div class="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+          <div class="w-10 h-[5px] rounded-full bg-handle" />
         </div>
 
-        <!-- Close button -->
+        <!-- Close button: below the drag handle, fully on the photo or level with the title row -->
         <button
-          class="absolute top-3 right-3 z-10 p-1.5 rounded-full
-                 bg-black/20 hover:bg-black/30 dark:bg-white/10 dark:hover:bg-white/20
-                 transition-colors"
-          aria-label="Close"
+          type="button"
+          data-sheet-close
+          class="absolute top-[26px] right-3 z-10 size-11 rounded-full flex items-center justify-center
+                 bg-surface/90 text-ink shadow-sm hover:bg-subtle transition-colors lg:top-3"
+          :aria-label="t('common.close')"
           @click="sheet.close()"
         >
-          <img src="/icons/x.svg" alt="" class="size-4 invert" />
+          <X class="size-[18px]" :stroke-width="2.2" aria-hidden="true" />
         </button>
 
         <!-- Scrollable content -->
-        <div data-sheet-scroll class="overflow-y-auto overscroll-contain flex-1">
+        <div data-sheet-scroll class="overflow-y-auto overscroll-contain flex-1 lg:pt-2">
           <slot />
         </div>
 

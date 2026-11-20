@@ -7,6 +7,7 @@ import { useDarkMode } from "~/composables/useDarkMode";
 import { useLocale } from "~/composables/useLocale";
 import i18n from "~/i18n";
 import router from "~/router";
+import "@fontsource-variable/inter";
 import "~/style.css";
 
 const app = createApp(App);

@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { Keyboard, Navigation, Pagination, Zoom } from "swiper/modules";
+import { ChevronLeft, ChevronRight, X } from "lucide-vue-next";
+import { Keyboard, Zoom } from "swiper/modules";
 import type { Swiper as SwiperClass } from "swiper/types";
 import { Swiper, SwiperSlide } from "swiper/vue";
 import { computed, ref, watch } from "vue";
-import { blueprintImage, galleryImage } from "~/lib/imageTransform";
+import { blueprintImage, compactThumb, galleryImage } from "~/lib/imageTransform";
 import { useScrollLock } from "~/composables/useScrollLock";
 
 import "swiper/css";
-import "swiper/css/navigation";
-import "swiper/css/pagination";
 
 useScrollLock();
 
@@ -46,11 +45,13 @@ function switchTab(tab: Tab) {
   activeTab.value = tab;
 }
 
-// Reset to first slide on tab switch
+// The slide shown: the one tapped on the hero, or the first of the floor plans
+const startIndex = computed(() => (activeTab.value === "images" ? (props.initialIndex ?? 0) : 0));
+const current = ref(startIndex.value);
+
+// Back to the first slide on a tab switch (the swiper is keyed by tab, so it starts over)
 watch(activeTab, () => {
-  if (swiperInstance.value) {
-    swiperInstance.value.slideTo(0, 0);
-  }
+  current.value = 0;
 });
 
 // Reset tab when images prop changes (a different residence)
@@ -66,95 +67,114 @@ function resolveUrl(path: string): string {
   return transform(props.getImageUrl(path));
 }
 
+function thumbUrl(path: string): string {
+  return compactThumb(props.getImageUrl(path));
+}
+
 // Esc and back are handled by the sheet that opened the gallery; arrow keys by Swiper's Keyboard module
 </script>
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm overscroll-contain"
-      @click.self="emit('close')">
-      <!-- Close -->
-      <button
-        class="absolute top-4 right-4 z-20 p-2 rounded-full! bg-white/10! hover:bg-white/20! border-none! transition-colors duration-200"
-        aria-label="Close gallery" @click="emit('close')">
-        <img src="/icons/x.svg" alt="Close" class="size-5 invert" />
-      </button>
-
-      <!-- Tabs -->
-      <div v-if="hasBlueprints" class="flex gap-1 mb-4 z-10">
-        <button v-for="tab in (['images', 'blueprints'] as Tab[])" :key="tab"
-          class="px-5 py-1.5 rounded-full! text-sm font-medium tracking-wide transition-all duration-200 border-none!"
-          :class="activeTab === tab
-              ? 'bg-white/15! text-white shadow-sm'
-              : 'bg-transparent! text-white/50 hover:text-white/80 hover:bg-white/5!'
-            " @click="switchTab(tab)">
-          {{ tab === "images" ? $t("gallery.photos") : $t("gallery.blueprints") }}
+    <!-- Always dark, in both themes. Floor plans on a light background. -->
+    <div
+      role="dialog"
+      aria-modal="true"
+      :aria-label="activeTab === 'images' ? $t('gallery.photos') : $t('gallery.blueprints')"
+      class="fixed inset-0 z-[70] flex flex-col bg-[#0C1019] text-[#ECEEF3] overscroll-contain"
+    >
+      <div class="flex items-center justify-between gap-2 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-2">
+        <div v-if="hasBlueprints" role="tablist" class="flex gap-1 p-1 rounded-full bg-white/10">
+          <button
+            v-for="tab in (['images', 'blueprints'] as Tab[])"
+            :key="tab"
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === tab"
+            class="min-h-11 px-3.5 rounded-full text-[13px] font-semibold"
+            :class="activeTab === tab ? 'bg-[#ECEEF3] text-[#141A26]' : 'text-[#ECEEF3]'"
+            @click="switchTab(tab)"
+          >
+            {{ tab === "images" ? $t("gallery.photos") : $t("gallery.blueprints") }} · {{ tab === "images" ? images.length : blueprints!.length }}
+          </button>
+        </div>
+        <span v-else />
+        <button
+          type="button"
+          class="size-11 rounded-full bg-white/15 text-white flex items-center justify-center"
+          :aria-label="$t('gallery.close')"
+          @click="emit('close')"
+        >
+          <X class="size-5" aria-hidden="true" />
         </button>
       </div>
 
-      <!-- Swiper -->
-      <div class="relative w-full max-w-5xl px-4 sm:px-12">
-        <Swiper :key="activeTab" :modules="[Zoom, Navigation, Keyboard, Pagination]" :navigation="true"
-          :keyboard="{ enabled: true }" :pagination="{ type: 'fraction' }" :slides-per-view="1" :space-between="0"
-          :lazy-preload-prev-next="1" :grab-cursor="true" :zoom="true"
-          :initial-slide="activeTab === 'images' ? (props.initialIndex ?? 0) : 0"
-          class="gallery-swiper" @swiper="onSwiperInit">
+      <div class="relative flex-1 min-h-0 flex items-center">
+        <Swiper
+          :key="activeTab"
+          :modules="[Zoom, Keyboard]"
+          :keyboard="{ enabled: true }"
+          :slides-per-view="1"
+          :space-between="0"
+          :lazy-preload-prev-next="1"
+          :grab-cursor="true"
+          :zoom="true"
+          :initial-slide="startIndex"
+          class="w-full h-full"
+          @swiper="onSwiperInit"
+          @slide-change="(sw: SwiperClass) => (current = sw.activeIndex)"
+        >
           <SwiperSlide v-for="(path, index) in activeList" :key="path" class="!flex items-center justify-center">
             <div class="swiper-zoom-container">
-              <img :src="resolveUrl(path)" :loading="index <= 1 ? 'eager' : 'lazy'"
-                :alt="`${activeTab === 'images' ? 'Photo' : 'Blueprint'} ${index + 1}`"
-                class="max-h-[75vh] max-w-full object-contain rounded-lg" />
+              <img
+                :src="resolveUrl(path)"
+                :loading="index <= 1 ? 'eager' : 'lazy'"
+                :alt="`${activeTab === 'images' ? $t('gallery.photos') : $t('gallery.blueprints')} ${index + 1}`"
+                class="max-h-full max-w-full object-contain"
+                :class="activeTab === 'blueprints' ? 'bg-white p-3 rounded-lg' : ''"
+              />
             </div>
-            <div v-if="index > 1" class="swiper-lazy-preloader swiper-lazy-preloader-white" />
           </SwiperSlide>
         </Swiper>
+        <div v-if="activeList.length > 1" class="absolute inset-x-2.5 top-1/2 -mt-[22px] z-10 flex justify-between pointer-events-none">
+          <button
+            type="button"
+            class="pointer-events-auto size-11 rounded-full bg-white/15 text-white flex items-center justify-center disabled:opacity-30"
+            :aria-label="$t('gallery.previous')"
+            :disabled="current === 0"
+            @click="swiperInstance?.slidePrev()"
+          >
+            <ChevronLeft class="size-5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            class="pointer-events-auto size-11 rounded-full bg-white/15 text-white flex items-center justify-center disabled:opacity-30"
+            :aria-label="$t('gallery.next')"
+            :disabled="current === activeList.length - 1"
+            @click="swiperInstance?.slideNext()"
+          >
+            <ChevronRight class="size-5" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-3 px-4 pt-2 pb-[max(24px,env(safe-area-inset-bottom))]">
+        <span class="self-center text-[13px] font-semibold text-[#A3A9B9] tabular-nums">{{ current + 1 }} / {{ activeList.length }}</span>
+        <div class="flex gap-1.5 overflow-x-auto pb-1 lg:justify-center">
+          <button
+            v-for="(path, index) in activeList"
+            :key="path"
+            type="button"
+            class="size-14 shrink-0 rounded-[10px] overflow-hidden bg-[#2E2A1F]"
+            :class="index === current ? 'ring-2 ring-[#F2B441]' : 'opacity-70'"
+            :aria-label="`${index + 1} / ${activeList.length}`"
+            :aria-current="index === current ? 'true' : undefined"
+            @click="swiperInstance?.slideTo(index)"
+          >
+            <img :src="thumbUrl(path)" alt="" loading="lazy" class="size-full object-cover" :class="activeTab === 'blueprints' ? 'bg-white' : ''" />
+          </button>
+        </div>
       </div>
     </div>
   </Teleport>
 </template>
-
-<style scoped>
-/* Navigation arrows */
-.gallery-swiper :deep(.swiper-button-next),
-.gallery-swiper :deep(.swiper-button-prev) {
-  color: rgba(255, 255, 255, 0.7);
-  transition:
-    color 0.2s ease,
-    opacity 0.2s ease;
-  --swiper-navigation-size: 22px;
-}
-
-.gallery-swiper :deep(.swiper-button-next:hover),
-.gallery-swiper :deep(.swiper-button-prev:hover) {
-  color: rgba(255, 255, 255, 1);
-}
-
-.gallery-swiper :deep(.swiper-button-disabled) {
-  opacity: 0.15 !important;
-}
-
-/* Hide arrows on mobile — swipe is primary */
-@media (max-width: 639px) {
-
-  .gallery-swiper :deep(.swiper-button-next),
-  .gallery-swiper :deep(.swiper-button-prev) {
-    display: none;
-  }
-}
-
-/* Fraction counter */
-.gallery-swiper :deep(.swiper-pagination-fraction) {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.8125rem;
-  font-weight: 400;
-  letter-spacing: 0.05em;
-  bottom: auto;
-  position: relative;
-  margin-top: 0.75rem;
-}
-
-/* Preloader */
-.gallery-swiper :deep(.swiper-lazy-preloader) {
-  --swiper-preloader-color: rgba(255, 255, 255, 0.4);
-}
-</style>

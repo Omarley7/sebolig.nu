@@ -14,18 +14,45 @@ export interface LayerOptions {
   escapable?: () => boolean;
   /** Runs whenever the layer closes, whether by back, Esc or close(). */
   onClose?: () => void;
+  /**
+   * Adds the layer's history entry, carrying `state`. By default an entry at the same address
+   * (pushEntryHere); a detail sheet's entry is its list page's route with `?open=<id>` (see
+   * useDetailSheet).
+   */
+  push?: (state: Record<string, unknown>) => void;
+}
+
+/**
+ * Adds a history entry at the current address, carrying `state` on top of the router's own state
+ * for that address. The router reads its state back when back lands on the entry; without it the
+ * router no longer knows the current path, and its next navigation goes to `${origin}undefined`.
+ */
+export function pushEntryHere(state: Record<string, unknown>) {
+  history.pushState({ ...history.state, ...state }, "");
 }
 
 interface Entry {
   handle: HistoryLayer & { isOpen: boolean };
   escapable: () => boolean;
   onClose: () => void;
+  push: (state: Record<string, unknown>) => void;
 }
 
 // One stack for the whole app. Each history entry a layer adds records how many layers
 // were open with it on top, so a popstate tells exactly which layers to close.
 const stack: Entry[] = [];
 const DEPTH_KEY = "historyLayer";
+// Done once the browser has moved back past the entries the latest close() removed.
+let unwinding: Promise<void> = Promise.resolve();
+
+/**
+ * Resolves once closing layers has finished stepping back through history. Browsers step back
+ * after history.go() returns, so changing the address right after a close() would change the
+ * closing layer's entry, which is then left behind.
+ */
+export function historySettled(): Promise<void> {
+  return unwinding;
+}
 
 function depthOf(state: unknown): number {
   const depth = (state as Record<string, unknown> | null)?.[DEPTH_KEY];
@@ -73,6 +100,7 @@ export function useHistoryLayer(options: LayerOptions = {}): HistoryLayer {
   const entry: Entry = {
     escapable: options.escapable ?? (() => true),
     onClose: options.onClose ?? (() => {}),
+    push: options.push ?? pushEntryHere,
     handle: reactive({
       isOpen: false,
       open() {
@@ -80,13 +108,18 @@ export function useHistoryLayer(options: LayerOptions = {}): HistoryLayer {
         entry.handle.isOpen = true;
         stack.push(entry);
         if (stack.length === 1) listen(true);
-        history.pushState({ [DEPTH_KEY]: stack.length }, "");
+        entry.push({ [DEPTH_KEY]: stack.length });
       },
       close() {
         const index = stack.indexOf(entry);
         if (index === -1) return;
         const added = stack.length - index;
         closeAbove(index);
+        unwinding = new Promise((resolve) => {
+          window.addEventListener("popstate", () => resolve(), { once: true });
+          // Should the browser never step back, don't hold up whoever waits.
+          setTimeout(resolve, 1000);
+        });
         history.go(-added);
       },
     }),

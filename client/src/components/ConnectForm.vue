@@ -1,14 +1,13 @@
 <script setup lang="ts">
+import { Eye, EyeOff, Lock } from "lucide-vue-next";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import DemoLoginButton from "~/components/DemoLoginButton.vue";
 import { useAuth } from "~/composables/useAuth";
 import { REPO_URL } from "~/config";
 
 /**
- * The one place a user connects their findbolig.nu account. Used on the
- * landing page and inside the header modal, so both carry the same wording,
- * autofill hints and trust cues.
+ * The one place a user connects their findbolig.nu account. Used on the landing page and in the
+ * connect dialog, so both carry the same wording, autofill hints and trust cues.
  */
 const emit = defineEmits<{ connected: [] }>();
 
@@ -26,77 +25,67 @@ async function handleConnect() {
 </script>
 
 <template>
-  <div>
+  <div class="flex flex-col gap-3">
     <!-- The heading is where an ended Connection gets explained: a sentence that stays, not a toast -->
     <p
-      class="text-sm font-medium mb-4"
-      :class="auth.endedByPasswordChange ? 'text-red-700 dark:text-red-300' : 'text-violet-700 dark:text-violet-300'"
+      class="text-sm font-semibold leading-snug"
+      :class="auth.endedByPasswordChange ? 'rounded-xl bg-urgent text-urgent-ink px-3 py-2.5' : 'text-ink'"
     >
       {{ auth.endedByPasswordChange ? t("auth.passwordChangedHeading") : t("auth.connectHeading") }}
     </p>
 
-    <form @submit.prevent="handleConnect" class="flex flex-col gap-4">
-      <input
-        v-model="auth.email"
-        type="email"
-        name="username"
-        autocomplete="username"
-        inputmode="email"
-        :placeholder="t('auth.emailPlaceholder')"
-        :aria-label="t('auth.emailPlaceholder')"
-        :disabled="auth.isLoading"
-        class="disabled:opacity-50 px-3 py-2 border border-violet-200 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white dark:bg-transparent"
-      />
-      <div class="relative">
+    <form class="flex flex-col gap-3" @submit.prevent="handleConnect">
+      <label class="flex flex-col gap-1.5">
+        <span class="text-[13px] font-semibold text-muted">{{ t("auth.emailPlaceholder") }}</span>
         <input
-          v-model="password"
-          :type="showPassword ? 'text' : 'password'"
-          name="password"
-          autocomplete="current-password"
-          :placeholder="t('auth.passwordPlaceholder')"
-          :aria-label="t('auth.passwordPlaceholder')"
+          v-model="auth.email"
+          type="email"
+          name="username"
+          autocomplete="username"
+          inputmode="email"
           :disabled="auth.isLoading"
-          class="disabled:opacity-50 w-full px-3 py-2 pr-10 border border-violet-200 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white dark:bg-transparent"
+          class="h-[46px] px-3 rounded-[10px] border border-border-strong bg-surface text-ink text-base disabled:opacity-50"
         />
-        <button
-          type="button"
-          @click="showPassword = !showPassword"
-          class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-          tabindex="-1"
-        >
-          <img v-if="showPassword" src="/icons/eye-off.svg" :alt="t('auth.hidePassword')" class="size-5 dark:invert opacity-60" />
-          <img v-else src="/icons/eye.svg" :alt="t('auth.showPassword')" class="size-5 dark:invert opacity-60" />
-        </button>
-      </div>
+      </label>
+      <label class="flex flex-col gap-1.5">
+        <span class="text-[13px] font-semibold text-muted">{{ t("auth.passwordPlaceholder") }}</span>
+        <span class="relative">
+          <input
+            v-model="password"
+            :type="showPassword ? 'text' : 'password'"
+            name="password"
+            autocomplete="current-password"
+            :disabled="auth.isLoading"
+            class="w-full h-[46px] pl-3 pr-12 rounded-[10px] border border-border-strong bg-surface text-ink text-base disabled:opacity-50"
+          />
+          <button
+            type="button"
+            class="icon-btn absolute right-0.5 top-1/2 -translate-y-1/2 !size-10 text-muted"
+            :aria-label="showPassword ? t('auth.hidePassword') : t('auth.showPassword')"
+            @click="showPassword = !showPassword"
+          >
+            <EyeOff v-if="showPassword" class="size-5" aria-hidden="true" />
+            <Eye v-else class="size-5" aria-hidden="true" />
+          </button>
+        </span>
+      </label>
 
-      <button
-        type="submit"
-        :disabled="auth.isLoading || !auth.email || !password"
-        class="disabled:opacity-50 bg-violet-600 text-white px-4 py-2 rounded-md hover:bg-violet-700 transition-colors font-medium"
-      >
+      <button type="submit" class="btn btn-primary !min-h-12 !text-[15px] !font-bold" :disabled="auth.isLoading || !auth.email || !password">
         {{ auth.isLoading ? t("auth.connecting") : t("auth.connectButton") }}
       </button>
-
-      <div class="relative flex items-center">
-        <div class="grow border-t border-violet-200 dark:border-violet-800"></div>
-        <span class="mx-3 text-xs text-violet-400 dark:text-violet-500">{{ t("auth.orSeparator") }}</span>
-        <div class="grow border-t border-violet-200 dark:border-violet-800"></div>
-      </div>
-
-      <DemoLoginButton :disabled="auth.isLoading" />
     </form>
 
     <!-- Custody note: the true thing, always visible -->
-    <p data-testid="custody-note" class="mt-4 text-xs text-gray-500 dark:text-gray-400 text-center">
-      {{ t("auth.custodyNote") }}
-      <router-link :to="{ name: 'explainer' }" class="font-medium text-violet-600 dark:text-violet-400 hover:underline">
-        {{ t("explainer.linkLabel") }} →
-      </router-link>
+    <p data-testid="custody-note" class="flex gap-2 text-[13px] leading-snug text-muted">
+      <Lock class="size-4 shrink-0 mt-px" aria-hidden="true" />
+      <span>
+        {{ t("auth.custodyNote") }}
+        <router-link :to="{ name: 'explainer' }" class="font-semibold text-accent hover:underline">{{ t("explainer.linkLabel") }} →</router-link>
+      </span>
     </p>
-    <p data-testid="non-affiliation" class="mt-2 text-[0.7rem] text-gray-400 dark:text-gray-500 text-center">
+    <p data-testid="non-affiliation" class="text-xs text-muted">
       {{ t("footer.notAffiliated") }}
-      <a :href="REPO_URL" target="_blank" rel="noopener noreferrer" class="underline hover:text-gray-600 dark:hover:text-gray-300">
-        {{ t("common.sourceCode") }}</a>.
+      <a :href="REPO_URL" target="_blank" rel="noopener noreferrer" class="underline hover:text-ink">{{ t("common.sourceCode") }}</a>.
     </p>
   </div>
 </template>

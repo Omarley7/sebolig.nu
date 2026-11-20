@@ -12,7 +12,24 @@
     "connect": "Connect",
     "close": "Close",
     "map": "Map",
-    "seeDetails": "See details"
+    "seeDetails": "See details",
+    "cancel": "Cancel",
+    "fetching": "Fetching from findbolig.nu…",
+    "notFetchedYet": "Not fetched yet",
+    "lastUpdated": "Last updated {ago}",
+    "updatedJustNow": "just now",
+    "updatedMinutesAgo": "{count} min ago",
+    "updatedHoursAgo": "{count} hour ago | {count} hours ago",
+    "updatedDaysAgo": "{count} day ago | {count} days ago",
+    "noLocations": "No locations to show",
+    "positionShort": "No. {n}",
+    "queuePosition": "no. {n} in the queue",
+    "queuePositionCap": "No. {n} in the queue",
+    "refresh": "Refresh",
+    "roomsShort": "{count}\u00a0rm | {count}\u00a0rms",
+    "showOnMap": "Show on map",
+    "tryAgain": "Try again",
+    "offline": "You're offline. Showing stored data."
   },
   "appointments": {
     "emptyTitle": "No upcoming appointments",
@@ -39,7 +56,15 @@
       "reply": "Reply on findbolig.nu",
       "showEarlier": "Show {count} earlier message | Show {count} earlier messages",
       "hideEarlier": "Hide earlier messages"
-    }
+    },
+    "awaitingDateNote": "The landlord hasn't set a date yet",
+    "detailLabel": "Viewing, {address}",
+    "fetchFailedTitle": "Couldn't fetch your viewings",
+    "inDays": "in {count} day | in {count} days",
+    "newMessage": "New message from the landlord",
+    "noTime": "Time not given",
+    "past": "Earlier viewings ({count})",
+    "route": "Directions"
   },
   "offers": {
     "pageTitle": "Housing Offers",
@@ -77,7 +102,45 @@
     "refresh": "Refresh",
     "refreshFailed": "Could not update offers. Please try again.",
     "rooms": "{count} room | {count} rooms",
-    "area": "{value} m²"
+    "area": "{value}\u00a0m²",
+    "answerBy": "Answer {when}",
+    "availableFromDate": "Available from {date}",
+    "awaitingLandlord": "Waiting for the landlord",
+    "deadlineAt": "{day} at {time}",
+    "detailLabel": "Housing offer, {address}",
+    "fetchFailedTitle": "Couldn't fetch your offers",
+    "rentedOutBy": "Let by {company}",
+    "status": {
+      "declined": "Declined",
+      "expired": "Expired",
+      "rented": "Let",
+      "saidYes": "You said yes",
+      "withdrawn": "Withdrawn",
+      "won": "You got it",
+      "ended": "Closed"
+    },
+    "tabs": {
+      "open": "To answer",
+      "accepted": "Accepted",
+      "closed": "Closed",
+      "openNote": "Sorted by deadline",
+      "acceptedNote": "The landlord will get back to you",
+      "closedNote": "Declined, expired and let"
+    },
+    "empty": {
+      "open": {
+        "title": "No offers to answer",
+        "description": "You have no active housing offers right now. Offers show up here when you receive them on findbolig.nu."
+      },
+      "accepted": {
+        "title": "No accepted offers",
+        "description": "Offers you said yes to show up here while the landlord decides."
+      },
+      "closed": {
+        "title": "No closed offers",
+        "description": "Declined, expired and let offers show up here for 30 days."
+      }
+    }
   },
   "waitingLists": {
     "pageTitle": "Waiting lists",
@@ -97,7 +160,9 @@
       "rentRange": "{min} – {max} kr/mo",
       "statusActive": "Active",
       "statusPassive": "Passive",
-      "reactivate": "Set active"
+      "reactivate": "Set active",
+      "best": "Best",
+      "residences": "{count} home | {count} homes"
     },
     "detail": {
       "rent": "Rent",
@@ -106,7 +171,13 @@
       "appliedSince": "Applied since {date}",
       "openOnFindbolig": "Open on findbolig.nu",
       "dangerZone": "Danger zone",
-      "unsubscribe": "Remove me from waiting list"
+      "unsubscribe": "Remove me from waiting list",
+      "appliedSinceLabel": "Signed up since",
+      "appliedTo": "Signed up for",
+      "passiveNote": "You're passive on this waiting list and won't receive offers until you make yourself active again.",
+      "residences": "home | homes",
+      "roomsRange": "{rooms}\u00a0rms",
+      "size": "Size"
     },
     "actions": {
       "reactivateAll": "Reactivate all",
@@ -128,7 +199,9 @@
       "unsubscribeBody": "You will lose your seniority and have to start over if you re-apply. This cannot be undone.",
       "cancel": "Cancel",
       "confirm": "Remove me"
-    }
+    },
+    "detailLabel": "Waiting list, {name}",
+    "fetchFailedTitle": "Couldn't fetch your waiting lists"
   },
   "financials": {
     "rent": "Rent",
@@ -139,13 +212,14 @@
     "deposit": "Deposit",
     "prepaidRent": "Prepaid rent",
     "firstPayment": "One-time",
-    "shortMonth": "mo"
+    "shortMonth": "mo",
+    "krPerMonth": "kr./mo"
   },
   "auth": {
     "disconnect": "Disconnect",
     "disconnectConfirm": "Disconnect from findbolig.nu? Everything SeBolig stored on this device will be erased.",
     "cancel": "Cancel",
-    "demoLogin": "Try as demo",
+    "demoLogin": "Try the demo",
     "demoNamePlaceholder": "A nickname (for demo)",
     "demoNameHint": "Pick a nickname to try the demo.",
     "demoLoginSuccess": "You are now in demo mode.",
@@ -159,13 +233,21 @@
     "connected": "Connected to findbolig.nu",
     "emailPlaceholder": "findbolig.nu email",
     "passwordPlaceholder": "findbolig.nu password",
-    "custodyNote": "SeBolig keeps your password encrypted in your browser so you stay connected for up to 30 days. Nothing is stored on our servers. You can disconnect at any time."
+    "custodyNote": "SeBolig keeps your password encrypted in your browser so you stay connected for up to 30 days. Nothing is stored on our servers. You can disconnect at any time.",
+    "demoStart": "Start demo",
+    "disconnectShort": "Disconnect",
+    "disconnectTitle": "Disconnect?"
   },
   "gallery": {
     "photos": "Photos",
     "blueprints": "Blueprints",
     "blueprintCount": "{count} blueprint | {count} blueprints",
-    "photoCount": "{count} photo | {count} photos"
+    "photoCount": "{count} photo | {count} photos",
+    "close": "Close gallery",
+    "floorPlan": "Floor plan",
+    "next": "Next",
+    "previous": "Previous",
+    "photoAlt": "Photo {n}"
   },
   "home": {
     "welcomeUser": "Welcome, {0}!",
@@ -181,20 +263,38 @@
     "viewOffers": "View your {count} offer | View your {count} offers",
     "checkOffers": "Check for housing offers",
     "viewWaitingLists": "View your {count} waiting list | View your {count} waiting lists",
-    "checkWaitingLists": "Check your waiting lists"
+    "checkWaitingLists": "Check your waiting lists",
+    "hello": "Hi {name}",
+    "helloAnonymous": "Hi",
+    "updated": "Updated {ago}",
+    "refreshFailed": "Couldn't refresh. Try again.",
+    "nextViewing": "Next viewing",
+    "allViewings": "All viewings",
+    "toAnswer": "To answer",
+    "allOffers": "All offers",
+    "newMessages": "New messages",
+    "noNextViewing": "No upcoming viewings",
+    "nothingToAnswer": "No offers to answer right now",
+    "noNewMessages": "No new messages"
   },
   "nav": {
     "home": "Home",
     "appointments": "Appointments",
     "offers": "Offers",
-    "waitingLists": "Waiting lists"
+    "waitingLists": "Waiting lists",
+    "main": "Main menu"
   },
   "landing": {
     "tagline": "A better dashboard for your findbolig.nu account",
-    "description": "We fetch your appointments, housing offers and more directly from findbolig.nu - with offline access and local storage.",
-    "featureAppointments": "Chronological appointment overview",
+    "description": "SeBolig fetches your appointments and offers from findbolig.nu and shows them as a calendar, sorted by what's most urgent.",
+    "featureAppointments": "Viewings in a calendar, offline too",
     "featureOffline": "Offline access with local storage",
-    "featureAI": "AI-powered open house date extraction"
+    "featureAI": "Open-house times read from landlords' messages",
+    "headline": "All your viewings and housing offers in one place",
+    "featureDeadlines": "Deadlines sorted by urgency",
+    "connectFindbolig": "Connect findbolig.nu",
+    "mockFacts": "3 rms · 79 m² · 13,564 kr./mo",
+    "mockMessage": "Bring payslips and ID"
   },
   "errors": {
     "timeout": "findbolig.nu is not responding right now. Please try again later.",
@@ -287,6 +387,24 @@
       "movedToAppointments": "Moved to appointments",
       "appointment": "No longer in your appointments",
       "offer": "No longer in your offers"
-    }
+    },
+    "unseen": "New"
+  },
+  "account": {
+    "open": "Account and settings",
+    "anonymous": "You",
+    "connected": "Connected to findbolig.nu",
+    "demo": "Demo",
+    "language": "Language",
+    "theme": {
+      "label": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "auto": "Automatic"
+    },
+    "disconnectNote": "Disconnecting erases everything SeBolig has stored on this device.",
+    "endDemo": "End demo",
+    "endDemoTitle": "End the demo?",
+    "endDemoNote": "The demo's data on this device is erased."
   }
 }

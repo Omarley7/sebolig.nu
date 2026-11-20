@@ -10,33 +10,17 @@ defineProps<{ message: ThreadMessage }>();
 </script>
 
 <template>
-  <li
-    class="p-3 rounded-xl"
-    :class="message.from === 'you'
-      ? 'bg-neutral-200/70 dark:bg-white/10 ml-6'
-      : 'bg-neutral-100 dark:bg-white/5'"
-  >
-    <div class="flex items-baseline justify-between gap-2 mb-1">
-      <p class="text-xs font-semibold truncate text-neutral-700 dark:text-neutral-200">
-        {{ senderLabel(message, t) }}
-      </p>
-      <p class="text-xs tabular-nums shrink-0 text-neutral-400 dark:text-neutral-500">
-        {{ formatSentAt(message.sentAt) }}
-      </p>
-    </div>
-    <p class="text-sm whitespace-pre-line break-words text-neutral-700 dark:text-neutral-300">
+  <li class="flex flex-col gap-1.5 px-3.5 py-3 rounded-[14px]" :class="message.from === 'you' ? 'bg-soft ml-6' : 'bg-bg'">
+    <span class="flex justify-between gap-2 text-xs">
+      <span class="font-bold truncate">{{ senderLabel(message, t) }}</span>
+      <span class="shrink-0 tabular-nums text-muted">{{ formatSentAt(message.sentAt) }}</span>
+    </span>
+    <p class="text-sm leading-[1.45] whitespace-pre-line break-words">
       <template v-for="(part, j) in withLinks(message.body)" :key="j">
-        <a
-          v-if="part.href"
-          :href="part.href"
-          target="_blank"
-          rel="noopener noreferrer"
-        >{{ part.text }}</a>
+        <a v-if="part.href" :href="part.href" target="_blank" rel="noopener noreferrer" class="text-accent underline">{{ part.text }}</a>
         <template v-else>{{ part.text }}</template>
       </template>
     </p>
-    <p v-if="message.hasAttachments" class="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">
-      {{ t("appointments.thread.attachment") }}
-    </p>
+    <p v-if="message.hasAttachments" class="text-xs text-muted">{{ t("appointments.thread.attachment") }}</p>
   </li>
 </template>

@@ -1,94 +1,32 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { CircleCheck, CircleX, Info, TriangleAlert, X } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import type { Toast, ToastType } from "~/stores/toast";
 import { useToastStore } from "~/stores/toast";
 
-const props = defineProps<{
-  toast: Toast;
-}>();
+/** A dark ink snackbar with a coloured icon and a close button. */
+const props = defineProps<{ toast: Toast }>();
 
 const toastStore = useToastStore();
-const progress = ref(100);
-let animationFrame: number | null = null;
+const { t } = useI18n();
 
-const typeStyles: Record<ToastType, string> = {
-  error: "bg-red-900/90 border-red-500",
-  warning: "bg-yellow-900/90 border-yellow-500",
-  success: "bg-green-900/90 border-green-500",
-  info: "bg-blue-900/90 border-blue-500",
+const icons: Record<ToastType, { icon: unknown; color: string }> = {
+  success: { icon: CircleCheck, color: "text-toast-success" },
+  warning: { icon: TriangleAlert, color: "text-toast-warning" },
+  error: { icon: CircleX, color: "text-toast-error" },
+  info: { icon: Info, color: "text-toast-info" },
 };
-
-const progressColors: Record<ToastType, string> = {
-  error: "bg-red-500",
-  warning: "bg-yellow-500",
-  success: "bg-green-500",
-  info: "bg-blue-500",
-};
-
-const typeClass = computed(() => typeStyles[props.toast.type]);
-const progressColor = computed(() => progressColors[props.toast.type]);
-
-function updateProgress() {
-  const elapsed = Date.now() - props.toast.createdAt;
-  const remaining = Math.max(0, props.toast.duration - elapsed);
-  progress.value = (remaining / props.toast.duration) * 100;
-
-  if (progress.value > 0) {
-    animationFrame = requestAnimationFrame(updateProgress);
-  }
-}
-
-function dismiss() {
-  toastStore.dismiss(props.toast.id);
-}
-
-onMounted(() => {
-  if (props.toast.duration > 0) {
-    animationFrame = requestAnimationFrame(updateProgress);
-  }
-});
-
-onUnmounted(() => {
-  if (animationFrame) {
-    cancelAnimationFrame(animationFrame);
-  }
-});
 </script>
 
 <template>
   <div
-    class="relative overflow-hidden rounded-lg border shadow-lg min-w-72 max-w-96"
-    :class="typeClass"
+    :role="props.toast.type === 'error' ? 'alert' : 'status'"
+    class="w-full max-w-[420px] flex items-center gap-3 pl-4 pr-1 py-1 min-h-[52px] rounded-2xl bg-toast text-on-toast shadow-lg"
   >
-    <div class="flex items-start gap-3 p-4">
-      <p class="flex-1 text-sm text-white">{{ toast.message }}</p>
-      <button
-        @click="dismiss"
-        class="text-white/70 hover:text-white transition-colors"
-        aria-label="Dismiss"
-      >
-        <svg
-          class="size-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
-      </button>
-    </div>
-
-    <!-- Progress bar -->
-    <div
-      v-if="toast.duration > 0"
-      class="absolute bottom-0 left-0 h-1 transition-all duration-100"
-      :class="progressColor"
-      :style="{ width: `${progress}%` }"
-    />
+    <component :is="icons[toast.type].icon" class="size-5 shrink-0" :class="icons[toast.type].color" aria-hidden="true" />
+    <p class="flex-1 py-2 text-sm font-medium leading-snug">{{ toast.message }}</p>
+    <button type="button" class="icon-btn !text-on-toast/80 hover:!text-on-toast" :aria-label="t('common.close')" @click="toastStore.dismiss(toast.id)">
+      <X class="size-[18px]" aria-hidden="true" />
+    </button>
   </div>
 </template>
